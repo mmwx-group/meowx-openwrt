@@ -1296,3 +1296,39 @@ msgstr ""
 
 msgid "The core is the MeowX fork of %s (source in %s), adding protocols such as Miu that upstream mihomo does not have."
 msgstr ""
+
+msgid "Checking for updates…"
+msgstr ""
+
+msgid "Unable to check for updates"
+msgstr ""
+
+msgid "You are on the latest version"
+msgstr ""
+
+msgid "New version %s available"
+msgstr ""
+
+msgid "Update to %s"
+msgstr ""
+
+msgid "Update MeowX to %s? The page may be briefly unavailable while it installs; settings and subscriptions are kept."
+msgstr ""
+
+msgid "Updated to %s, reloading the page…"
+msgstr ""
+
+msgid "No output"
+msgstr ""
+
+msgid "The core is not running, so the web dashboard cannot be updated. Start the service first."
+msgstr ""
+
+msgid "Web dashboard updated"
+msgstr ""
+
+msgid "Failed to update the web dashboard: %s"
+msgstr ""
+
+msgid "no response from the core"
+msgstr ""

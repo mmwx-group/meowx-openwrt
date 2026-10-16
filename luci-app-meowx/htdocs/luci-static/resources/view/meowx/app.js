@@ -3,6 +3,7 @@
 'require baseclass';
 'require uci';
 'require poll';
+'require ui';
 'require tools.meowx as meowx';
 
 // 首页主卡：与客户端的连接主卡同一套样子（运行中樱粉底 + 状态点涟漪，未运行中性底）
@@ -39,7 +40,22 @@ function renderHero(appVersion, coreVersion, running) {
             action(_('Reload Service'), function () { return meowx.reload(); }, true),
             action(_('Restart Service'), function () { return meowx.restart(); }),
             action(_('Open Dashboard'), function () { return meowx.openDashboard(); }),
-            action(_('Update Dashboard'), function () { return meowx.updateDashboard(); })
+            // 更新的是内核自带的 Web 面板（不是插件本身，插件在「关于」里更新）：走内核的 API，内核没在跑时没法更新，给个提示而不是没反应
+            action(_('Update Dashboard'), function () {
+                return meowx.status().then(function (running) {
+                    if (!running) {
+                        ui.addNotification(null, E('p', _('The core is not running, so the web dashboard cannot be updated. Start the service first.')), 'warning');
+                        return;
+                    }
+                    return meowx.updateDashboard().then(function (res) {
+                        if (res?.status == 'ok') {
+                            ui.addNotification(null, E('p', _('Web dashboard updated')), 'info');
+                        } else {
+                            ui.addNotification(null, E('p', _('Failed to update the web dashboard: %s').format(res?.message || _('no response from the core'))), 'warning');
+                        }
+                    });
+                });
+            })
         ])
     ]);
     return updateHero(hero, running);

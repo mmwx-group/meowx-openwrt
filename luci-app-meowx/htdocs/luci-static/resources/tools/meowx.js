@@ -136,6 +136,24 @@ const callMeowXPanelSubscriptions = rpc.declare({
     expect: { '': {} }
 });
 
+const callMeowXCheckUpdate = rpc.declare({
+    object: 'luci.meowx',
+    method: 'check_update',
+    expect: { '': {} }
+});
+
+const callMeowXUpgrade = rpc.declare({
+    object: 'luci.meowx',
+    method: 'upgrade',
+    expect: { '': {} }
+});
+
+const callMeowXUpgradeStatus = rpc.declare({
+    object: 'luci.meowx',
+    method: 'upgrade_status',
+    expect: { '': {} }
+});
+
 const callMeowXPo0 = rpc.declare({
     object: 'luci.meowx',
     method: 'po0',
@@ -238,6 +256,31 @@ return baseclass.extend({
 
     updateDashboard: function () {
         return callMeowXAPI('POST', '/upgrade/ui');
+    },
+
+    checkUpdate: function () {
+        return L.resolveDefault(callMeowXCheckUpdate(), { success: false });
+    },
+
+    upgrade: function () {
+        return callMeowXUpgrade();
+    },
+
+    upgradeStatus: function () {
+        return callMeowXUpgradeStatus();
+    },
+
+    // 版本号比较（只比数字段，去掉 opkg 的 -rN 修订号）：a > b 返回正数
+    compareVersion: function (a, b) {
+        const parse = (v) => String(v || '').replace(/-r\d+$/, '').split(/[^0-9]+/).filter(Boolean).map(Number);
+        const x = parse(a), y = parse(b);
+        for (let i = 0; i < Math.max(x.length, y.length); i++) {
+            const d = (x[i] || 0) - (y[i] || 0);
+            if (d) {
+                return d;
+            }
+        }
+        return 0;
     },
 
     openDashboard: async function () {

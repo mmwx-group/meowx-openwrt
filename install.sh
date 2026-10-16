@@ -65,9 +65,10 @@ elif [ -x "/usr/bin/apk" ]; then
 	languages=$(apk list --installed --manifest luci-i18n-base-* | cut -d ' ' -f 1 | cut -d '-' -f 4-)
 	# install apks from remote repository
 	echo "install apks from remote repository"
-	apk add --allow-untrusted -X $feed_url/packages.adb meowx-core meowx luci-app-meowx
+	# --upgrade：已经装过的也升到软件源里的新版（apk add 缺省不升级已安装的包，再跑一遍安装脚本等于没升）
+	apk add --upgrade --allow-untrusted -X $feed_url/packages.adb meowx-core meowx luci-app-meowx
 	for lang in $languages; do
-		apk add --allow-untrusted -X $feed_url/packages.adb "luci-i18n-meowx-${lang}"
+		apk add --upgrade --allow-untrusted -X $feed_url/packages.adb "luci-i18n-meowx-${lang}"
 	done
 fi
 

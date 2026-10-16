@@ -72,6 +72,55 @@ function auto_import(base) {
 }
 
 const methods = {
+	// 插件自更新（「关于」页）：查 dl.miaomiaowux.com 发布清单里 OpenWrt 版的最新版本号
+	check_update: {
+		call: function() {
+			const process = popen('wget -q -T 15 -O - https://dl.miaomiaowux.com/meowx/latest.json 2>/dev/null');
+			if (!process) {
+				return { success: false };
+			}
+			const manifest = json(trim(process.read('all')) || 'null');
+			process.close();
+			const entry = manifest?.platforms?.openwrt;
+			if (!entry?.version) {
+				return { success: false };
+			}
+			return { success: true, latest: entry.version, core: entry.core, released_at: entry.releasedAt };
+		}
+	},
+	// 后台跑一遍一键安装脚本（与 README 的升级方式相同：opkg 装新 ipk 即升级，apk 带 --upgrade）。
+	// 先把脚本下载成文件再执行（管道给 ash 时下载失败也会「成功」退出）；用 setsid 脱离 rpcd——升级 luci-app-meowx
+	// 会重载 rpcd，不脱离会被一起带走。成败由页面比较升级前后的版本号判断（脚本最后总是打印 success）
+	upgrade: {
+		call: function() {
+			if (access('/var/run/meowx-upgrade.running')) {
+				return { success: true, running: true };
+			}
+			writefile('/var/run/meowx-upgrade.sh', join('\n', [
+				'#!/bin/sh',
+				'touch /var/run/meowx-upgrade.running',
+				'cd /tmp',
+				'if wget -q -T 30 -O /tmp/meowx-install.sh https://dl.miaomiaowux.com/meowx/openwrt/install.sh; then',
+				'\tash /tmp/meowx-install.sh',
+				'else',
+				'\techo "download install.sh failed"',
+				'fi',
+				'rm -f /tmp/meowx-install.sh /var/run/meowx-upgrade.running',
+				''
+			]));
+			// 先标记「升级中」再起进程：页面紧接着轮询时进程可能还没跑起来
+			system('mkdir -p /var/run; touch /var/run/meowx-upgrade.running; rm -f /var/log/meowx-upgrade.log; ' +
+				'if command -v setsid >/dev/null 2>&1; then setsid sh /var/run/meowx-upgrade.sh >/var/log/meowx-upgrade.log 2>&1 </dev/null & ' +
+				'else sh /var/run/meowx-upgrade.sh >/var/log/meowx-upgrade.log 2>&1 </dev/null & fi');
+			return { success: true, running: true };
+		}
+	},
+	upgrade_status: {
+		call: function() {
+			const log = readfile('/var/log/meowx-upgrade.log') ?? '';
+			return { running: !!access('/var/run/meowx-upgrade.running'), log: substr(log, -4000) };
+		}
+	},
 	version: {
 		call: function() {
 			let process;

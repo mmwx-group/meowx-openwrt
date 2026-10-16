@@ -1084,7 +1084,7 @@ msgstr "更新時間"
 
 #: applications/luci-app-meowx/htdocs/luci-static/resources/view/meowx/app.js:83
 msgid "Update Dashboard"
-msgstr "更新儀表板"
+msgstr "更新 Web 面板"
 
 #: applications/luci-app-meowx/htdocs/luci-static/resources/view/meowx/mixin.js:524
 msgid "Update Interval"
@@ -1303,3 +1303,39 @@ msgstr "MeowX OpenWrt 版基於 %s 改造，透明代理、設定混入與服務
 
 msgid "The core is the MeowX fork of %s (source in %s), adding protocols such as Miu that upstream mihomo does not have."
 msgstr "核心是 %s 的 MeowX 分支（原始碼在 %s），加入了 Miu 等官方 mihomo 沒有的協定。"
+
+msgid "Checking for updates…"
+msgstr "正在檢查更新…"
+
+msgid "Unable to check for updates"
+msgstr "檢查更新失敗"
+
+msgid "You are on the latest version"
+msgstr "已是最新版本"
+
+msgid "New version %s available"
+msgstr "有新版本 %s"
+
+msgid "Update to %s"
+msgstr "更新到 %s"
+
+msgid "Update MeowX to %s? The page may be briefly unavailable while it installs; settings and subscriptions are kept."
+msgstr "更新 MeowX 到 %s？安裝期間頁面可能短暫打不開，設定與訂閱都會保留。"
+
+msgid "Updated to %s, reloading the page…"
+msgstr "已更新到 %s，正在重新整理頁面…"
+
+msgid "No output"
+msgstr "沒有輸出"
+
+msgid "The core is not running, so the web dashboard cannot be updated. Start the service first."
+msgstr "核心沒有執行，無法更新 Web 面板，請先啟動服務。"
+
+msgid "Web dashboard updated"
+msgstr "Web 面板已更新"
+
+msgid "Failed to update the web dashboard: %s"
+msgstr "Web 面板更新失敗：%s"
+
+msgid "no response from the core"
+msgstr "核心沒有回應"
