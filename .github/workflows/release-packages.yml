@@ -63,6 +63,9 @@ jobs:
             branch: SNAPSHOT
           - arch: riscv64_generic
             branch: openwrt-24.10
+          # 24.10 的 SDK 编 meowx-core 失败（25.12 / SNAPSHOT 正常），先不出这一组
+          - arch: loongarch64_generic
+            branch: openwrt-24.10
 
     steps:
       - name: checkout
