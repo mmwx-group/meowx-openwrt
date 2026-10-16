@@ -1,108 +1,45 @@
-![GitHub License](https://img.shields.io/github/license/nikkinikki-org/OpenWrt-nikki?style=for-the-badge&logo=github) ![GitHub Tag](https://img.shields.io/github/v/release/nikkinikki-org/OpenWrt-nikki?style=for-the-badge&logo=github) ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/nikkinikki-org/OpenWrt-nikki/total?style=for-the-badge&logo=github) ![GitHub Repo stars](https://img.shields.io/github/stars/nikkinikki-org/OpenWrt-nikki?style=for-the-badge&logo=github) [![Telegram](https://img.shields.io/badge/Telegram-gray?style=for-the-badge&logo=telegram)](https://t.me/nikkinikki_org)
+# MeowX for OpenWrt
 
-English | [中文](README.zh.md)
+MeowX 的 OpenWrt 路由器版：LuCI 界面 + 透明代理，内核是 MeowX 自己的 mihomo fork（与 Android / Windows 客户端同一份，
+支持 Miu、AnyTLS + REALITY、Snell v6 等官方 mihomo 没有的协议）。
 
-# Nikki
+基于 [OpenWrt-nikki](https://github.com/nikkinikki-org/OpenWrt-nikki)（GPL-3.0）改造，感谢原作者。本项目同样以 GPL-3.0 发布。
 
-Transparent Proxy with Mihomo on OpenWrt.
+## 环境要求
 
-## Prerequisites
+- OpenWrt >= 24.10（或同代的 ImmortalWrt），firewall4
+- Linux 内核 >= 5.13
 
-- OpenWrt >= 24.10
-- Linux Kernel >= 5.13
-- firewall4
-
-## Feature
-
-- Transparent Proxy (Redirect/TPROXY/TUN, IPv4 and/or IPv6)
-- Access Control
-- Profile Mixin
-- Profile Editor
-- Scheduled Restart
-
-## Install & Update
-
-### A. Install From Feed (Recommended)
-
-1. Add Feed
+## 安装
 
 ```shell
-# only needs to be run once
-wget -O - https://github.com/nikkinikki-org/OpenWrt-nikki/raw/refs/heads/main/feed.sh | ash
+# 添加软件源（只需一次）
+wget -O - https://dl.miaomiaowux.com/meowx/openwrt/feed.sh | ash
+# opkg（24.10）
+opkg install meowx luci-app-meowx luci-i18n-meowx-zh-cn
+# apk（25.12 及以后）
+apk add meowx luci-app-meowx luci-i18n-meowx-zh-cn
 ```
 
-2. Install
+卸载并清除配置：`wget -O - https://dl.miaomiaowux.com/meowx/openwrt/uninstall.sh | ash`
+
+## 包
+
+| 包 | 内容 |
+|---|---|
+| `meowx-core` | 内核，`/usr/bin/meowx-core`，从 [meowC](https://github.com/mmwx-group/meowC) 的 `core/Clash.Meta` 按发版提交编译 |
+| `meowx` | 服务：订阅下载、配置混入、nftables / 路由、procd |
+| `luci-app-meowx` | LuCI 界面 |
+
+订阅缺省用官方客户端 UA（`mihomo/1.19.0 MeowX/<内核版本> (OpenWrt)`，用户代理选「MeowX（官方客户端）」），
+主控据此下发只有 MeowX 内核才支持的节点。
+
+## 编译
 
 ```shell
-# you can install from shell or `Software` menu in LuCI
-# for opkg
-opkg install nikki
-opkg install luci-app-nikki
-opkg install luci-i18n-nikki-zh-cn
-# for apk
-apk add nikki
-apk add luci-app-nikki
-apk add luci-i18n-nikki-zh-cn
+echo "src-git meowx https://github.com/mmwx-group/meowx-openwrt.git;main" >> feeds.conf.default
+./scripts/feeds update -a && ./scripts/feeds install -a
+make package/luci-app-meowx/compile
 ```
 
-### B. Install From Release
-
-```shell
-wget -O - https://github.com/nikkinikki-org/OpenWrt-nikki/raw/refs/heads/main/install.sh | ash
-```
-
-## Uninstall & Reset
-
-```shell
-wget -O - https://github.com/nikkinikki-org/OpenWrt-nikki/raw/refs/heads/main/uninstall.sh | ash
-```
-
-## How To Use
-
-See [Wiki](https://github.com/nikkinikki-org/OpenWrt-nikki/wiki)
-
-## How does it work
-
-1. Mixin and Update profile.
-2. Run mihomo.
-3. Set scheduled restart.
-4. Set ip rule/route
-5. Generate nftables and apply it.
-
-Note that the steps above may change base on config.
-
-## Compilation
-
-```shell
-# add feed
-echo "src-git nikki https://github.com/nikkinikki-org/OpenWrt-nikki.git;main" >> "feeds.conf.default"
-# update & install feeds
-./scripts/feeds update -a
-./scripts/feeds install -a
-# make package
-make package/luci-app-nikki/compile
-```
-
-The package files will be found under `bin/packages/your_architecture/nikki`.
-
-## Dependencies
-
-- ca-bundle
-- curl
-- yq
-- firewall4
-- ip-full
-- kmod-inet-diag
-- kmod-nft-socket
-- kmod-nft-tproxy
-- kmod-tun
-- kmod-dummy
-
-## Contributors
-
-[![Contributors](https://contrib.rocks/image?repo=nikkinikki-org/OpenWrt-nikki)](https://github.com/nikkinikki-org/OpenWrt-nikki/graphs/contributors)
-
-## Special Thanks
-
-- [@ApoisL](https://github.com/apoiston)
-- [@xishang0128](https://github.com/xishang0128)
+产物在 `bin/packages/<架构>/meowx`。

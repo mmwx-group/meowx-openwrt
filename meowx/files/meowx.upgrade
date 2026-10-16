@@ -1,0 +1,5 @@
+/etc/meowx/profiles/
+/etc/meowx/subscriptions/
+/etc/meowx/mixin.yaml
+/etc/meowx/run/providers/rule/
+/etc/meowx/run/providers/proxy/

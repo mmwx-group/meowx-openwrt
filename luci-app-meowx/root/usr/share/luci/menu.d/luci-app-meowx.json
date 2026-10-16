@@ -1,0 +1,60 @@
+{
+    "admin/services/meowx": {
+        "title": "MeowX",
+        "action": {
+            "type": "firstchild"
+        },
+        "depends": {
+            "acl": [ "luci-app-meowx" ],
+            "uci": { "meowx": true }
+        }
+    },
+    "admin/services/meowx/config": {
+        "title": "App Config",
+        "order": 10,
+        "action": {
+            "type": "view",
+            "path": "meowx/app"
+        }
+    },
+    "admin/services/meowx/profile": {
+        "title": "Profile",
+        "order": 20,
+        "action": {
+            "type": "view",
+            "path": "meowx/profile"
+        }
+    },
+    "admin/services/meowx/mixin": {
+        "title": "Mixin Config",
+        "order": 30,
+        "action": {
+            "type": "view",
+            "path": "meowx/mixin"
+        }
+    },
+    "admin/services/meowx/proxy": {
+        "title": "Proxy Config",
+        "order": 40,
+        "action": {
+            "type": "view",
+            "path": "meowx/proxy"
+        }
+    },
+    "admin/services/meowx/editor": {
+        "title": "Editor",
+        "order": 50,
+        "action": {
+            "type": "view",
+            "path": "meowx/editor"
+        }
+    },
+    "admin/services/meowx/log": {
+        "title": "Log",
+        "order": 60,
+        "action": {
+            "type": "view",
+            "path": "meowx/log"
+        }
+    }
+}

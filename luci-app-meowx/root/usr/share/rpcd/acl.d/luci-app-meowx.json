@@ -1,0 +1,39 @@
+{
+    "luci-app-meowx": {
+        "description": "Grant access to meowx procedures",
+        "read": {
+            "uci": [ "meowx" ],
+            "ubus": {
+                "rc": [ "*" ],
+                "luci.meowx": [ "*" ]
+            },
+            "file": {
+                "/etc/meowx/profiles/*.yaml": ["read"],
+                "/etc/meowx/profiles/*.yml": ["read"],
+                "/etc/meowx/subscriptions/*.yaml": ["read"],
+                "/etc/meowx/subscriptions/*.yml": ["read"],
+                "/etc/meowx/mixin.yaml": ["read"],
+                "/etc/meowx/run/config.yaml": ["read"],
+                "/etc/meowx/run/providers/rule/*": ["read"],
+                "/etc/meowx/run/providers/proxy/*": ["read"],
+                "/var/log/meowx/*.log": ["read"],
+                "/tmp/log/meowx/*.log": ["read"]
+            }
+        },
+        "write": {
+            "uci": [ "meowx" ],
+            "file": {
+                "/etc/meowx/profiles/*.yaml": ["write"],
+                "/etc/meowx/profiles/*.yml": ["write"],
+                "/etc/meowx/subscriptions/*.yaml": ["write"],
+                "/etc/meowx/subscriptions/*.yml": ["write"],
+                "/etc/meowx/mixin.yaml": ["write"],
+                "/etc/meowx/run/config.yaml": ["write"],
+                "/etc/meowx/run/providers/rule/*": ["write"],
+                "/etc/meowx/run/providers/proxy/*": ["write"],
+                "/var/log/meowx/*.log": ["write"],
+                "/tmp/log/meowx/*.log": ["write"]
+            }
+        }
+    }
+}

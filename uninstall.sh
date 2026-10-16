@@ -1,38 +1,38 @@
 #!/bin/sh
 
-# Nikki's uninstaller
+# MeowX's uninstaller
 
 # uninstall
 if [ -x "/bin/opkg" ]; then
-	opkg list-installed luci-i18n-nikki-* | cut -d ' ' -f 1 | xargs opkg remove
-	opkg remove luci-app-nikki
-	opkg remove nikki
-	opkg remove mihomo-meta mihomo-alpha
+	opkg list-installed luci-i18n-meowx-* | cut -d ' ' -f 1 | xargs opkg remove
+	opkg remove luci-app-meowx
+	opkg remove meowx
+	opkg remove meowx-core
 elif [ -x "/usr/bin/apk" ]; then
-	apk list --installed --manifest luci-i18n-nikki-* | cut -d ' ' -f 1 | xargs apk del
-	apk del luci-app-nikki
-	apk del nikki
-	apk del mihomo-meta mihomo-alpha
+	apk list --installed --manifest luci-i18n-meowx-* | cut -d ' ' -f 1 | xargs apk del
+	apk del luci-app-meowx
+	apk del meowx
+	apk del meowx-core
 fi
 # remove config
-rm -f /etc/config/nikki
+rm -f /etc/config/meowx
 # remove files
-rm -rf /etc/nikki
+rm -rf /etc/meowx
 # remove log
-rm -rf /var/log/nikki
+rm -rf /var/log/meowx
 # remove temp
-rm -rf /var/run/nikki
+rm -rf /var/run/meowx
 # remove feed
 if [ -x "/bin/opkg" ]; then
-	if grep -q nikki /etc/opkg/customfeeds.conf; then
-		sed -i '/nikki/d' /etc/opkg/customfeeds.conf
+	if grep -q meowx /etc/opkg/customfeeds.conf; then
+		sed -i '/meowx/d' /etc/opkg/customfeeds.conf
 	fi
-	wget -O "nikki.pub" "https://nikkinikki.pages.dev/key-build.pub"
-	opkg-key remove nikki.pub
-	rm -f nikki.pub
+	wget -O "meowx.pub" "https://dl.miaomiaowux.com/meowx/openwrt/key-build.pub"
+	opkg-key remove meowx.pub
+	rm -f meowx.pub
 elif [ -x "/usr/bin/apk" ]; then
-	if grep -q nikki /etc/apk/repositories.d/customfeeds.list; then
-		sed -i '/nikki/d' /etc/apk/repositories.d/customfeeds.list
+	if grep -q meowx /etc/apk/repositories.d/customfeeds.list; then
+		sed -i '/meowx/d' /etc/apk/repositories.d/customfeeds.list
 	fi
-	rm -f /etc/apk/keys/nikki.pem
+	rm -f /etc/apk/keys/meowx.pem
 fi
