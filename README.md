@@ -103,8 +103,13 @@ make package/meowx-core/compile package/meowx/compile package/luci-app-meowx/com
 
 产物在 `bin/packages/<架构>/meowx`。
 
-GitHub Actions：`build-packages` 手动触发，编译全部架构并上传为构建产物；推 `v*` 标签触发 `release-packages`，
-编译、签名后发布到 GitHub Releases 与软件源（`dl.miaomiaowux.com/meowx/openwrt`）。
+GitHub Actions：
+
+- `build-packages`：手动触发，编译全部架构并上传为构建产物（不签名、不发布）。
+- `release-packages`：推 `v*` 标签（须与 `meowx/Makefile` 的 `PKG_VERSION` 一致）自动编译、签名，发布到 GitHub Releases，
+  并推到 CDN：软件源同步到 `dl.miaomiaowux.com/meowx/openwrt`，`dl.miaomiaowux.com/meowx/latest.json` 登记 `openwrt` 条目
+  （文档站「客户端下载」页读它）。也可手动触发，在 main 上勾选 publish 才推 CDN；带 `-` 的标签只发 GitHub 预发布。
+  需要的仓库 secrets 见工作流文件开头的注释。
 
 ## 许可
 

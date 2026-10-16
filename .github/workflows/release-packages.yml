@@ -1,7 +1,16 @@
 name: release-packages
 
+# 打 tag（v*）自动编译全部架构、签名，发 GitHub Release 并推 CDN（软件源 dl.miaomiaowux.com/meowx/openwrt + latest.json）；
+# 也可手动触发（workflow_dispatch），在 main 上且勾了 publish 才推 CDN。带 '-' 的 tag（如 v0.2.0-pre1）只发 GitHub 预发布、不推 CDN。
+# 需要仓库 secrets：KEY_BUILD / KEY_BUILD_PUB（opkg 用的 usign 密钥对）、PRIVATE_KEY / PUBLIC_KEY（apk 用的 ECDSA 密钥对）、
+# R2_ACCOUNT_ID / R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY；可选 variables.R2_BUCKET（默认 mmwx-dl）。
 on:
   workflow_dispatch:
+    inputs:
+      publish:
+        description: '编译完推到 CDN（dl.miaomiaowux.com 软件源，更新 latest.json）'
+        type: boolean
+        default: true
   push:
     tags:
       - v*
@@ -83,6 +92,7 @@ jobs:
         with:
           files: |
             meowx_${{ matrix.arch }}-${{ matrix.branch }}.tar.gz
+          prerelease: ${{ contains(github.ref_name, '-') }}
 
       - name: upload
         uses: actions/upload-artifact@v7
@@ -90,10 +100,19 @@ jobs:
           name: feed_meowx_${{ matrix.arch }}-${{ matrix.branch }}
           path: feed_meowx_${{ matrix.arch }}-${{ matrix.branch }}.tar.gz
 
+  # 推到 CDN：软件源同步到 R2 的 meowx/openwrt/（不带 --delete：某个架构这次没编过时保留线上上一版），
+  # 再把 openwrt 条目登记进 meowx/latest.json（文档站下载页读它）。正式 tag 自动推；手动触发在 main 上且勾了 publish 才推。
   feed:
     needs: release
+    if: >-
+      ${{ !cancelled()
+          && ((startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-'))
+              || (github.event_name == 'workflow_dispatch' && inputs.publish && github.ref == 'refs/heads/main')) }}
     name: feed
     runs-on: ubuntu-latest
+    concurrency:
+      group: publish-cdn
+      cancel-in-progress: false
 
     steps:
       - name: checkout
@@ -104,26 +123,60 @@ jobs:
         with:
           pattern: feed_meowx_*
           merge-multiple: true
-      
+
       - name: uncompress
         run: |
           for file in feed_meowx_*.tar.gz; do tar -x -z -f "$file"; done
-      
-      - name: prepare
+
+      - name: version
+        id: version
         run: |
-          echo "${{ secrets.KEY_BUILD_PUB }}" > public/key-build.pub
-          echo "${{ secrets.PUBLIC_KEY }}" > public/public-key.pem
+          version=$(sed -n 's/^PKG_VERSION:=//p' meowx/Makefile)
+          build=$(sed -n 's/^PKG_RELEASE:=//p' meowx/Makefile)
+          core=$(sed -n 's/^PKG_VERSION:=//p' meowx-core/Makefile)
+          if [ "${GITHUB_REF_TYPE}" = tag ] && [ "${GITHUB_REF_NAME#v}" != "$version" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} 与 meowx/Makefile 的 PKG_VERSION ${version} 不一致"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "build=$build" >> "$GITHUB_OUTPUT"
+          echo "core=$core" >> "$GITHUB_OUTPUT"
+          echo "发布 ${version} (${build})，内核 ${core}"
+
+      - name: prepare
+        env:
+          KEY_BUILD_PUB: ${{ secrets.KEY_BUILD_PUB }}
+          PUBLIC_KEY: ${{ secrets.PUBLIC_KEY }}
+        run: |
+          [ -n "$KEY_BUILD_PUB" ] && [ -n "$PUBLIC_KEY" ] || { echo "::error::缺少仓库 secret KEY_BUILD_PUB / PUBLIC_KEY"; exit 1; }
+          printf '%s\n' "$KEY_BUILD_PUB" > public/key-build.pub
+          printf '%s\n' "$PUBLIC_KEY" > public/public-key.pem
           cp feed.sh install.sh uninstall.sh public/
           tree --dirsfirst --sort name -P '*.apk|*.ipk' --prune --noreport -H "" -T "MeowX OpenWrt Feed" --charset utf-8 -o public/index.html public
           sed -i '/<p class="VERSION">/,/<\/p>/d' public/index.html
 
-      # 软件源放在客户端下载同一个 R2 桶（dl.miaomiaowux.com）的 meowx/openwrt/ 下，凭据与 meowC 的 publish-cdn 同名
+      - name: test publish script
+        run: python3 -m unittest scripts/test_publish_cdn.py
+
+      # 软件源与客户端下载在同一个 R2 桶（dl.miaomiaowux.com），凭据与 meowC 的 publish-cdn 同名
       - name: feed
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: auto
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
           R2_BUCKET: ${{ vars.R2_BUCKET || 'mmwx-dl' }}
         run: |
           aws --endpoint-url "https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com" \
-            s3 sync public "s3://${R2_BUCKET}/meowx/openwrt" --delete --cache-control "no-cache"
+            s3 sync public "s3://${R2_BUCKET}/meowx/openwrt" --cache-control "no-cache"
+
+      - name: manifest
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ vars.R2_BUCKET }}
+        run: |
+          python3 scripts/publish_cdn.py --version "${{ steps.version.outputs.version }}" \
+            --build "${{ steps.version.outputs.build }}" --core "${{ steps.version.outputs.core }}"
