@@ -1,11 +1,12 @@
 'use strict';
 'require form';
-'require view';
+'require baseclass';
 'require uci';
 'require fs';
 'require tools.meowx as meowx';
 
-return view.extend({
+// 页面模块：由 main.js 在页内切换时加载、渲染（不再是独立视图，切页签不刷新页面）
+return baseclass.extend({
     load: function () {
         return Promise.all([
             uci.load('meowx'),
@@ -71,10 +72,8 @@ return view.extend({
 
         return meowx.decorate(m.render());
     },
-    handleSaveApply: function (ev, mode) {
-        return this.handleSave(ev).finally(function () {
-            return mode === '0' ? meowx.reload() : meowx.restart();
-        });
-    },
-    handleReset: null
+    // 编辑器改的是文件、不是 uci，保存后要自己重载 / 重启服务（main.js 在当前页是编辑器时转给它）
+    afterSaveApply: function (mode) {
+        return mode === '0' ? meowx.reload() : meowx.restart();
+    }
 });

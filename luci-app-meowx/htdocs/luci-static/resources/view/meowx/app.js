@@ -1,6 +1,6 @@
 'use strict';
 'require form';
-'require view';
+'require baseclass';
 'require uci';
 'require poll';
 'require tools.meowx as meowx';
@@ -138,7 +138,8 @@ function updateHero(hero, running) {
     return hero;
 }
 
-return view.extend({
+// 页面模块：由 main.js 在页内切换时加载、渲染（不再是独立视图，切页签不刷新页面）
+return baseclass.extend({
     load: function () {
         return Promise.all([
             uci.load('meowx'),
