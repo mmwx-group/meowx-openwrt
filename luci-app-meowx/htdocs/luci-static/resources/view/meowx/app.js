@@ -228,6 +228,7 @@ return baseclass.extend({
         o.rmempty = false;
 
         o = s.option(form.Flag, 'core_only', _('Core Only'));
+        o.default = '1';
         o.rmempty = false;
 
         s = m.section(form.NamedSection, 'procd', 'procd', _('procd Config'));
