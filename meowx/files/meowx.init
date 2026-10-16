@@ -301,6 +301,12 @@ start_service() {
 		log "App" "Set subscription auto update cron."
 		echo "17 * * * * /etc/init.d/meowx auto_update #meowx subscription auto update" >> "/etc/crontabs/root"
 	fi
+	## 登录了主控账户：每小时报一次客户端 IP 白名单（同客户端 FirewallReporter 的间隔），启动时先报一次
+	if [ -f "/etc/meowx/panel.json" ]; then
+		log "App" "Set panel firewall report cron."
+		echo "23 * * * * /usr/bin/meowx-core panel report >/dev/null 2>&1 #meowx panel report" >> "/etc/crontabs/root"
+		(/usr/bin/meowx-core panel report >/dev/null 2>&1 &)
+	fi
 	## add log scheduled clear cron if needed
 	if [ "$log_scheduled_clear" = 1 ] && [ -n "$log_scheduled_clear_cron" ]; then
 		log "App" "Set log scheduled clear."

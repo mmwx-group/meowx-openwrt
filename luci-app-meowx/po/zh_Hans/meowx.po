@@ -1195,3 +1195,45 @@ msgstr "使用"
 
 msgid "Name is taken from the subscription automatically"
 msgstr "留空则自动使用订阅提供的名称"
+
+msgid "Paste login link"
+msgstr "粘贴登录链接"
+
+msgid "This is not a MeowX login link"
+msgstr "这不是妙妙屋的登录链接"
+
+msgid "Login failed"
+msgstr "登录失败"
+
+msgid "Logged in, and imported subscription %s"
+msgstr "已登录，并导入了订阅「%s」"
+
+msgid "Log In"
+msgstr "登录"
+
+msgid "Panel Account"
+msgstr "主控账户"
+
+msgid "On the panel website, open \"Scan to log in\" and click \"Copy login link\", then paste it here. The link works once, within 5 minutes."
+msgstr "在主控网页打开「扫码登录」，点「复制登录链接」，粘贴到这里。链接只能用一次，5 分钟内有效。"
+
+msgid "Refresh"
+msgstr "刷新"
+
+msgid "Log Out"
+msgstr "退出登录"
+
+msgid "Log out? Subscriptions imported from this panel will be removed from the router."
+msgstr "确定退出登录？从这个主控导入的订阅会从路由器上删除。"
+
+msgid "Account subscriptions…"
+msgstr "正在获取账户订阅…"
+
+msgid "Account subscriptions · not downloaded"
+msgstr "账户订阅 · 未下载"
+
+msgid "Failed to load: %s"
+msgstr "加载失败：%s"
+
+msgid "Retry"
+msgstr "重试"

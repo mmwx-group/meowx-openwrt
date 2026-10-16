@@ -1188,3 +1188,45 @@ msgstr ""
 
 msgid "Name is taken from the subscription automatically"
 msgstr ""
+
+msgid "Paste login link"
+msgstr ""
+
+msgid "This is not a MeowX login link"
+msgstr ""
+
+msgid "Login failed"
+msgstr ""
+
+msgid "Logged in, and imported subscription %s"
+msgstr ""
+
+msgid "Log In"
+msgstr ""
+
+msgid "Panel Account"
+msgstr ""
+
+msgid "On the panel website, open \"Scan to log in\" and click \"Copy login link\", then paste it here. The link works once, within 5 minutes."
+msgstr ""
+
+msgid "Refresh"
+msgstr ""
+
+msgid "Log Out"
+msgstr ""
+
+msgid "Log out? Subscriptions imported from this panel will be removed from the router."
+msgstr ""
+
+msgid "Account subscriptions…"
+msgstr ""
+
+msgid "Account subscriptions · not downloaded"
+msgstr ""
+
+msgid "Failed to load: %s"
+msgstr ""
+
+msgid "Retry"
+msgstr ""

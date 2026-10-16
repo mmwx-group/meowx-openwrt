@@ -6,6 +6,56 @@ import { access, popen, writefile } from 'fs';
 import { cursor } from 'uci';
 import { get_users, get_groups, get_cgroups, load_profile } from '/etc/meowx/ucode/include.uc';
 
+function panel_cmd(args) {
+	const process = popen(`/usr/bin/meowx-core panel ${args} 2>/dev/null`);
+	if (!process) {
+		return { success: false, error: 'meowx-core not found' };
+	}
+	const output = process.read('all');
+	process.close();
+	return json(trim(output) || '{}') ?? { success: false, error: 'bad output' };
+}
+
+// 订阅地址的主机名（小写）与路径
+function url_parts(u) {
+	const m = match(u ?? '', /^[A-Za-z][A-Za-z0-9+.-]*:\/\/(\[[^\]]+\]|[^\/:?#]+)(:[0-9]+)?([^?#]*)/);
+	return m ? { host: lc(m[1]), path: m[3] || '/' } : null;
+}
+
+// 登录后自动导入（规则同客户端 SubAccountStore.autoImportCandidate）：返回导入的订阅名，没导入返回 null
+function auto_import(base) {
+	const uci = cursor();
+	uci.load('meowx');
+	const profile = uci.get('meowx', 'config', 'profile') ?? '';
+	if (match(profile, /^subscription:/) && uci.get('meowx', substr(profile, 13))) {
+		return null;   // 在用别家（或这个主控）的订阅时不替用户换
+	}
+	const panel_host = url_parts(base)?.host;
+	let has_local = false;
+	uci.foreach('meowx', 'subscription', (section) => {
+		if (url_parts(section.url)?.host == panel_host) {
+			has_local = true;
+		}
+	});
+	if (has_local) {
+		return null;
+	}
+	const list = panel_cmd('subscriptions');
+	if (!list?.success || length(list.subscriptions ?? []) != 1) {
+		return null;   // 多份不替用户选
+	}
+	const sub = list.subscriptions[0];
+	const section_id = uci.add('meowx', 'subscription');
+	uci.set('meowx', section_id, 'url', sub.url);
+	uci.set('meowx', section_id, 'name', sub.name);
+	uci.set('meowx', section_id, 'user_agent', 'meowx');
+	uci.set('meowx', section_id, 'prefer', 'remote');
+	uci.commit('meowx');
+	system(['service', 'meowx', 'update_subscription', section_id]);
+	system(['service', 'meowx', 'switch_profile', 'subscription:' + section_id]);
+	return sub.name;
+}
+
 const methods = {
 	version: {
 		call: function() {
@@ -107,6 +157,87 @@ const methods = {
 			uci.commit('meowx');
 			system(['service', 'meowx', 'update_subscription', section_id]);
 			return { success: cursor().get('meowx', section_id, 'success') == '1', section_id: section_id };
+		}
+	},
+	// ---------- 主控账户（登录链接）：实际的加密 RPC 在 meowx-core panel 子命令里 ----------
+	panel_status: {
+		call: function() {
+			return panel_cmd('status');
+		}
+	},
+	// 用主控网页「扫码登录」里复制的登录链接登录；成功后同客户端：当前没在用订阅、本机还没有这个主控的订阅、
+	// 账户下恰好一份时自动导入并切过去；立即报一次白名单
+	panel_login: {
+		args: { link: 'link' },
+		call: function(req) {
+			const link = trim(req.args?.link ?? '');
+			if (!match(link, /^miaomiaowu:\/\/login\?[A-Za-z0-9%._~:\/?&=+-]+$/)) {
+				return { success: false, error: 'invalid link' };
+			}
+			const res = panel_cmd(`login '${link}'`);
+			if (!res?.success) {
+				return res;
+			}
+			system('(/usr/bin/meowx-core panel report >/dev/null 2>&1 &)');
+			res.imported = auto_import(res.base);
+			return res;
+		}
+	},
+	// 退出登录同客户端：删掉从这个主控导入的订阅（手动加的别家订阅不动）；在用的那份被删了就换到剩下的第一份，
+	// 一份都不剩就停掉服务
+	panel_logout: {
+		call: function() {
+			const status = panel_cmd('status');
+			const res = panel_cmd('logout');
+			const panel_host = url_parts(status?.base)?.host;
+			if (!panel_host) {
+				return res;
+			}
+			const uci = cursor();
+			uci.load('meowx');
+			const profile = uci.get('meowx', 'config', 'profile') ?? '';
+			let active_removed = false;
+			const removed = [];
+			uci.foreach('meowx', 'subscription', (section) => {
+				if (url_parts(section.url)?.host == panel_host) {
+					push(removed, section['.name']);
+				}
+			});
+			for (let id in removed) {
+				if (profile == 'subscription:' + id) {
+					active_removed = true;
+				}
+				uci.delete('meowx', id);
+			}
+			let next = null;
+			if (active_removed) {
+				uci.foreach('meowx', 'subscription', (section) => {
+					next ??= 'subscription:' + section['.name'];
+				});
+				uci.set('meowx', 'config', 'profile', next ?? '');
+				if (!next) {
+					uci.set('meowx', 'config', 'enabled', '0');
+				}
+			}
+			uci.commit('meowx');
+			if (active_removed) {
+				system(next ? ['service', 'meowx', 'restart'] : ['service', 'meowx', 'stop']);
+			}
+			res.removed = length(removed);
+			return res;
+		}
+	},
+	// 用户点刷新时才向主控重取昵称 / 头像与白名单上报地址（同客户端：账户数据不定时拉）
+	panel_profile: {
+		call: function() {
+			const res = panel_cmd('profile');
+			panel_cmd('firewall');
+			return res;
+		}
+	},
+	panel_subscriptions: {
+		call: function() {
+			return panel_cmd('subscriptions');
 		}
 	},
 	api: {

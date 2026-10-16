@@ -103,7 +103,23 @@ return view.extend({
                     this.panes[id] = pane;
                     return pane;
                 }, (err) => {
-                    pane.replaceChildren(E('p', { class: 'alert-message error' }, String(err?.message ?? err)));
+                    // 加载失败（网络抖一下、会话过期）别让这一页只剩一行错误：给个「重试」，不用整页刷新
+                    delete this.loading[id];
+                    pane.replaceChildren(E('div', { class: 'mx-pane__error' }, [
+                        E('p', {}, _('Failed to load: %s').format(String(err?.message ?? err))),
+                        E('button', {
+                            type: 'button',
+                            class: 'cbi-button cbi-button-action',
+                            click: () => {
+                                pane.remove();
+                                delete this.panes[id];
+                                if (this.current == id) {
+                                    this.current = null;
+                                    this.show(id, false);
+                                }
+                            }
+                        }, _('Retry'))
+                    ]));
                     this.panes[id] = pane;
                     return pane;
                 });

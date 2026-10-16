@@ -3,6 +3,7 @@ include $(TOPDIR)/rules.mk
 # MeowX 内核：meowC（Android / Windows 客户端）里的 mihomo fork，比官方 mihomo 多 Miu、AnyTLS + REALITY、Snell v6 等。
 # 源码在 meowC 仓库的 core/Clash.Meta，按 meowC 的发版提交固定。
 # patches/：001 让内核作为独立程序运行时自己起监听端口与 TUN（Bettbox 把这一步交给了 Flutter 外壳，单跑内核不开任何端口）。
+#           002 加 `meowx-core panel …` 子命令：主控账户（登录链接）、账户订阅、客户端 IP 白名单上报，加密信道同 iOS / Android 客户端。
 PKG_NAME:=meowx-core
 PKG_VERSION:=0.3.1
 PKG_RELEASE:=1

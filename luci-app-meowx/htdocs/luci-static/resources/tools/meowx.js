@@ -101,6 +101,41 @@ const callMeowXAddSubscription = rpc.declare({
     expect: { '': {} }
 });
 
+const callMeowXPanelStatus = rpc.declare({
+    object: 'luci.meowx',
+    method: 'panel_status',
+    params: [],
+    expect: { '': {} }
+});
+
+const callMeowXPanelLogin = rpc.declare({
+    object: 'luci.meowx',
+    method: 'panel_login',
+    params: ['link'],
+    expect: { '': {} }
+});
+
+const callMeowXPanelLogout = rpc.declare({
+    object: 'luci.meowx',
+    method: 'panel_logout',
+    params: [],
+    expect: { '': {} }
+});
+
+const callMeowXPanelProfile = rpc.declare({
+    object: 'luci.meowx',
+    method: 'panel_profile',
+    params: [],
+    expect: { '': {} }
+});
+
+const callMeowXPanelSubscriptions = rpc.declare({
+    object: 'luci.meowx',
+    method: 'panel_subscriptions',
+    params: [],
+    expect: { '': {} }
+});
+
 function formatBytes(n) {
     n = +n;
     if (!isFinite(n) || n < 0) {
@@ -292,6 +327,127 @@ return baseclass.extend({
 
     formatBytes: formatBytes,
 
+    panelStatus: function () {
+        return L.resolveDefault(callMeowXPanelStatus(), { logged_in: false });
+    },
+
+    panelLogin: function (link) {
+        return callMeowXPanelLogin(link);
+    },
+
+    panelLogout: function () {
+        return callMeowXPanelLogout();
+    },
+
+    panelProfile: function () {
+        return callMeowXPanelProfile();
+    },
+
+    panelSubscriptions: function () {
+        return L.resolveDefault(callMeowXPanelSubscriptions(), { success: false, subscriptions: [] });
+    },
+
+    // 账户下还没下载到本机的订阅（同客户端 SubAccountStore.notDownloaded）：短链路径（/x/<code>）相同就算已下载、
+    // 不比主机名（开了订阅域名本机那份可能挂在别的域名上）；只有 filename 的旧式地址按同主机 + filename 认
+    notDownloaded: function (remote, localUrls) {
+        const parse = function (u) {
+            const m = String(u || '').match(/^[a-z][a-z0-9+.-]*:\/\/([^\/:?#]+)(?::\d+)?([^?#]*)(?:\?([^#]*))?/i);
+            if (!m) {
+                return null;
+            }
+            const query = new URLSearchParams(m[3] || '');
+            return { host: m[1].toLowerCase(), path: (m[2] || '/').replace(/\/+$/, '') || '/', filename: query.get('filename') || '' };
+        };
+        const locals = localUrls.map(parse).filter(Boolean);
+        return remote.filter(function (sub) {
+            const r = parse(sub.url);
+            if (!r) {
+                return false;
+            }
+            if (sub.path) {
+                return !locals.some((l) => l.path == r.path && l.path != '/');
+            }
+            return !locals.some((l) => l.host == r.host && l.filename && l.filename == r.filename);
+        });
+    },
+
+    // 首页账户卡（同客户端「我的」顶部账户卡）：没登录时粘贴主控「扫码登录」里复制的登录链接登录
+    // （路由器没有扫码环境）；登录后显示昵称 / 头像 / 主控，「刷新」才向主控重取账户信息（不定时拉，同客户端）
+    renderAccountCard: function (status, onChanged) {
+        const card = E('div', { class: 'mx-account' });
+        if (!status?.logged_in) {
+            const input = E('input', { type: 'text', class: 'mx-quickadd__input', placeholder: _('Paste login link') });
+            const error = E('div', { class: 'mx-account__error', hidden: '' });
+            const login = E('button', {
+                type: 'button',
+                class: 'cbi-button cbi-button-action',
+                click: (ev) => this.busy(ev.currentTarget, () => {
+                    const link = input.value.trim();
+                    if (!/^miaomiaowu:\/\/login\?/.test(link)) {
+                        input.classList.add('is-invalid');
+                        input.focus();
+                        error.textContent = _('This is not a MeowX login link');
+                        error.hidden = false;
+                        return;
+                    }
+                    input.classList.remove('is-invalid');
+                    error.hidden = true;
+                    return this.panelLogin(link).then((res) => {
+                        if (!res?.success) {
+                            error.textContent = res?.error || _('Login failed');
+                            error.hidden = false;
+                            return;
+                        }
+                        if (res.imported) {
+                            ui.addNotification(null, E('p', _('Logged in, and imported subscription %s').format(res.imported)), 'info');
+                        }
+                        return onChanged();
+                    });
+                })
+            }, _('Log In'));
+            input.addEventListener('keydown', (ev) => { if (ev.key == 'Enter') login.click(); });
+            card.appendChild(E('div', { class: 'mx-account__head' }, [
+                E('span', { class: 'mx-subcard__label' }, _('Panel Account')),
+            ]));
+            card.appendChild(E('div', { class: 'mx-account__hint' }, _('On the panel website, open "Scan to log in" and click "Copy login link", then paste it here. The link works once, within 5 minutes.')));
+            card.appendChild(E('div', { class: 'mx-quickadd' }, [input, login]));
+            card.appendChild(error);
+            return card;
+        }
+        const host = String(status.base || '').replace(/^https?:\/\//, '');
+        const avatar = E('span', { class: 'mx-account__avatar' }, (status.username || '?').slice(0, 1).toUpperCase());
+        if (status.avatar) {
+            const img = E('img', { alt: '', src: status.avatar, referrerpolicy: 'no-referrer' });
+            img.addEventListener('load', () => { avatar.replaceChildren(img); });
+        }
+        card.appendChild(E('div', { class: 'mx-account__row' }, [
+            avatar,
+            E('div', { class: 'mx-account__main' }, [
+                E('div', { class: 'mx-account__name' }, status.username || _('Panel Account')),
+                E('div', { class: 'mx-account__host' }, host)
+            ]),
+            E('div', { class: 'mx-account__actions' }, [
+                E('button', {
+                    type: 'button',
+                    class: 'cbi-button',
+                    click: (ev) => this.busy(ev.currentTarget, () => this.panelProfile().then(onChanged))
+                }, _('Refresh')),
+                E('button', {
+                    type: 'button',
+                    class: 'cbi-button cbi-button-negative',
+                    click: (ev) => {
+                        if (!confirm(_('Log out? Subscriptions imported from this panel will be removed from the router.'))) {
+                            return;
+                        }
+                        return this.busy(ev.currentTarget, () => this.panelLogout().then(onChanged));
+                    }
+                }, _('Log Out'))
+            ])
+        ]));
+        return card;
+    },
+
+
     // 订阅显示名：没名字时用链接的主机名（同客户端 SubProfile 的缺省名）
     subscriptionName: function (section) {
         if (section.name) {
@@ -409,7 +565,7 @@ return baseclass.extend({
             // 只给前 12 张卡错峰，后面的随第 12 张一起出来（同客户端节点卡的 StaggerIn）；页面在后台时不播，直接显示。
             // 只在第一次渲染时播：表单重画出来的新卡直接显示
             if (!document.hidden) {
-                const cards = map.querySelectorAll(':scope > .mx-head > .mx-hero, :scope > .mx-head > .mx-subcard, :scope > .cbi-section, :scope > .cbi-section-create');
+                const cards = map.querySelectorAll(':scope > .mx-head > .mx-hero, :scope > .mx-head > .mx-cards > *, :scope > .cbi-section, :scope > .cbi-section-create');
                 cards.forEach(function (card, i) {
                     card.style.setProperty('--mx-i', Math.min(i, 12));
                     card.classList.add('mx-enter');

@@ -495,6 +495,12 @@ body.mx-dark {
     display: none;
 }
 
+.mx-pane__error {
+    padding: 32px 16px;
+    text-align: center;
+    color: var(--mx-t2);
+}
+
 .mx-pane > .spinning {
     padding: 40px 0;
     text-align: center;
@@ -662,6 +668,90 @@ body.mx-dark {
         width: 100%;
         justify-content: flex-start;
     }
+}
+
+/* ---------- 首页账户卡（同客户端「我的」顶部账户卡） ---------- */
+
+.mx-cards {
+    display: contents;
+}
+
+.mx-account {
+    padding: 18px 20px;
+    margin: 0 0 16px;
+    border-radius: var(--mx-r-card);
+    background: var(--mx-elev);
+    border: 1px solid var(--mx-stroke);
+}
+
+.mx-account__hint {
+    margin: 4px 0 2px;
+    color: var(--mx-t2);
+    font-size: 13px;
+}
+
+.mx-account__error {
+    margin-top: 8px;
+    color: var(--mx-slow);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.mx-account__error[hidden] {
+    display: none;
+}
+
+.mx-account__row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.mx-account__avatar {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: var(--mx-hero);
+    color: var(--mx-rose);
+    font-weight: 800;
+    font-size: 18px;
+}
+
+.mx-account__avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.mx-account__main {
+    flex: 1;
+    min-width: 0;
+}
+
+.mx-account__name {
+    font-size: 17px;
+    font-weight: 800;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.mx-account__host {
+    color: var(--mx-t2);
+    font-size: 13px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.mx-account__actions {
+    display: flex;
+    gap: 8px;
 }
 
 /* ---------- 首页订阅卡（同客户端首页订阅条） ---------- */

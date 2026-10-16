@@ -58,6 +58,9 @@ define Package/meowx/install
 	$(INSTALL_BIN) $(CURDIR)/files/uci-defaults/init.sh $(1)/etc/uci-defaults/99_init_meowx
 	$(INSTALL_BIN) $(CURDIR)/files/uci-defaults/migrate.sh $(1)/etc/uci-defaults/99_migrate_meowx
 
+	$(INSTALL_DIR) $(1)/etc/hotplug.d/iface
+	$(INSTALL_BIN) $(CURDIR)/files/hotplug-iface $(1)/etc/hotplug.d/iface/90-meowx-panel
+
 	$(INSTALL_DIR) $(1)/lib/upgrade/keep.d
 	$(INSTALL_DATA) $(CURDIR)/files/meowx.upgrade $(1)/lib/upgrade/keep.d/meowx
 endef

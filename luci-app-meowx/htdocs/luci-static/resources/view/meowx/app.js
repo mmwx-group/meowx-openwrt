@@ -47,15 +47,8 @@ function renderHero(appVersion, coreVersion, running) {
 
 // 首页订阅卡（同 iOS 首页订阅条）：当前订阅名 + 用量 + 到期，点「更新于…」直接刷新；「切换订阅」弹出菜单，
 // 选了就切过去并重启生效；还没有订阅时直接给「粘贴链接添加」。
-function renderSubscriptionCard(profiles, map) {
+function renderSubscriptionCard(profiles, status, reload) {
     const card = E('div', { class: 'mx-subcard' });
-    // 刷新 / 切换之后原地重画：表单按新的 uci 重画（「选择配置文件」跟着变，不会把旧值写回去），订阅卡换一张新的。
-    // 不整页刷新——那样会白屏一下、进场动画重播
-    const reload = function () {
-        return meowx.reloadMap(map).then(function () {
-            card.replaceWith(renderSubscriptionCard(profiles, map));
-        });
-    };
     const current = uci.get('meowx', 'config', 'profile') || '';
     const subscriptions = uci.sections('meowx', 'subscription');
     const head = E('div', { class: 'mx-subcard__head' }, [E('span', { class: 'mx-subcard__label' }, _('Subscription'))]);
@@ -100,7 +93,41 @@ function renderSubscriptionCard(profiles, map) {
             }
         }, item.title));
     }
-    menu.appendChild(E('a', { class: 'mx-menu__item mx-menu__link', href: L.url('admin/services/meowx/profile') }, _('Manage Subscriptions')));
+    const manage = E('a', { class: 'mx-menu__item mx-menu__link', href: '#profile' }, _('Manage Subscriptions'));
+    menu.appendChild(manage);
+    // 登录了主控：菜单第一次打开时取账户下的订阅，还没下载到本机的列在后面（「账户订阅 · 未下载」），点了先下载再切（同客户端）
+    let remoteLoaded = false;
+    const loadRemote = function () {
+        if (remoteLoaded || !status?.logged_in) {
+            return;
+        }
+        remoteLoaded = true;
+        const placeholder = E('div', { class: 'mx-menu__group' }, _('Account subscriptions…'));
+        menu.insertBefore(placeholder, manage);
+        meowx.panelSubscriptions().then(function (res) {
+            const pending = meowx.notDownloaded(res?.subscriptions ?? [], subscriptions.map((s) => s.url));
+            if (pending.length == 0) {
+                placeholder.remove();
+                return;
+            }
+            placeholder.textContent = _('Account subscriptions · not downloaded');
+            for (const sub of pending) {
+                menu.insertBefore(E('button', {
+                    type: 'button',
+                    class: 'mx-menu__item',
+                    role: 'menuitem',
+                    click: function () {
+                        menu.classList.remove('is-open');
+                        return meowx.busy(switcher, function () {
+                            return meowx.addSubscription(sub.url, sub.name).then(function (r) {
+                                return r?.section_id ? meowx.switchProfile('subscription:' + r.section_id) : null;
+                            }).then(reload);
+                        });
+                    }
+                }, sub.name), manage);
+            }
+        });
+    };
     const switcher = E('button', {
             type: 'button',
         class: 'mx-subcard__switch',
@@ -108,6 +135,7 @@ function renderSubscriptionCard(profiles, map) {
         click: function (ev) {
             ev.stopPropagation();
             menu.classList.toggle('is-open');
+            loadRemote();
         }
     }, current ? _('Switch Subscription') : _('Choose Subscription'));
     document.addEventListener('click', function (ev) {
@@ -145,7 +173,8 @@ return baseclass.extend({
             uci.load('meowx'),
             meowx.version(),
             meowx.status(),
-            meowx.listProfiles()
+            meowx.listProfiles(),
+            meowx.panelStatus()
         ]);
     },
     render: function (data) {
@@ -154,6 +183,7 @@ return baseclass.extend({
         const coreVersion = data[1].core ?? '';
         const running = data[2];
         const profiles = data[3];
+        const panelStatus = data[4];
 
         let m, s, o;
 
@@ -275,6 +305,16 @@ return baseclass.extend({
         o = s.taboption('environment_variable', form.Flag, 'env_skip_system_ipv6_check', _('Skip System IPv6 Check'));
         o.rmempty = false;
 
-        return meowx.decorate(m.render(), { hero: [hero, renderSubscriptionCard(profiles, m)] });
+        // 账户卡与订阅卡：登录 / 退出 / 刷新 / 切换之后，表单按新的 uci 原地重画（「选择配置文件」跟着变，不会把旧值写回去），
+        // 两张卡换新的。不整页刷新——那样会白屏一下、进场动画重播
+        const cards = E('div', { class: 'mx-cards' });
+        const drawCards = function (status) {
+            cards.replaceChildren(meowx.renderAccountCard(status, refresh), renderSubscriptionCard(profiles, status, refresh));
+        };
+        const refresh = function () {
+            return meowx.reloadMap(m).then(() => meowx.panelStatus()).then(drawCards);
+        };
+        drawCards(panelStatus);
+        return meowx.decorate(m.render(), { hero: [hero, cards] });
     }
 });
