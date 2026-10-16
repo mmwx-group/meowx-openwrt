@@ -9,6 +9,9 @@ PROG="/usr/bin/meowx-core"
 . "$IPKG_INSTROOT/etc/meowx/scripts/include.sh"
 
 extra_command 'update_subscription' 'Update subscription by section id'
+extra_command 'refresh_subscription' 'Update subscription by section id, reload if it is the active profile'
+extra_command 'switch_profile' 'Switch to profile (file:<name> / subscription:<section>) and reload'
+extra_command 'auto_update' 'Refresh the active subscription if it is older than the auto update interval'
 extra_command 'clear_logs' 'Clear logs if size exceeds the limit'
 
 boot_func() {
@@ -292,6 +295,12 @@ start_service() {
 		log "App" "Set scheduled restart."
 		echo "$scheduled_restart_cron /etc/init.d/meowx restart #meowx scheduled restart" >> "/etc/crontabs/root"
 	fi
+	## add subscription auto update cron（与客户端一致：当前订阅超过间隔才刷新，每小时看一次）
+	local auto_update_interval; config_get auto_update_interval "config" "auto_update_interval" "24"
+	if [ "$auto_update_interval" -gt 0 ] 2>/dev/null; then
+		log "App" "Set subscription auto update cron."
+		echo "17 * * * * /etc/init.d/meowx auto_update #meowx subscription auto update" >> "/etc/crontabs/root"
+	fi
 	## add log scheduled clear cron if needed
 	if [ "$log_scheduled_clear" = 1 ] && [ -n "$log_scheduled_clear_cron" ]; then
 		log "App" "Set log scheduled clear."
@@ -562,6 +571,8 @@ update_subscription() {
 	if [ -z "$subscription_section" ]; then
 		return
 	fi
+	# 服务还没启动过时这些目录都不存在（启动时才建），在界面里先添加、刷新订阅会写不进去
+	mkdir -p "$LOG_DIR" "$TEMP_DIR" "$SUBSCRIPTIONS_DIR"
 	# load config
 	config_load meowx
 	# get subscription config
@@ -630,6 +641,10 @@ update_subscription() {
 					subscription_avaliable=$((subscription_total - subscription_used))
 				fi
 			fi
+			# 原始值（界面画用量条、算到期天数用）
+			uci_set "meowx" "$subscription_section" "used_bytes" "${subscription_used:-}"
+			uci_set "meowx" "$subscription_section" "total_bytes" "${subscription_total:-}"
+			uci_set "meowx" "$subscription_section" "expire_ts" "${subscription_expire:-}"
 			# update subscription info
 			if [ -n "$subscription_expire" ]; then
 				uci_set "meowx" "$subscription_section" "expire" "$(date "+%Y-%m-%d %H:%M:%S" -d "@$subscription_expire")"
@@ -651,7 +666,19 @@ update_subscription() {
 			fi
 		fi
 		uci_set "meowx" "$subscription_section" "update" "$(date "+%Y-%m-%d %H:%M:%S")"
+		uci_set "meowx" "$subscription_section" "update_ts" "$(date +%s)"
 		uci_set "meowx" "$subscription_section" "success" "1"
+		# 订阅名跟着主控 / 机场给的 profile-title 走（可能是 base64:…），同客户端；建议刷新间隔记下来给界面看
+		local subscription_title subscription_interval
+		subscription_title=$(grep -i "^profile-title:" "$subscription_header_tmpfile" | tail -n 1 | cut -d ':' -f 2- | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+		case "$subscription_title" in
+			base64:*) subscription_title=$(printf '%s' "${subscription_title#base64:}" | ucode -l fs -e 'print(b64dec(trim(fs.stdin.read("all"))) ?? "")' 2>/dev/null) ;;
+		esac
+		if [ -n "$subscription_title" ]; then
+			uci_set "meowx" "$subscription_section" "name" "$subscription_title"
+		fi
+		subscription_interval=$(grep -i "^profile-update-interval:" "$subscription_header_tmpfile" | tail -n 1 | grep -o -E "[[:digit:]]+" | head -n 1)
+		uci_set "meowx" "$subscription_section" "update_interval" "${subscription_interval:-}"
 		# update subscription file
 		rm -f "$subscription_info_header_tmpfile"
 		rm -f "$subscription_header_tmpfile"
@@ -666,4 +693,51 @@ update_subscription() {
 		rm -f "$subscription_tmpfile"
 	fi
 	uci_commit "meowx"
+}
+
+# 刷新订阅；它正是当前在用的配置、服务又在跑时重载（客户端刷新当前订阅后立刻生效，同此）
+refresh_subscription() {
+	local subscription_section; subscription_section="$1"
+	[ -z "$subscription_section" ] && return 1
+	update_subscription "$subscription_section"
+	config_load meowx
+	local profile success; config_get profile "config" "profile"; config_get success "$subscription_section" "success" "0"
+	if [ "$success" = 1 ] && [ "$profile" = "subscription:$subscription_section" ] && service_running_meowx; then
+		log "Profile" "Active subscription updated, reload."
+		reload
+	fi
+}
+
+# 切换在用的配置（file:<文件名> / subscription:<section>）。启用中就重启生效；没启用的话顺手启用，同客户端「选了订阅就连上」
+switch_profile() {
+	local profile; profile="$1"
+	case "$profile" in
+		file:*|subscription:*) ;;
+		*) return 1 ;;
+	esac
+	uci_set "meowx" "config" "profile" "$profile"
+	uci_set "meowx" "config" "enabled" "1"
+	uci_commit "meowx"
+	log "Profile" "Switch to: $profile."
+	restart
+}
+
+# 每小时由 cron 调一次：当前订阅距上次更新超过 auto_update_interval 小时（缺省 24，0 关闭）就刷新
+auto_update() {
+	config_load meowx
+	local profile interval last now
+	config_get profile "config" "profile"
+	config_get interval "config" "auto_update_interval" "24"
+	case "$profile" in subscription:*) ;; *) return 0 ;; esac
+	[ "$interval" -gt 0 ] 2>/dev/null || return 0
+	config_get last "${profile#subscription:}" "update_ts" "0"
+	now=$(date +%s)
+	if [ $((now - last)) -ge $((interval * 3600)) ]; then
+		log "Profile" "Auto update active subscription."
+		refresh_subscription "${profile#subscription:}"
+	fi
+}
+
+service_running_meowx() {
+	ubus call service list '{"name":"meowx"}' 2>/dev/null | grep -q '"running": true'
 }

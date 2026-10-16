@@ -3,6 +3,7 @@
 'use strict';
 
 import { access, popen, writefile } from 'fs';
+import { cursor } from 'uci';
 import { get_users, get_groups, get_cgroups, load_profile } from '/etc/meowx/ucode/include.uc';
 
 const methods = {
@@ -60,6 +61,52 @@ const methods = {
 				success = system(['service', 'meowx', 'update_subscription', section_id]) == 0;
 			}
 			return { success: success };
+		}
+	},
+	// 同客户端：刷新后若正是在用的订阅、服务又在跑，立刻重载生效
+	refresh_subscription: {
+		args: { section_id: 'section_id' },
+		call: function(req) {
+			const section_id = req.args?.section_id;
+			if (!match(section_id ?? '', /^[A-Za-z0-9_]+$/)) {
+				return { success: false };
+			}
+			system(['service', 'meowx', 'refresh_subscription', section_id]);
+			return { success: cursor().get('meowx', section_id, 'success') == '1' };
+		}
+	},
+	// 切换在用的配置并重启（没启用就顺手启用）
+	switch_profile: {
+		args: { profile: 'profile' },
+		call: function(req) {
+			const profile = req.args?.profile ?? '';
+			if (!match(profile, /^(file:[^\/]+|subscription:[A-Za-z0-9_]+)$/)) {
+				return { success: false };
+			}
+			return { success: system(['service', 'meowx', 'switch_profile', profile]) == 0 };
+		}
+	},
+	// 只要一个链接就能加订阅：名字等下载后按 profile-title 自动填（同客户端），UA 用官方客户端那份
+	add_subscription: {
+		args: { url: 'url', name: 'name' },
+		call: function(req) {
+			const url = trim(req.args?.url ?? '');
+			if (!match(url, /^https?:\/\/[^[:space:]]+$/)) {
+				return { success: false, error: 'invalid url' };
+			}
+			const uci = cursor();
+			uci.load('meowx');
+			const section_id = uci.add('meowx', 'subscription');
+			uci.set('meowx', section_id, 'url', url);
+			uci.set('meowx', section_id, 'user_agent', 'meowx');
+			uci.set('meowx', section_id, 'prefer', 'remote');
+			const name = trim(req.args?.name ?? '');
+			if (name != '') {
+				uci.set('meowx', section_id, 'name', name);
+			}
+			uci.commit('meowx');
+			system(['service', 'meowx', 'update_subscription', section_id]);
+			return { success: cursor().get('meowx', section_id, 'success') == '1', section_id: section_id };
 		}
 	},
 	api: {

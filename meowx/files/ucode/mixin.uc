@@ -190,6 +190,36 @@ if (uci_bool(uci.get('meowx', 'mixin', 'rule'))) {
 	})
 }
 
+// 主控订阅域名直连（同客户端的 PanelDirect）：订阅地址形如主控的订阅接口时，那个主机一律直连、排在全部规则最前，
+// 否则代理开着时刷新订阅会按订阅规则走到连不上主控的节点上超时。别家机场的订阅不算。只在规则模式下生效。
+const panel_paths = [ '/api/clash/subscribe', '/api/user/package-subscribe', '/api/subscribe' ];
+const panel_rules = [];
+uci.foreach('meowx', 'subscription', (section) => {
+	const m = match(section.url ?? '', /^[A-Za-z][A-Za-z0-9+.-]*:\/\/(\[[^\]]+\]|[^\/:?#]+)(:[0-9]+)?([^?#]*)/);
+	if (!m) {
+		return;
+	}
+	const host = lc(trim(m[1], '[]'));
+	const path = m[3] || '/';
+	if (!(substr(path, 0, 3) == '/x/' || index(panel_paths, rtrim(path, '/')) >= 0)) {
+		return;
+	}
+	let rule;
+	if (match(host, /^[0-9.]+$/)) {
+		rule = `IP-CIDR,${host}/32,DIRECT,no-resolve`;
+	} else if (index(host, ':') >= 0) {
+		rule = `IP-CIDR6,${host}/128,DIRECT,no-resolve`;
+	} else {
+		rule = `DOMAIN,${host},DIRECT`;
+	}
+	if (index(panel_rules, rule) < 0) {
+		push(panel_rules, rule);
+	}
+});
+if (length(panel_rules) > 0) {
+	config['meowx-rules'] = [ ...panel_rules, ...(config['meowx-rules'] ?? []) ];
+}
+
 const geoip_format = uci.get('meowx', 'mixin', 'geoip_format');
 config['geodata-mode'] = geoip_format == null ? null : geoip_format == 'dat';
 config['geodata-loader'] = uci.get('meowx', 'mixin', 'geodata_loader');

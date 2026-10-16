@@ -1122,3 +1122,69 @@ msgstr ""
 #: applications/luci-app-meowx/htdocs/luci-static/resources/view/meowx/profile.js:77
 msgid "MeowX (official client)"
 msgstr ""
+
+msgid "just now"
+msgstr ""
+
+msgid "%d min ago"
+msgstr ""
+
+msgid "%d h ago"
+msgstr ""
+
+msgid "%d days ago"
+msgstr ""
+
+msgid "Remaining %s"
+msgstr ""
+
+msgid "Expired"
+msgstr ""
+
+msgid "Expires in %d days"
+msgstr ""
+
+msgid "Update failed"
+msgstr ""
+
+msgid "Updated %s"
+msgstr ""
+
+msgid "Never updated"
+msgstr ""
+
+msgid "Paste subscription link"
+msgstr ""
+
+msgid "Add Subscription"
+msgstr ""
+
+msgid "Subscription added, but the download failed. Check the link and update it again."
+msgstr ""
+
+msgid "No subscription yet"
+msgstr ""
+
+msgid "Local Files"
+msgstr ""
+
+msgid "Manage Subscriptions"
+msgstr ""
+
+msgid "Switch Subscription"
+msgstr ""
+
+msgid "Choose Subscription"
+msgstr ""
+
+msgid "No profile selected"
+msgstr ""
+
+msgid "In Use"
+msgstr ""
+
+msgid "Use"
+msgstr ""
+
+msgid "Name is taken from the subscription automatically"
+msgstr ""

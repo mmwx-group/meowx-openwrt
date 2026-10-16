@@ -1129,3 +1129,69 @@ msgstr "procd 設定"
 #: applications/luci-app-meowx/htdocs/luci-static/resources/view/meowx/profile.js:77
 msgid "MeowX (official client)"
 msgstr "MeowX（官方客戶端）"
+
+msgid "just now"
+msgstr "剛剛"
+
+msgid "%d min ago"
+msgstr "%d 分鐘前"
+
+msgid "%d h ago"
+msgstr "%d 小時前"
+
+msgid "%d days ago"
+msgstr "%d 天前"
+
+msgid "Remaining %s"
+msgstr "剩餘 %s"
+
+msgid "Expired"
+msgstr "已過期"
+
+msgid "Expires in %d days"
+msgstr "%d 天後到期"
+
+msgid "Update failed"
+msgstr "更新失敗"
+
+msgid "Updated %s"
+msgstr "更新於 %s"
+
+msgid "Never updated"
+msgstr "未更新"
+
+msgid "Paste subscription link"
+msgstr "貼上訂閱連結"
+
+msgid "Add Subscription"
+msgstr "新增訂閱"
+
+msgid "Subscription added, but the download failed. Check the link and update it again."
+msgstr "訂閱已新增，但下載失敗。請檢查連結後再更新一次。"
+
+msgid "No subscription yet"
+msgstr "還沒有訂閱"
+
+msgid "Local Files"
+msgstr "本機檔案"
+
+msgid "Manage Subscriptions"
+msgstr "管理訂閱"
+
+msgid "Switch Subscription"
+msgstr "切換訂閱"
+
+msgid "Choose Subscription"
+msgstr "選擇訂閱"
+
+msgid "No profile selected"
+msgstr "還沒有選擇設定"
+
+msgid "In Use"
+msgstr "使用中"
+
+msgid "Use"
+msgstr "使用"
+
+msgid "Name is taken from the subscription automatically"
+msgstr "留空則自動使用訂閱提供的名稱"

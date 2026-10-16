@@ -21,6 +21,7 @@ function renderHero(appVersion, coreVersion, running) {
     }
     const action = function (title, handler, primary) {
         return E('button', {
+            type: 'button',
             class: 'cbi-button' + (primary ? ' mx-primary' : ''),
             click: function (ev) {
                 return meowx.busy(ev.currentTarget, handler);
@@ -42,6 +43,94 @@ function renderHero(appVersion, coreVersion, running) {
         ])
     ]);
     return updateHero(hero, running);
+}
+
+// 首页订阅卡（同 iOS 首页订阅条）：当前订阅名 + 用量 + 到期，点「更新于…」直接刷新；「切换订阅」弹出菜单，
+// 选了就切过去并重启生效；还没有订阅时直接给「粘贴链接添加」。
+function renderSubscriptionCard(profiles) {
+    const card = E('div', { class: 'mx-subcard' });
+    // 刷新订阅之后原地重画（名字、用量、更新时间会变）
+    const reload = function () {
+        uci.unload('meowx');
+        return uci.load('meowx').then(function () {
+            card.replaceWith(renderSubscriptionCard(profiles));
+        });
+    };
+    const current = uci.get('meowx', 'config', 'profile') || '';
+    const subscriptions = uci.sections('meowx', 'subscription');
+    const head = E('div', { class: 'mx-subcard__head' }, [E('span', { class: 'mx-subcard__label' }, _('Subscription'))]);
+    card.appendChild(head);
+
+    if (subscriptions.length == 0 && profiles.length == 0) {
+        card.appendChild(E('div', { class: 'mx-subcard__empty' }, _('No subscription yet')));
+        card.appendChild(meowx.renderQuickAdd(function (section_id) {
+            return section_id ? meowx.switchProfile('subscription:' + section_id).then(function () { location.reload(); }) : reload();
+        }));
+        return card;
+    }
+
+    // 切换菜单：本机订阅在前、上传的配置文件在后（客户端是本机订阅在前、账户下未下载的在后）
+    const items = [];
+    for (const sub of subscriptions) {
+        items.push({ value: 'subscription:' + sub['.name'], title: meowx.subscriptionName(sub), group: _('Subscription') });
+    }
+    for (const file of profiles) {
+        items.push({ value: 'file:' + file.name, title: file.name, group: _('Local Files') });
+    }
+    const menu = E('div', { class: 'mx-menu', role: 'menu' });
+    let lastGroup = null;
+    for (const item of items) {
+        if (item.group != lastGroup) {
+            menu.appendChild(E('div', { class: 'mx-menu__group' }, item.group));
+            lastGroup = item.group;
+        }
+        menu.appendChild(E('button', {
+            type: 'button',
+            class: 'mx-menu__item' + (item.value == current ? ' is-current' : ''),
+            role: 'menuitemradio',
+            'aria-checked': item.value == current ? 'true' : 'false',
+            click: function (ev) {
+                menu.classList.remove('is-open');
+                if (item.value == current) {
+                    return;
+                }
+                // 切完整页刷新：下面表单里的「选择配置文件」还是旧值，不刷新的话点「保存并应用」会把它写回去
+                return meowx.busy(switcher, function () {
+                    return meowx.switchProfile(item.value).then(function () { location.reload(); });
+                });
+            }
+        }, item.title));
+    }
+    menu.appendChild(E('a', { class: 'mx-menu__item mx-menu__link', href: L.url('admin/services/meowx/profile') }, _('Manage Subscriptions')));
+    const switcher = E('button', {
+            type: 'button',
+        class: 'mx-subcard__switch',
+        'aria-haspopup': 'menu',
+        click: function (ev) {
+            ev.stopPropagation();
+            menu.classList.toggle('is-open');
+        }
+    }, current ? _('Switch Subscription') : _('Choose Subscription'));
+    document.addEventListener('click', function (ev) {
+        if (!menu.contains(ev.target)) {
+            menu.classList.remove('is-open');
+        }
+    });
+    head.appendChild(E('div', { class: 'mx-subcard__switch-wrap' }, [switcher, menu]));
+
+    const active = current.startsWith('subscription:') ? uci.get('meowx', current.slice(13)) : null;
+    if (active) {
+        card.appendChild(E('div', { class: 'mx-subcard__name' }, meowx.subscriptionName(active)));
+        card.appendChild(meowx.renderUsage(active, function () {
+            return meowx.refreshSubscription(active['.name']).then(reload);
+        }));
+    } else if (current.startsWith('file:')) {
+        card.appendChild(E('div', { class: 'mx-subcard__name' }, current.slice(5)));
+        card.appendChild(E('div', { class: 'mx-subcard__hint' }, _('Local Files')));
+    } else {
+        card.appendChild(E('div', { class: 'mx-subcard__empty' }, _('No profile selected')));
+    }
+    return card;
 }
 
 function updateHero(hero, running) {
@@ -186,6 +275,6 @@ return view.extend({
         o = s.taboption('environment_variable', form.Flag, 'env_skip_system_ipv6_check', _('Skip System IPv6 Check'));
         o.rmempty = false;
 
-        return meowx.decorate(m.render(), { hero: hero });
+        return meowx.decorate(m.render(), { hero: [hero, renderSubscriptionCard(profiles)] });
     }
 });
