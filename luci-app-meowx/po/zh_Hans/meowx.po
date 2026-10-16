@@ -1276,3 +1276,6 @@ msgstr "地址填 po0 服务器的 IP 或域名，可带端口，如 1.2.3.4 或
 
 msgid "Operation failed"
 msgstr "操作失败"
+
+msgid "Extras"
+msgstr "辅助功能"

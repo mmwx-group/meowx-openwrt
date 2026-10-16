@@ -1276,3 +1276,6 @@ msgstr "位址填 po0 伺服器的 IP 或網域，可帶連接埠，如 1.2.3.4 
 
 msgid "Operation failed"
 msgstr "操作失敗"
+
+msgid "Extras"
+msgstr "輔助功能"
