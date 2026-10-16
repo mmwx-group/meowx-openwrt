@@ -371,7 +371,11 @@ return baseclass.extend({
                 return null;
             }
             const query = new URLSearchParams(m[3] || '');
-            return { host: m[1].toLowerCase(), path: (m[2] || '/').replace(/\/+$/, '') || '/', filename: query.get('filename') || '' };
+            // 接口式地址的身份 = 主机 + 路径 + 除 token / t 以外的参数：主控关了短链接时几份套餐共用
+            // /api/user/package-subscribe 这一个路径，只靠 assignment_id / merged 区分
+            const ident = [...query.entries()].filter((e) => e[0] != 'token' && e[0] != 't').map((e) => e[0] + '=' + e[1]).sort().join('&');
+            const path = (m[2] || '/').replace(/\/+$/, '') || '/';
+            return { host: m[1].toLowerCase(), path: path, filename: query.get('filename') || '', api: m[1].toLowerCase() + path + '?' + ident };
         };
         const locals = localUrls.map(parse).filter(Boolean);
         return remote.filter(function (sub) {
@@ -379,8 +383,11 @@ return baseclass.extend({
             if (!r) {
                 return false;
             }
+            if (sub.path && r.path.startsWith('/x/')) {
+                return !locals.some((l) => l.path == r.path);
+            }
             if (sub.path) {
-                return !locals.some((l) => l.path == r.path && l.path != '/');
+                return !locals.some((l) => l.api == r.api);
             }
             return !locals.some((l) => l.host == r.host && l.filename && l.filename == r.filename);
         });

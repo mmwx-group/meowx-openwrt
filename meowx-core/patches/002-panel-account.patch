@@ -14,7 +14,7 @@
  	net.DefaultResolver.PreferGo = true
 --- /dev/null
 +++ b/core/Clash.Meta/meowx_panel.go
-@@ -0,0 +1,953 @@
+@@ -0,0 +1,965 @@
 +package main
 +
 +// MeowX OpenWrt 版的主控账户：用主控网页「扫码登录」弹窗里复制的登录链接登录（路由器没有扫码环境、也装不了客户端，
@@ -342,11 +342,23 @@
 +		if name == "" {
 +			name = filename
 +		}
++		// subscription_path 只有是短链（/x/{code}）时才自带凭证；主控关掉短链接（或这份订阅没有短码）时给的是
++		// /api/clash/subscribe?filename=…、/api/user/package-subscribe?assignment_id=… / ?merged=1，要补 token=<订阅令牌>
++		// （主控网页 buildSubscriptionURL 同样这么拼）。不补的话主控按令牌无效回「订阅已过期」的占位配置（同客户端的修复）
 +		link := ""
 +		if path != "" {
 +			if u, err := url.Parse(st.Base); err == nil {
 +				if p, err := url.Parse(path); err == nil {
-+					link = u.ResolveReference(p).String()
++					full := u.ResolveReference(p)
++					q := full.Query()
++					if !strings.HasPrefix(full.Path, "/x/") && q.Get("token") == "" {
++						if subToken == "" {
++							continue
++						}
++						q.Set("token", subToken)
++						full.RawQuery = q.Encode()
++					}
++					link = full.String()
 +				}
 +			}
 +		} else if subToken != "" && filename != "" {
