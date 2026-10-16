@@ -1,6 +1,8 @@
 /*
  * MeowX 页面主题：与 iOS / macOS / Android 客户端同一套设计语言（App/Shared/Theme.swift 的 MM token）。
  * 只在 MeowX 的页面由 tools/meowx.js 的 decorate() 注入，作用范围是内容区（#view.mx-view 与地图 .mx），
+ * 选择器一律以 #view#view 开头：两个 id 的优先级压过主题（argon / material / bootstrap…）的类选择器；
+ * 主题自己用 !important 钉住的几样（勾选框尺寸与对勾背景图、按钮文字颜色等）在文末「主题兼容」里同样用 !important 压回。
  * 不碰主题第一帧就画好的部分（页面底色、顶部页签），否则每次切页签都会先按主题画、再变样子，闪一下。
  * 深色跟随主题给 <html> 标的 data-darkmode（bootstrap）；没有这个标记的主题由 decorate() 按底色亮度加 .mx-dark。
  */
@@ -52,7 +54,7 @@ body.mx-dark {
 
 /* ---------- 画布 ---------- */
 
-.mx {
+#view#view .mx {
     color: var(--mx-t1);
     font-family: ui-rounded, "SF Pro Rounded", system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
     -webkit-font-smoothing: antialiased;
@@ -60,7 +62,7 @@ body.mx-dark {
 
 /* 内容区做成一块奶白画布（同客户端的页面底），卡片放在上面。页面底色与顶部页签属于主题、第一帧就画好了，
    插件没法在 <head> 里先放样式（LuCI 24.10 页头的 node.css 是旧版遗留、ucode 分发器不传），改它们就会切页闪一下 */
-#view.mx-view {
+#view#view.mx-view {
     background: var(--mx-bg);
     border-radius: 28px;
     padding: 18px;
@@ -68,20 +70,20 @@ body.mx-dark {
 }
 
 @media (max-width: 640px) {
-    #view.mx-view {
+    #view#view.mx-view {
         border-radius: 22px;
         padding: 12px;
     }
 }
 
 /* 页尾「保存并应用 / 保存 / 复位」 */
-.cbi-page-actions {
+#view#view .cbi-page-actions {
     background: transparent;
     border: 0;
     padding: 4px 0 12px;
 }
 
-.cbi-page-actions .cbi-button {
+#view#view .cbi-page-actions .cbi-button {
     border-radius: 999px;
     border: 1px solid transparent;
     font-weight: 650;
@@ -91,35 +93,35 @@ body.mx-dark {
     transition: transform var(--mx-press) var(--mx-ease-snappy);
 }
 
-.cbi-page-actions .cbi-button:active {
+#view#view .cbi-page-actions .cbi-button:active {
     transform: scale(.96);
 }
 
-.cbi-page-actions .cbi-button-apply,
-.cbi-page-actions .cbi-button-save {
+#view#view .cbi-page-actions .cbi-button-apply,
+#view#view .cbi-page-actions .cbi-button-save {
     background: var(--mx-strong);
     color: var(--mx-on-strong);
 }
 
-.cbi-page-actions .cbi-button-save {
+#view#view .cbi-page-actions .cbi-button-save {
     background: var(--mx-elev);
     color: var(--mx-t1);
     border-color: var(--mx-stroke);
 }
 
-.cbi-page-actions .cbi-button-reset {
+#view#view .cbi-page-actions .cbi-button-reset {
     background: transparent;
     color: var(--mx-t2);
     border-color: var(--mx-stroke);
 }
 
 /* 首页有主卡时，地图自带的标题与说明就重复了 */
-.mx.mx-has-hero > h2,
-.mx.mx-has-hero > .cbi-map-descr {
+#view#view .mx.mx-has-hero > h2,
+#view#view .mx.mx-has-hero > .cbi-map-descr {
     display: none;
 }
 
-.mx > h2 {
+#view#view .mx > h2 {
     font-size: 26px;
     font-weight: 800;
     letter-spacing: -.01em;
@@ -128,14 +130,14 @@ body.mx-dark {
     border: 0;
 }
 
-.mx > .cbi-map-descr {
+#view#view .mx > .cbi-map-descr {
     color: var(--mx-t2);
     margin-bottom: 18px;
 }
 
 /* ---------- 卡片：页面只有一种容器 ---------- */
 
-.mx .cbi-section {
+#view#view .mx .cbi-section {
     background: var(--mx-elev);
     border: 1px solid var(--mx-stroke);
     border-radius: var(--mx-r-card);
@@ -144,8 +146,8 @@ body.mx-dark {
     margin: 0 0 16px;
 }
 
-.mx .cbi-section > h3,
-.mx .cbi-section > legend {
+#view#view .mx .cbi-section > h3,
+#view#view .mx .cbi-section > legend {
     font-size: 17px;
     font-weight: 750;
     color: var(--mx-t1);
@@ -154,11 +156,11 @@ body.mx-dark {
     padding: 0;
 }
 
-.mx .cbi-section-descr {
+#view#view .mx .cbi-section-descr {
     color: var(--mx-t2);
 }
 
-.mx .cbi-value {
+#view#view .mx .cbi-value {
     border: 0;
     border-radius: var(--mx-r-cell);
     padding: 10px 12px;
@@ -166,62 +168,66 @@ body.mx-dark {
     transition: background-color var(--mx-content) ease-out;
 }
 
-.mx .cbi-value:hover {
+#view#view .mx .cbi-value:hover {
     background: var(--mx-elev2);
 }
 
-.mx .cbi-value-title {
+#view#view .mx .cbi-value-title {
     color: var(--mx-t1);
     font-weight: 600;
 }
 
-.mx .cbi-value-description {
+#view#view .mx .cbi-value-description {
     color: var(--mx-t2);
 }
 
 /* 表格节（订阅列表、访问控制等） */
-.mx .table,
-.mx .cbi-section-table {
+#view#view .mx .table,
+#view#view .mx .cbi-section-table {
     border: 0;
     border-collapse: separate;
     border-spacing: 0 6px;
 }
 
-.mx .cbi-section-table .tr,
-.mx .table .tr {
+#view#view .mx .cbi-section-table .tr,
+#view#view .mx .table .tr {
     background: transparent;
 }
 
-.mx .cbi-section-table .th,
-.mx .table .th {
+#view#view .mx .cbi-section-table .th,
+#view#view .mx .table .th {
     color: var(--mx-t2);
     font-weight: 600;
     border: 0;
     background: transparent;
 }
 
-.mx .cbi-section-table .cbi-section-table-row .td {
+#view#view .mx .cbi-section-table .cbi-section-table-row .td {
     background: var(--mx-elev2);
     border: 0;
 }
 
-.mx .cbi-section-table .cbi-section-table-row .td:first-child {
+#view#view .mx .cbi-section-table .cbi-section-table-row .td:first-child {
     border-radius: var(--mx-r-cell) 0 0 var(--mx-r-cell);
 }
 
-.mx .cbi-section-table .cbi-section-table-row .td:last-child {
+#view#view .mx .cbi-section-table .cbi-section-table-row .td:last-child {
     border-radius: 0 var(--mx-r-cell) var(--mx-r-cell) 0;
 }
 
 /* ---------- 输入 ---------- */
 
-.mx input[type="text"],
-.mx input[type="password"],
-.mx input[type="number"],
-.mx input:not([type]),
-.mx select,
-.mx textarea,
-.mx .cbi-dropdown {
+#view#view .mx input[type="text"],
+#view#view .mx input[type="password"],
+#view#view .mx input[type="number"],
+#view#view .mx input[type="url"],
+#view#view .mx input[type="search"],
+#view#view .mx input[type="email"],
+#view#view .mx input[type="tel"],
+#view#view .mx input:not([type]),
+#view#view .mx select,
+#view#view .mx textarea,
+#view#view .mx .cbi-dropdown {
     background: var(--mx-elev2);
     color: var(--mx-t1);
     border: 1px solid transparent;
@@ -230,35 +236,35 @@ body.mx-dark {
     transition: border-color var(--mx-content) ease-out, box-shadow var(--mx-content) ease-out;
 }
 
-.mx input:focus,
-.mx select:focus,
-.mx textarea:focus,
-.mx .cbi-dropdown:focus,
-.mx .cbi-dropdown[open] {
+#view#view .mx input:focus,
+#view#view .mx select:focus,
+#view#view .mx textarea:focus,
+#view#view .mx .cbi-dropdown:focus,
+#view#view .mx .cbi-dropdown[open] {
     outline: none;
     border-color: var(--mx-rose);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--mx-rose) 18%, transparent);
 }
 
-.mx .cbi-dropdown[open] > ul.dropdown {
+#view#view .mx .cbi-dropdown[open] > ul.dropdown {
     background: var(--mx-elev);
     border: 1px solid var(--mx-stroke);
     border-radius: var(--mx-r-cell);
     animation: mx-pop var(--mx-toggle) var(--mx-soft-spring);
 }
 
-.mx .cbi-dropdown > ul > li[selected],
-.mx .cbi-dropdown[open] > ul.dropdown > li.focus {
+#view#view .mx .cbi-dropdown > ul > li[selected],
+#view#view .mx .cbi-dropdown[open] > ul.dropdown > li.focus {
     background: var(--mx-soft);
     color: var(--mx-t1);
 }
 
-.mx textarea {
+#view#view .mx textarea {
     font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 
 /* 勾选框 → 开关（客户端的 Toggle：开 = 樱粉、关 = 次级底） */
-.mx input[type="checkbox"] {
+#view#view .mx input[type="checkbox"] {
     -webkit-appearance: none;
     appearance: none;
     position: relative;
@@ -274,12 +280,12 @@ body.mx-dark {
 }
 
 /* 主题（bootstrap 等）用 ::before 画勾选框与对勾，开关不要它 */
-.mx input[type="checkbox"]::before {
+#view#view .mx input[type="checkbox"]::before {
     content: none;
     display: none;
 }
 
-.mx input[type="checkbox"]::after {
+#view#view .mx input[type="checkbox"]::after {
     content: "";
     position: absolute;
     top: 3px;
@@ -295,31 +301,31 @@ body.mx-dark {
     transition: transform var(--mx-toggle) var(--mx-bouncy);
 }
 
-.mx input[type="checkbox"]:checked {
+#view#view .mx input[type="checkbox"]:checked {
     background: var(--mx-pink);
 }
 
-.mx input[type="checkbox"]:checked::after {
+#view#view .mx input[type="checkbox"]:checked::after {
     transform: translateX(18px);
 }
 
-.mx input[type="checkbox"]:focus-visible {
+#view#view .mx input[type="checkbox"]:focus-visible {
     outline: 2px solid var(--mx-rose);
     outline-offset: 2px;
 }
 
 /* bootstrap 主题用 label 画假勾选框：开关自己画了，藏掉它 */
-.mx .cbi-checkbox > input[type="checkbox"] + label {
+#view#view .mx .cbi-checkbox > input[type="checkbox"] + label {
     display: none;
 }
 
 /* ---------- 按钮 ---------- */
 
-.mx .btn,
-.mx .cbi-button,
-.mx button,
-.mx input[type="button"],
-.mx input[type="submit"] {
+#view#view .mx .btn,
+#view#view .mx .cbi-button,
+#view#view .mx button,
+#view#view .mx input[type="button"],
+#view#view .mx input[type="submit"] {
     border-radius: 999px;
     border: 1px solid transparent;
     background: var(--mx-elev2);
@@ -334,43 +340,43 @@ body.mx-dark {
     transition: transform var(--mx-press) var(--mx-ease-snappy), background-color var(--mx-content) ease-out, opacity var(--mx-content) ease-out;
 }
 
-.mx .btn:hover,
-.mx .cbi-button:hover {
+#view#view .mx .btn:hover,
+#view#view .mx .cbi-button:hover {
     filter: brightness(.97);
 }
 
-.mx .btn:active,
-.mx .cbi-button:active,
-.mx button:active {
+#view#view .mx .btn:active,
+#view#view .mx .cbi-button:active,
+#view#view .mx button:active {
     transform: scale(.96);
 }
 
 /* 主要动作 = 摩卡实心（客户端的 MM.strong） */
-.mx .cbi-button-action,
-.mx .cbi-button-apply,
-.mx .cbi-button-save,
-.mx .cbi-button-positive,
-.mx .cbi-button-add {
+#view#view .mx .cbi-button-action,
+#view#view .mx .cbi-button-apply,
+#view#view .mx .cbi-button-save,
+#view#view .mx .cbi-button-positive,
+#view#view .mx .cbi-button-add {
     background: var(--mx-strong);
     color: var(--mx-on-strong);
 }
 
-.mx .cbi-button-negative,
-.mx .cbi-button-remove,
-.mx .cbi-button-reset {
+#view#view .mx .cbi-button-negative,
+#view#view .mx .cbi-button-remove,
+#view#view .mx .cbi-button-reset {
     background: transparent;
     color: var(--mx-slow);
     border-color: color-mix(in srgb, var(--mx-slow) 35%, transparent);
 }
 
-.mx .cbi-button-edit {
+#view#view .mx .cbi-button-edit {
     background: var(--mx-soft);
     color: var(--mx-rose);
 }
 
 /* ---------- 选项卡 → 分段控件 ---------- */
 
-.mx .cbi-tabmenu {
+#view#view .mx .cbi-tabmenu {
     display: inline-flex;
     flex-wrap: nowrap;
     max-width: 100%;
@@ -385,7 +391,7 @@ body.mx-dark {
     background: var(--mx-elev2);
 }
 
-.mx .cbi-tabmenu > li {
+#view#view .mx .cbi-tabmenu > li {
     flex: none;
     margin: 0;
     border: 0;
@@ -394,7 +400,7 @@ body.mx-dark {
     transition: background-color var(--mx-toggle) var(--mx-ease-snappy);
 }
 
-.mx .cbi-tabmenu > li > a {
+#view#view .mx .cbi-tabmenu > li > a {
     display: block;
     padding: 6px 14px;
     white-space: nowrap;
@@ -406,25 +412,25 @@ body.mx-dark {
     text-decoration: none;
 }
 
-.mx .cbi-tabmenu > li.cbi-tab {
+#view#view .mx .cbi-tabmenu > li.cbi-tab {
     background: var(--mx-strong);
 }
 
-.mx .cbi-tabmenu > li.cbi-tab > a {
+#view#view .mx .cbi-tabmenu > li.cbi-tab > a {
     color: var(--mx-on-strong);
 }
 
-.mx [data-tab-active="true"] {
+#view#view .mx [data-tab-active="true"] {
     animation: mx-fade var(--mx-content) ease-out;
 }
 
 /* ---------- 页内页签（main.js）：同客户端分段控件，选中块弹簧滑动；切页内容左右平推 ---------- */
 
-.mx-shell {
+#view#view .mx-shell {
     font-family: ui-rounded, "SF Pro Rounded", system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
 }
 
-.mx-tabs {
+#view#view .mx-tabs {
     position: relative;
     display: inline-flex;
     flex-wrap: nowrap;
@@ -439,11 +445,11 @@ body.mx-dark {
     box-shadow: inset 0 0 0 1px var(--mx-stroke);
 }
 
-.mx-tabs::-webkit-scrollbar {
+#view#view .mx-tabs::-webkit-scrollbar {
     display: none;
 }
 
-.mx-tabs__thumb {
+#view#view .mx-tabs__thumb {
     position: absolute;
     top: 4px;
     bottom: 4px;
@@ -454,11 +460,11 @@ body.mx-dark {
     transition: transform .39s var(--mx-bouncy), width .39s var(--mx-bouncy);
 }
 
-.mx-tabs__thumb.no-anim {
+#view#view .mx-tabs__thumb.no-anim {
     transition: none;
 }
 
-.mx-shell .mx-tabs__item {
+#view#view .mx-shell .mx-tabs__item {
     position: relative;
     z-index: 1;
     flex: none;
@@ -475,44 +481,44 @@ body.mx-dark {
     transition: color var(--mx-toggle) ease-out, transform var(--mx-press) var(--mx-ease-snappy);
 }
 
-.mx-shell .mx-tabs__item:hover {
+#view#view .mx-shell .mx-tabs__item:hover {
     color: var(--mx-t1);
 }
 
-.mx-shell .mx-tabs__item:active {
+#view#view .mx-shell .mx-tabs__item:active {
     transform: scale(.96);
 }
 
-.mx-shell .mx-tabs__item.is-active {
+#view#view .mx-shell .mx-tabs__item.is-active {
     color: var(--mx-on-strong);
 }
 
-.mx-stage {
+#view#view .mx-stage {
     position: relative;
 }
 
-.mx-pane[hidden] {
+#view#view .mx-pane[hidden] {
     display: none;
 }
 
-.mx-pane__error {
+#view#view .mx-pane__error {
     padding: 32px 16px;
     text-align: center;
     color: var(--mx-t2);
 }
 
-.mx-pane > .spinning {
+#view#view .mx-pane > .spinning {
     padding: 40px 0;
     text-align: center;
     color: var(--mx-t2);
 }
 
 /* 新页整页推入（同 iOS 切 Tab 的平推），不调透明度 */
-.mx-pane--from-right {
+#view#view .mx-pane--from-right {
     animation: mx-push-right .38s var(--mx-soft-spring);
 }
 
-.mx-pane--from-left {
+#view#view .mx-pane--from-left {
     animation: mx-push-left .38s var(--mx-soft-spring);
 }
 
@@ -542,12 +548,12 @@ body.mx-dark {
 
 /* ---------- 首页主卡 ---------- */
 
-.mx-head {
+#view#view .mx-head {
     display: contents;
 }
 
 
-.mx-hero {
+#view#view .mx-hero {
     position: relative;
     display: flex;
     align-items: center;
@@ -561,53 +567,53 @@ body.mx-dark {
     transition: background-color .4s var(--mx-soft-spring);
 }
 
-.mx-hero.is-running {
+#view#view .mx-hero.is-running {
     background: var(--mx-hero);
 }
 
-.mx-hero__logo {
+#view#view .mx-hero__logo {
     flex: none;
     width: 64px;
     height: 64px;
 }
 
-.mx-hero__logo img {
+#view#view .mx-hero__logo img {
     width: 64px;
     height: 64px;
     border-radius: 18px;
 }
 
-.mx-hero__logo .mx-logo-dark,
-.mx-dark .mx-hero__logo .mx-logo-light,
-:root[data-darkmode="true"] .mx-hero__logo .mx-logo-light {
+#view#view .mx-hero__logo .mx-logo-dark,
+.mx-dark #view#view .mx-hero__logo .mx-logo-light,
+:root[data-darkmode="true"] #view#view .mx-hero__logo .mx-logo-light {
     display: none;
 }
 
-.mx-dark .mx-hero__logo .mx-logo-dark,
-:root[data-darkmode="true"] .mx-hero__logo .mx-logo-dark {
+.mx-dark #view#view .mx-hero__logo .mx-logo-dark,
+:root[data-darkmode="true"] #view#view .mx-hero__logo .mx-logo-dark {
     display: block;
 }
 
-.mx-hero__main {
+#view#view .mx-hero__main {
     flex: 1;
     min-width: 0;
 }
 
-.mx-hero__title {
+#view#view .mx-hero__title {
     font-size: 24px;
     font-weight: 800;
     letter-spacing: -.01em;
     line-height: 1.2;
 }
 
-.mx-hero__meta {
+#view#view .mx-hero__meta {
     margin-top: 4px;
     color: var(--mx-t2);
     font-size: 13px;
     font-variant-numeric: tabular-nums;
 }
 
-.mx-status {
+#view#view .mx-status {
     display: inline-flex;
     align-items: center;
     gap: 8px;
@@ -619,7 +625,7 @@ body.mx-dark {
     font-weight: 700;
 }
 
-.mx-status__dot {
+#view#view .mx-status__dot {
     position: relative;
     width: 9px;
     height: 9px;
@@ -628,12 +634,12 @@ body.mx-dark {
     transition: background-color var(--mx-toggle) ease-out;
 }
 
-.is-running .mx-status__dot {
+#view#view .is-running .mx-status__dot {
     background: var(--mx-good);
 }
 
 /* 运行中：点外扩一圈涟漪（客户端电源钮连上时的那圈） */
-.is-running .mx-status__dot::after {
+#view#view .is-running .mx-status__dot::after {
     content: "";
     position: absolute;
     inset: 0;
@@ -642,29 +648,29 @@ body.mx-dark {
     animation: mx-ripple 1.8s var(--mx-soft-spring) infinite;
 }
 
-.mx-hero__actions {
+#view#view .mx-hero__actions {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
     justify-content: flex-end;
 }
 
-.mx-hero__actions .cbi-button {
+#view#view .mx-hero__actions .cbi-button {
     background: var(--mx-elev);
     color: var(--mx-t1);
 }
 
-.mx-hero__actions .cbi-button.mx-primary {
+#view#view .mx-hero__actions .cbi-button.mx-primary {
     background: var(--mx-strong);
     color: var(--mx-on-strong);
 }
 
 @media (max-width: 640px) {
-    .mx-hero {
+    #view#view .mx-hero {
         flex-wrap: wrap;
     }
 
-    .mx-hero__actions {
+    #view#view .mx-hero__actions {
         width: 100%;
         justify-content: flex-start;
     }
@@ -672,11 +678,11 @@ body.mx-dark {
 
 /* ---------- 首页账户卡（同客户端「我的」顶部账户卡） ---------- */
 
-.mx-cards {
+#view#view .mx-cards {
     display: contents;
 }
 
-.mx-account {
+#view#view .mx-account {
     padding: 18px 20px;
     margin: 0 0 16px;
     border-radius: var(--mx-r-card);
@@ -684,30 +690,30 @@ body.mx-dark {
     border: 1px solid var(--mx-stroke);
 }
 
-.mx-account__hint {
+#view#view .mx-account__hint {
     margin: 4px 0 2px;
     color: var(--mx-t2);
     font-size: 13px;
 }
 
-.mx-account__error {
+#view#view .mx-account__error {
     margin-top: 8px;
     color: var(--mx-slow);
     font-size: 13px;
     font-weight: 600;
 }
 
-.mx-account__error[hidden] {
+#view#view .mx-account__error[hidden] {
     display: none;
 }
 
-.mx-account__row {
+#view#view .mx-account__row {
     display: flex;
     align-items: center;
     gap: 14px;
 }
 
-.mx-account__avatar {
+#view#view .mx-account__avatar {
     flex: none;
     display: inline-flex;
     align-items: center;
@@ -722,18 +728,18 @@ body.mx-dark {
     font-size: 18px;
 }
 
-.mx-account__avatar img {
+#view#view .mx-account__avatar img {
     width: 100%;
     height: 100%;
     object-fit: cover;
 }
 
-.mx-account__main {
+#view#view .mx-account__main {
     flex: 1;
     min-width: 0;
 }
 
-.mx-account__name {
+#view#view .mx-account__name {
     font-size: 17px;
     font-weight: 800;
     overflow: hidden;
@@ -741,7 +747,7 @@ body.mx-dark {
     white-space: nowrap;
 }
 
-.mx-account__host {
+#view#view .mx-account__host {
     color: var(--mx-t2);
     font-size: 13px;
     overflow: hidden;
@@ -749,30 +755,30 @@ body.mx-dark {
     white-space: nowrap;
 }
 
-.mx-account__actions {
+#view#view .mx-account__actions {
     display: flex;
     gap: 8px;
 }
 
 /* ---------- po0 加白卡（同客户端「流量控制 → po0 加白」） ---------- */
 
-.mx-po0__head {
+#view#view .mx-po0__head {
     display: flex;
     align-items: flex-start;
     gap: 16px;
 }
 
-.mx-po0__title {
+#view#view .mx-po0__title {
     flex: 1;
     min-width: 0;
 }
 
-.mx-po0__head input[type="checkbox"] {
+#view#view .mx-po0__head input[type="checkbox"] {
     flex: none;
     margin-top: 2px;
 }
 
-.mx-po0__group {
+#view#view .mx-po0__group {
     margin: 14px 0 6px;
     color: var(--mx-t2);
     font-size: 12px;
@@ -780,13 +786,13 @@ body.mx-dark {
     letter-spacing: .02em;
 }
 
-.mx-po0__list {
+#view#view .mx-po0__list {
     display: flex;
     flex-direction: column;
     gap: 6px;
 }
 
-.mx-po0__row {
+#view#view .mx-po0__row {
     display: flex;
     align-items: center;
     gap: 12px;
@@ -795,102 +801,102 @@ body.mx-dark {
     background: var(--mx-elev2);
 }
 
-.mx-po0__main {
+#view#view .mx-po0__main {
     flex: 1;
     min-width: 0;
 }
 
-.mx-po0__addr,
-.mx-po0__token {
+#view#view .mx-po0__addr,
+#view#view .mx-po0__token {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.mx-po0__addr {
+#view#view .mx-po0__addr {
     font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
     font-size: 14px;
     font-weight: 600;
 }
 
-.mx-po0__token {
+#view#view .mx-po0__token {
     color: var(--mx-t2);
     font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
     font-size: 12px;
 }
 
-.mx-po0__empty,
-.mx-po0__note {
+#view#view .mx-po0__empty,
+#view#view .mx-po0__note {
     color: var(--mx-t2);
     font-size: 13px;
 }
 
-.mx-po0__note {
+#view#view .mx-po0__note {
     margin-top: 8px;
     font-size: 12px;
 }
 
-.mx-po0__add {
+#view#view .mx-po0__add {
     margin-top: 12px;
 }
 
 @media (max-width: 640px) {
-    .mx-po0__add {
+    #view#view .mx-po0__add {
         flex-wrap: wrap;
     }
 
-    .mx-po0__add .mx-quickadd__input {
+    #view#view .mx-po0__add .mx-quickadd__input {
         flex-basis: 100%;
     }
 }
 
 /* ---------- 关于页 ---------- */
 
-.mx-about__head {
+#view#view .mx-about__head {
     display: flex;
     align-items: center;
     gap: 16px;
 }
 
-.mx-about__name {
+#view#view .mx-about__name {
     font-size: 20px;
     font-weight: 800;
 }
 
-.mx-about__ver {
+#view#view .mx-about__ver {
     margin-top: 2px;
     color: var(--mx-t2);
     font-size: 13px;
     font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 
-.mx-about__text {
+#view#view .mx-about__text {
     margin: 8px 0 0;
     color: var(--mx-t1);
     font-size: 14px;
     line-height: 1.6;
 }
 
-.mx-about__text a,
-.mx-about__link a {
+#view#view .mx-about__text a,
+#view#view .mx-about__link a {
     color: var(--mx-rose);
     font-weight: 600;
     text-decoration: none;
 }
 
-.mx-about__text a:hover,
-.mx-about__link a:hover {
+#view#view .mx-about__text a:hover,
+#view#view .mx-about__link a:hover {
     text-decoration: underline;
 }
 
-.mx-about__link {
+#view#view .mx-about__link {
     margin: 6px 0 12px;
     font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
     font-size: 14px;
     word-break: break-all;
 }
 
-.mx-about__btn {
+#view#view .mx-about__btn {
     display: inline-flex;
     align-items: center;
     text-decoration: none;
@@ -898,7 +904,7 @@ body.mx-dark {
 
 /* ---------- 首页订阅卡（同客户端首页订阅条） ---------- */
 
-.mx-subcard {
+#view#view .mx-subcard {
     position: relative;
     /* 菜单要盖住下面的卡：每张卡的进场动画都会建层叠上下文，不抬高就被后面的卡压住 */
     z-index: 5;
@@ -909,20 +915,20 @@ body.mx-dark {
     border: 1px solid var(--mx-stroke);
 }
 
-.mx-subcard__head {
+#view#view .mx-subcard__head {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
 }
 
-.mx-subcard__label {
+#view#view .mx-subcard__label {
     color: var(--mx-t2);
     font-size: 13px;
     font-weight: 650;
 }
 
-.mx-subcard__name {
+#view#view .mx-subcard__name {
     margin-top: 2px;
     font-size: 19px;
     font-weight: 800;
@@ -932,19 +938,19 @@ body.mx-dark {
     white-space: nowrap;
 }
 
-.mx-subcard__empty,
-.mx-subcard__hint {
+#view#view .mx-subcard__empty,
+#view#view .mx-subcard__hint {
     margin: 6px 0 10px;
     color: var(--mx-t2);
 }
 
 /* 行尾文字按钮「切换订阅」（客户端订阅卡同款入口） */
-.mx-subcard__switch-wrap {
+#view#view .mx-subcard__switch-wrap {
     position: relative;
 }
 
-.mx .mx-subcard__switch,
-.mx-subcard__switch {
+#view#view .mx .mx-subcard__switch,
+#view#view .mx-subcard__switch {
     background: transparent;
     color: var(--mx-rose);
     border: 0;
@@ -954,7 +960,7 @@ body.mx-dark {
     font-weight: 700;
 }
 
-.mx-subcard__switch::after {
+#view#view .mx-subcard__switch::after {
     content: "";
     display: inline-block;
     width: 6px;
@@ -965,7 +971,7 @@ body.mx-dark {
     transform: translateY(-2px) rotate(45deg);
 }
 
-.mx-menu {
+#view#view .mx-menu {
     position: absolute;
     right: 0;
     top: calc(100% + 6px);
@@ -985,22 +991,22 @@ body.mx-dark {
     transition: opacity var(--mx-content) ease-out, transform var(--mx-toggle) var(--mx-soft-spring), visibility 0s linear var(--mx-toggle);
 }
 
-.mx-menu.is-open {
+#view#view .mx-menu.is-open {
     opacity: 1;
     visibility: visible;
     transform: none;
     transition: opacity var(--mx-content) ease-out, transform var(--mx-toggle) var(--mx-soft-spring);
 }
 
-.mx-menu__group {
+#view#view .mx-menu__group {
     padding: 8px 10px 4px;
     color: var(--mx-t2);
     font-size: 12px;
     font-weight: 650;
 }
 
-.mx .mx-menu__item,
-.mx-menu__item {
+#view#view .mx .mx-menu__item,
+#view#view .mx-menu__item {
     display: flex;
     align-items: center;
     width: 100%;
@@ -1019,16 +1025,16 @@ body.mx-dark {
     line-height: 1.2;
 }
 
-.mx-menu__item:hover {
+#view#view .mx-menu__item:hover {
     background: var(--mx-elev2);
 }
 
-.mx-menu__item.is-current {
+#view#view .mx-menu__item.is-current {
     background: var(--mx-soft);
     color: var(--mx-rose);
 }
 
-.mx-menu__item.is-current::after {
+#view#view .mx-menu__item.is-current::after {
     content: "";
     margin-left: auto;
     width: 5px;
@@ -1038,7 +1044,7 @@ body.mx-dark {
     transform: rotate(45deg) translate(-2px, -1px);
 }
 
-.mx-menu__link {
+#view#view .mx-menu__link {
     margin-top: 4px;
     border-top: 1px solid var(--mx-stroke);
     border-radius: 0 0 10px 10px;
@@ -1046,18 +1052,18 @@ body.mx-dark {
 }
 
 /* 用量条 + 一行说明 */
-.mx-sub__usage {
+#view#view .mx-sub__usage {
     margin-top: 10px;
 }
 
-.mx-sub__bar {
+#view#view .mx-sub__bar {
     height: 8px;
     border-radius: 999px;
     background: var(--mx-elev2);
     overflow: hidden;
 }
 
-.mx-sub__bar > span {
+#view#view .mx-sub__bar > span {
     display: block;
     height: 100%;
     border-radius: inherit;
@@ -1066,11 +1072,11 @@ body.mx-dark {
     transition: transform .6s var(--mx-soft-spring);
 }
 
-.mx-sub__bar.is-empty {
+#view#view .mx-sub__bar.is-empty {
     display: none;
 }
 
-.mx-sub__line {
+#view#view .mx-sub__line {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -1080,17 +1086,17 @@ body.mx-dark {
     font-variant-numeric: tabular-nums;
 }
 
-.mx-sub__amount {
+#view#view .mx-sub__amount {
     font-weight: 700;
 }
 
-.mx-sub__meta {
+#view#view .mx-sub__meta {
     color: var(--mx-t2);
 }
 
 /* 「更新于 …」点了直接刷新（同 iOS 首页订阅条右下角） */
-.mx .mx-sub__updated,
-.mx-sub__updated {
+#view#view .mx .mx-sub__updated,
+#view#view .mx-sub__updated {
     margin-left: auto;
     background: transparent;
     border: 0;
@@ -1102,35 +1108,35 @@ body.mx-dark {
     font-size: 13px;
 }
 
-.mx-sub__updated::before {
+#view#view .mx-sub__updated::before {
     content: "↻";
     display: inline-block;
     margin-right: 4px;
 }
 
-.mx-sub__updated.spinning::before {
+#view#view .mx-sub__updated.spinning::before {
     animation: mx-spin .8s linear infinite;
 }
 
-.mx-sub__updated.is-failed {
+#view#view .mx-sub__updated.is-failed {
     color: var(--mx-slow);
 }
 
 /* 粘贴订阅链接 → 添加 */
-.mx-quickadd {
+#view#view .mx-quickadd {
     display: flex;
     gap: 8px;
     margin-top: 8px;
 }
 
-.mx-quickadd__input {
+#view#view .mx-quickadd__input {
     flex: 1;
     min-width: 0;
     height: 36px;
     padding: 0 12px;
 }
 
-.mx input.is-invalid {
+#view#view .mx input.is-invalid {
     border-color: var(--mx-slow);
     animation: mx-shake .3s ease-in-out;
 }
@@ -1152,25 +1158,25 @@ body.mx-dark {
 }
 
 /* 订阅页的订阅行 */
-.mx-subrow {
+#view#view .mx-subrow {
     min-width: 220px;
 }
 
-.mx-subrow__title {
+#view#view .mx-subrow__title {
     display: flex;
     align-items: center;
     gap: 8px;
 }
 
-.mx-subrow__name {
+#view#view .mx-subrow__name {
     font-weight: 750;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.mx-badge,
-.mx-subrow__inuse {
+#view#view .mx-badge,
+#view#view .mx-subrow__inuse {
     display: inline-block;
     padding: 2px 10px;
     border-radius: 999px;
@@ -1181,19 +1187,19 @@ body.mx-dark {
     white-space: nowrap;
 }
 
-.mx .cbi-section-table .mx-sub__usage {
+#view#view .mx .cbi-section-table .mx-sub__usage {
     margin-top: 6px;
 }
 
 /* 表格行本身是次级底色，用量条的底换成描边色才看得出总量 */
-.mx .cbi-section-table .mx-sub__bar {
+#view#view .mx .cbi-section-table .mx-sub__bar {
     background: var(--mx-stroke);
 }
 
 /* ---------- 进场动效 ---------- */
 
 /* 卡片逐个错峰上浮（前 12 张，decorate() 写 --mx-i） */
-.mx-enter {
+#view#view .mx-enter {
     animation: mx-rise .48s var(--mx-soft-spring) both;
     animation-delay: calc(var(--mx-i, 0) * 45ms);
 }
@@ -1247,12 +1253,181 @@ body.mx-dark {
 }
 
 /* 系统「减弱动态效果」：不缩放、不位移、不循环 */
+/* ---------- 主题兼容 ----------
+ * 主题给控件定的样式里有带 !important 的，上面的规则压不过，这里逐项用 !important 恢复成 MeowX 的样子：
+ * argon（含 iStoreOS）：勾选框 width/height 16px !important、勾选后加对勾背景图、margin-top 1rem、
+ *   label > input 的 top 偏移；按钮文字 color #fff !important；
+ * 其它主题（material / openwrt-2020 / bootstrap …）同类写法也一并覆盖。 */
+#view#view .mx input[type="checkbox"] {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    width: 44px !important;
+    min-width: 44px !important;
+    max-width: none !important;
+    height: 26px !important;
+    min-height: 26px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 999px !important;
+    background-color: var(--mx-hero-idle) !important;
+    background-image: none !important;
+    box-shadow: none !important;
+    top: 0 !important;
+    right: auto !important;
+    left: auto !important;
+    float: none !important;
+    opacity: 1 !important;
+    flex: none;
+}
+
+#view#view .mx input[type="checkbox"]:checked {
+    background-color: var(--mx-pink) !important;
+    background-image: none !important;
+    border: 0 !important;
+}
+
+#view#view .mx input[type="checkbox"]::before {
+    content: none !important;
+    display: none !important;
+}
+
+#view#view .mx input[type="checkbox"]::after {
+    content: "" !important;
+    display: block !important;
+    position: absolute !important;
+    top: 3px !important;
+    left: 3px !important;
+    width: 20px !important;
+    height: 20px !important;
+    margin: 0 !important;
+    border: 0 !important;
+    border-radius: 50% !important;
+    background: #FFFFFF !important;
+    -webkit-mask: none !important;
+    mask: none !important;
+    opacity: 1 !important;
+}
+
+#view#view .mx input[type="checkbox"]:disabled {
+    opacity: .5 !important;
+}
+
+#view#view .mx .cbi-checkbox > input[type="checkbox"] + label,
+#view#view .mx .cbi-checkbox > label:empty {
+    display: none !important;
+}
+
+/* 卡片里的选项卡内容区：argon 等主题给它又画了一层白底 + 阴影，卡片里套卡片 */
+#view#view .mx .cbi-section-node,
+#view#view .mx .cbi-section .cbi-tabcontainer,
+#view#view .mx .cbi-section div[data-tab] {
+    background: transparent !important;
+    box-shadow: none !important;
+    border: 0 !important;
+}
+
+/* 卡片标题：argon（深色）给 h3 / legend 加了底色条与圆角，material 等加下划线 */
+#view#view .mx .cbi-section > h3,
+#view#view .mx .cbi-section > legend,
+#view#view .mx > h2 {
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+}
+
+/* 我们自己画的按钮（页签、订阅切换、菜单项等）：主题给所有 button 加的阴影 / 渐变 / 文字阴影去掉
+   （openwrt-2020 给 button 加 box-shadow，看起来像每个页签都套了一圈边框）。:where() 让它只剩 #view#view 的优先级，我们自己的规则（多一个类）照样生效 */
+#view#view :where(button[class*="mx-"]) {
+    box-shadow: none;
+    text-shadow: none;
+    background-image: none;
+    text-transform: none;
+    letter-spacing: normal;
+    font-size: inherit;
+    height: auto;
+    margin: 0;
+}
+
+/* argon 的按钮全大写（text-transform: uppercase）、字号 .8rem */
+#view#view .mx .btn,
+#view#view .mx .cbi-button,
+#view#view .mx-hero__actions .cbi-button,
+#view#view .cbi-page-actions .cbi-button {
+    text-transform: none !important;
+    letter-spacing: normal;
+}
+
+/* 「辅助功能」「关于」没有要保存的表单：页尾的「保存并应用 / 保存 / 复位」藏掉（main.js 按当前页签加 .mx-no-actions） */
+#view#view.mx-no-actions .cbi-page-actions {
+    display: none !important;
+}
+
+/* 按钮文字颜色：argon 给 save / apply / action / reset 等定了 color: #fff !important */
+#view#view .mx .btn,
+#view#view .mx .cbi-button,
+#view#view .mx-hero__actions .cbi-button {
+    color: var(--mx-t1) !important;
+}
+
+#view#view .mx .cbi-button-action,
+#view#view .mx .cbi-button-apply,
+#view#view .mx .cbi-button-save,
+#view#view .mx .cbi-button-positive,
+#view#view .mx .cbi-button-add,
+#view#view .mx-hero__actions .cbi-button.mx-primary,
+#view#view .cbi-page-actions .cbi-button-apply {
+    color: var(--mx-on-strong) !important;
+}
+
+#view#view .mx .cbi-button-negative,
+#view#view .mx .cbi-button-remove,
+#view#view .mx .cbi-button-reset {
+    color: var(--mx-slow) !important;
+}
+
+#view#view .mx .cbi-button-edit {
+    color: var(--mx-rose) !important;
+}
+
+#view#view .cbi-page-actions .cbi-button-save {
+    color: var(--mx-t1) !important;
+}
+
+/* 「保存并应用」是个下拉按钮：argon 把里面的选项写死成白字，深色下我们的按钮是浅底，字就看不见了 */
+#view#view .cbi-page-actions .cbi-button-apply > ul > li,
+#view#view .cbi-page-actions .cbi-button-apply > .open,
+#view#view .cbi-page-actions .cbi-button-apply > .more {
+    color: inherit !important;
+}
+
+#view#view .cbi-page-actions .cbi-button-apply[open] > ul.dropdown {
+    background: var(--mx-elev) !important;
+    border: 1px solid var(--mx-stroke) !important;
+    border-radius: var(--mx-r-cell) !important;
+}
+
+#view#view .cbi-page-actions .cbi-button-apply[open] > ul.dropdown > li {
+    color: var(--mx-t1) !important;
+    background: transparent !important;
+}
+
+#view#view .cbi-page-actions .cbi-button-apply[open] > ul.dropdown > li.focus,
+#view#view .cbi-page-actions .cbi-button-apply[open] > ul.dropdown > li:hover {
+    background: var(--mx-soft) !important;
+}
+
+#view#view .cbi-page-actions .cbi-button-reset {
+    color: var(--mx-t2) !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
-    .mx *,
-    .mx-hero,
-    .mx-hero *,
-    .mx-shell,
-    .mx-shell * {
+    #view#view .mx *,
+#view#view .mx-hero,
+#view#view .mx-hero *,
+#view#view .mx-shell,
+#view#view .mx-shell * {
         animation: none !important;
         transition: none !important;
     }
