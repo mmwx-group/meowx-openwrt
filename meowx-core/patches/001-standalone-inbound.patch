@@ -1,0 +1,36 @@
+diff --color -ru --color=never a/core/Clash.Meta/hub/executor/executor.go b/core/Clash.Meta/hub/executor/executor.go
+--- a/core/Clash.Meta/hub/executor/executor.go	2026-10-15 22:33:53
++++ b/core/Clash.Meta/hub/executor/executor.go	2026-10-15 22:34:05
+@@ -80,6 +80,10 @@
+ 	return config.Parse(buf)
+ }
+ 
++// StandaloneInbound 内核作为独立程序运行（OpenWrt 等，由 main 打开）时，照官方 mihomo 由 ApplyConfig 启动
++// 监听端口与 TUN。Bettbox 的 Flutter 客户端经库接口自己起监听，所以下面那两行被注释掉了，缺省保持关闭。
++var StandaloneInbound bool
++
+ // ApplyConfig dispatch configure to all parts without ExternalController
+ func ApplyConfig(cfg *config.Config, force bool) {
+ 	mux.Lock()
+@@ -106,6 +110,10 @@
+ 	updateNTP(cfg.NTP) // initialize NTP after DNS because an NTP server may be a hostname.
+ 	// updateListeners(cfg.General, cfg.Listeners, force)
+ 	// updateTun(cfg.General) // tun should not care "force"
++	if StandaloneInbound {
++		updateListeners(cfg.General, cfg.Listeners, force)
++		updateTun(cfg.General)
++	}
+ 	updateIPTables(cfg)
+ 	updateTunnels(cfg.Tunnels)
+ 
+diff --color -ru --color=never a/core/Clash.Meta/main.go b/core/Clash.Meta/main.go
+--- a/core/Clash.Meta/main.go	2026-10-15 22:33:53
++++ b/core/Clash.Meta/main.go	2026-10-15 22:33:53
+@@ -78,6 +78,7 @@
+ }
+ 
+ func main() {
++	executor.StandaloneInbound = true
+ 	// Defensive programming: panic when code mistakenly calls net.DefaultResolver
+ 	net.DefaultResolver.PreferGo = true
+ 	net.DefaultResolver.Dial = func(ctx context.Context, network, address string) (net.Conn, error) {
