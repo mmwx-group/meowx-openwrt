@@ -391,24 +391,42 @@ return baseclass.extend({
             if (active && active.parentNode.scrollWidth > active.parentNode.clientWidth) {
                 active.parentNode.scrollLeft = active.offsetLeft - (active.parentNode.clientWidth - active.offsetWidth) / 2;
             }
+            // 主卡 / 订阅卡收进一个容器（display: contents，不影响布局）。LuCI 点「保存」等按钮后会重画整张表单、
+            // 把地图下的子节点全换掉，容器跟着没了——盯住它，没了就原样放回（不重播进场动画），否则主卡消失、页面跳一下
+            let head = null;
             if (options.hero) {
                 map.classList.add('mx-has-hero');
-                const descr = map.querySelector(':scope > .cbi-map-descr');
-                let anchor = descr ? descr.nextSibling : map.firstChild;
-                for (const el of [].concat(options.hero)) {
-                    map.insertBefore(el, anchor);
-                }
+                head = E('div', { class: 'mx-head' }, [].concat(options.hero));
+                const place = function () {
+                    const descr = map.querySelector(':scope > .cbi-map-descr');
+                    map.insertBefore(head, descr ? descr.nextSibling : map.firstChild);
+                };
+                place();
+                new MutationObserver(function () {
+                    if (!head.isConnected || head.parentNode !== map) {
+                        place();
+                    }
+                }).observe(map, { childList: true });
             }
-            // 只给前 12 张卡错峰，后面的随第 12 张一起出来（同客户端节点卡的 StaggerIn）；页面在后台时不播，直接显示
-            if (document.hidden) {
-                return node;
+            // 只给前 12 张卡错峰，后面的随第 12 张一起出来（同客户端节点卡的 StaggerIn）；页面在后台时不播，直接显示。
+            // 只在第一次渲染时播：表单重画出来的新卡直接显示
+            if (!document.hidden) {
+                const cards = map.querySelectorAll(':scope > .mx-head > .mx-hero, :scope > .mx-head > .mx-subcard, :scope > .cbi-section, :scope > .cbi-section-create');
+                cards.forEach(function (card, i) {
+                    card.style.setProperty('--mx-i', Math.min(i, 12));
+                    card.classList.add('mx-enter');
+                });
             }
-            const cards = map.querySelectorAll(':scope > .mx-hero, :scope > .mx-subcard, :scope > .cbi-section, :scope > .cbi-section-create');
-            cards.forEach(function (card, i) {
-                card.style.setProperty('--mx-i', Math.min(i, 12));
-                card.classList.add('mx-enter');
-            });
             return node;
+        });
+    },
+
+    // 原地刷新整张表单：重新读 uci、按新值重画（主卡 / 订阅卡由 decorate 的容器保住）。用来代替整页刷新——
+    // 整页刷新会白屏一下、卡片进场动画重播
+    reloadMap: function (map) {
+        uci.unload('meowx');
+        return map.load().then(function () {
+            return map.reset();
         });
     },
 

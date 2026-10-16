@@ -470,6 +470,11 @@ body.mx-page {
 
 /* ---------- 首页主卡 ---------- */
 
+.mx-head {
+    display: contents;
+}
+
+
 .mx-hero {
     position: relative;
     display: flex;

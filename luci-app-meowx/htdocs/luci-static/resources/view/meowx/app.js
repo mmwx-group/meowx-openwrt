@@ -47,13 +47,13 @@ function renderHero(appVersion, coreVersion, running) {
 
 // 首页订阅卡（同 iOS 首页订阅条）：当前订阅名 + 用量 + 到期，点「更新于…」直接刷新；「切换订阅」弹出菜单，
 // 选了就切过去并重启生效；还没有订阅时直接给「粘贴链接添加」。
-function renderSubscriptionCard(profiles) {
+function renderSubscriptionCard(profiles, map) {
     const card = E('div', { class: 'mx-subcard' });
-    // 刷新订阅之后原地重画（名字、用量、更新时间会变）
+    // 刷新 / 切换之后原地重画：表单按新的 uci 重画（「选择配置文件」跟着变，不会把旧值写回去），订阅卡换一张新的。
+    // 不整页刷新——那样会白屏一下、进场动画重播
     const reload = function () {
-        uci.unload('meowx');
-        return uci.load('meowx').then(function () {
-            card.replaceWith(renderSubscriptionCard(profiles));
+        return meowx.reloadMap(map).then(function () {
+            card.replaceWith(renderSubscriptionCard(profiles, map));
         });
     };
     const current = uci.get('meowx', 'config', 'profile') || '';
@@ -64,7 +64,7 @@ function renderSubscriptionCard(profiles) {
     if (subscriptions.length == 0 && profiles.length == 0) {
         card.appendChild(E('div', { class: 'mx-subcard__empty' }, _('No subscription yet')));
         card.appendChild(meowx.renderQuickAdd(function (section_id) {
-            return section_id ? meowx.switchProfile('subscription:' + section_id).then(function () { location.reload(); }) : reload();
+            return section_id ? meowx.switchProfile('subscription:' + section_id).then(reload) : reload();
         }));
         return card;
     }
@@ -94,9 +94,8 @@ function renderSubscriptionCard(profiles) {
                 if (item.value == current) {
                     return;
                 }
-                // 切完整页刷新：下面表单里的「选择配置文件」还是旧值，不刷新的话点「保存并应用」会把它写回去
                 return meowx.busy(switcher, function () {
-                    return meowx.switchProfile(item.value).then(function () { location.reload(); });
+                    return meowx.switchProfile(item.value).then(reload);
                 });
             }
         }, item.title));
@@ -275,6 +274,6 @@ return view.extend({
         o = s.taboption('environment_variable', form.Flag, 'env_skip_system_ipv6_check', _('Skip System IPv6 Check'));
         o.rmempty = false;
 
-        return meowx.decorate(m.render(), { hero: [hero, renderSubscriptionCard(profiles)] });
+        return meowx.decorate(m.render(), { hero: [hero, renderSubscriptionCard(profiles, m)] });
     }
 });

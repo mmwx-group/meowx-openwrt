@@ -28,7 +28,7 @@ return view.extend({
         s = m.section(form.GridSection, 'subscription', _('Subscription'));
         s.renderSectionAdd = function () {
             // 加订阅只要一个链接（同客户端导入订阅），表格自带的「添加」要先填名字，换掉
-            return meowx.renderQuickAdd(function () { location.reload(); });
+            return meowx.renderQuickAdd(function () { return meowx.reloadMap(m); });
         };
         s.addremove = true;
         s.anonymous = true;
@@ -36,7 +36,8 @@ return view.extend({
         s.modaltitle = _('Edit Subscription');
 
         // 列表里一格显示订阅名 + 用量 + 到期（同客户端「我的」里的订阅行），名字只在编辑弹窗里改
-        const current = uci.get('meowx', 'config', 'profile') || '';
+        // 每次渲染现读（切换后表单原地重画，不能用渲染开始时记下的值）
+        const current = function () { return uci.get('meowx', 'config', 'profile') || ''; };
         o = s.option(form.DummyValue, '_info', _('Subscription'));
         o.modalonly = false;
         // 表格格子里显示的是 textvalue（不是 cfgvalue），返回节点直接放进去
@@ -45,7 +46,7 @@ return view.extend({
             return E('div', { class: 'mx-subrow' }, [
                 E('div', { class: 'mx-subrow__title' }, E('span', { class: 'mx-subrow__name' }, meowx.subscriptionName(section))),
                 meowx.renderUsage(section, function () {
-                    return meowx.refreshSubscription(section_id).then(function () { location.reload(); });
+                    return meowx.refreshSubscription(section_id).then(function () { return meowx.reloadMap(m); });
                 })
             ]);
         };
@@ -57,10 +58,10 @@ return view.extend({
         o.inputtitle = _('Use');
         // LuCI 的表单按钮自己会转圈、禁止重复点（调 onclick 之前就把按钮禁用了），这里不能再套 busy()
         o.onclick = function (ev, section_id) {
-            return meowx.switchProfile('subscription:' + section_id).then(function () { location.reload(); });
+            return meowx.switchProfile('subscription:' + section_id).then(function () { return meowx.reloadMap(m); });
         };
         o.renderWidget = function (section_id, option_index, cfgvalue) {
-            if (current == 'subscription:' + section_id) {
+            if (current() == 'subscription:' + section_id) {
                 return E('span', { class: 'mx-subrow__inuse' }, _('In Use'));
             }
             return form.Button.prototype.renderWidget.apply(this, arguments);
