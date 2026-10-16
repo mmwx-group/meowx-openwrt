@@ -1,11 +1,11 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=meowx
-PKG_VERSION:=2026.10.10
+PKG_VERSION:=0.1.0
 PKG_RELEASE:=1
 
 PKG_LICENSE:=GPL3.0+
-PKG_MAINTAINER:=Joseph Mory <morytyann@gmail.com>
+PKG_MAINTAINER:=MeowX
 
 include $(INCLUDE_DIR)/package.mk
 

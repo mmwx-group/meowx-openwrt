@@ -1279,3 +1279,27 @@ msgstr "操作失敗"
 
 msgid "Extras"
 msgstr "輔助功能"
+
+msgid "About"
+msgstr "關於"
+
+msgid "Plugin %s · Core %s"
+msgstr "外掛 %s · 核心 %s"
+
+msgid "Open Source"
+msgstr "開源"
+
+msgid "This project is open source under the GPL-3.0 license. Source code, issues and release notes are on GitHub:"
+msgstr "本專案以 GPL-3.0 授權開源，原始碼、問題回報與更新紀錄都在 GitHub："
+
+msgid "View on GitHub"
+msgstr "在 GitHub 上查看"
+
+msgid "Acknowledgements"
+msgstr "致謝"
+
+msgid "MeowX for OpenWrt is built on %s. Its transparent proxy, mixin and service scripts all come from it. Many thanks to the nikki project and its authors."
+msgstr "MeowX OpenWrt 版基於 %s 改造，透明代理、設定混入與服務腳本都來自它。衷心感謝 nikki 專案及其作者。"
+
+msgid "The core is the MeowX fork of %s (source in %s), adding protocols such as Miu that upstream mihomo does not have."
+msgstr "核心是 %s 的 MeowX 分支（原始碼在 %s），加入了 Miu 等官方 mihomo 沒有的協定。"

@@ -844,6 +844,58 @@ body.mx-dark {
     }
 }
 
+/* ---------- 关于页 ---------- */
+
+.mx-about__head {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.mx-about__name {
+    font-size: 20px;
+    font-weight: 800;
+}
+
+.mx-about__ver {
+    margin-top: 2px;
+    color: var(--mx-t2);
+    font-size: 13px;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+.mx-about__text {
+    margin: 8px 0 0;
+    color: var(--mx-t1);
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.mx-about__text a,
+.mx-about__link a {
+    color: var(--mx-rose);
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.mx-about__text a:hover,
+.mx-about__link a:hover {
+    text-decoration: underline;
+}
+
+.mx-about__link {
+    margin: 6px 0 12px;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 14px;
+    word-break: break-all;
+}
+
+.mx-about__btn {
+    display: inline-flex;
+    align-items: center;
+    text-decoration: none;
+}
+
 /* ---------- 首页订阅卡（同客户端首页订阅条） ---------- */
 
 .mx-subcard {
