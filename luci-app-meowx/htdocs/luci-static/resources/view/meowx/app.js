@@ -174,7 +174,8 @@ return baseclass.extend({
             meowx.version(),
             meowx.status(),
             meowx.listProfiles(),
-            meowx.panelStatus()
+            meowx.panelStatus(),
+            meowx.po0Status()
         ]);
     },
     render: function (data) {
@@ -184,6 +185,7 @@ return baseclass.extend({
         const running = data[2];
         const profiles = data[3];
         const panelStatus = data[4];
+        const po0Status = data[5];
 
         let m, s, o;
 
@@ -309,13 +311,19 @@ return baseclass.extend({
         // 账户卡与订阅卡：登录 / 退出 / 刷新 / 切换之后，表单按新的 uci 原地重画（「选择配置文件」跟着变，不会把旧值写回去），
         // 两张卡换新的。不整页刷新——那样会白屏一下、进场动画重播
         const cards = E('div', { class: 'mx-cards' });
-        const drawCards = function (status) {
-            cards.replaceChildren(meowx.renderAccountCard(status, refresh), renderSubscriptionCard(profiles, status, refresh));
+        const drawCards = function (status, po0) {
+            cards.replaceChildren(
+                meowx.renderAccountCard(status, refresh),
+                renderSubscriptionCard(profiles, status, refresh),
+                meowx.renderPo0Card(po0, !!status?.logged_in));
         };
+        // 登录 / 退出会改 po0 列表（主控登记的跟着账号走），po0 卡一起重画
         const refresh = function () {
-            return meowx.reloadMap(m).then(() => meowx.panelStatus()).then(drawCards);
+            return meowx.reloadMap(m)
+                .then(() => Promise.all([meowx.panelStatus(), meowx.po0Status()]))
+                .then((res) => drawCards(res[0], res[1]));
         };
-        drawCards(panelStatus);
+        drawCards(panelStatus, po0Status);
         return meowx.decorate(m.render(), { hero: [hero, cards] });
     }
 });

@@ -1237,3 +1237,42 @@ msgstr "加载失败：%s"
 
 msgid "Retry"
 msgstr "重试"
+
+msgid "po0 Whitelist"
+msgstr "po0 加白"
+
+msgid "Report the router's public IP to po0 servers (registered on the panel and added by you), every 10 minutes and whenever WAN reconnects. Traffic to these po0 servers goes direct."
+msgstr "把路由器的出口 IP 上报到 po0 服务器（主控登记的与自己添加的），每 10 分钟及 WAN 重新拨号时自动加白；访问这些 po0 的流量一律直连。"
+
+msgid "Registered on the panel (%d)"
+msgstr "主控登记（%d）"
+
+msgid "Log in to the panel account to fetch them automatically."
+msgstr "登录主控账户后自动获取。"
+
+msgid "No po0 servers for this account."
+msgstr "这个账户下没有 po0 服务器。"
+
+msgid "Custom po0 servers (%d)"
+msgstr "自定义 po0 服务器（%d）"
+
+msgid "\"po0 Whitelist\" is off, so these servers are not reported for now."
+msgstr "「po0 加白」开关关着，添加的服务器暂不上报。"
+
+msgid "Address: IP or domain, port optional"
+msgstr "地址：IP 或域名，可带端口"
+
+msgid "Token, starts with pgnfw_ (@slot optional)"
+msgstr "token，pgnfw_ 开头（可带 @槽位）"
+
+msgid "Enter the po0 server address"
+msgstr "请填写 po0 服务器地址"
+
+msgid "The token should be the whole string starting with pgnfw_, @slot optional"
+msgstr "token 不对：应为 pgnfw_ 开头的那一整串，可带 @槽位"
+
+msgid "Fill in the po0 server's IP or domain, port optional, e.g. 1.2.3.4 or fw.example.com:8443; copy the token from the po0 dashboard."
+msgstr "地址填 po0 服务器的 IP 或域名，可带端口，如 1.2.3.4 或 fw.example.com:8443；token 在 po0 后台复制。"
+
+msgid "Operation failed"
+msgstr "操作失败"

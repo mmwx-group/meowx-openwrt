@@ -2,6 +2,7 @@
 
 'use strict';
 
+import { readfile } from 'fs';
 import { cursor } from 'uci';
 import { connect } from 'ubus';
 import { uci_bool, uci_int, uci_array, trim_all } from '/etc/meowx/ucode/include.uc';
@@ -216,6 +217,29 @@ uci.foreach('meowx', 'subscription', (section) => {
 		push(panel_rules, rule);
 	}
 });
+// po0 直连（同客户端 Po0DirectRules）：开着 po0 加白时每台 po0 直连——局域网里的设备访问 / 上报 po0 也得用本机出口 IP，
+// 按订阅规则经节点出去，po0 认的就成了节点的 IP。
+// 地址是 IP 时 IP-CIDR /32（v6 /128）、no-resolve，是域名（主控配的「加白地址」）时 DOMAIN；列表由 meowx-core panel 维护
+const po0 = json(readfile('/etc/meowx/po0.json') ?? 'null');
+for (let u in (po0?.enabled ? po0.report_urls : null) ?? []) {
+	const m = match(u, /^https:\/\/(\[[^\]]+\]|[^\/:?#]+)/);
+	if (!m) {
+		continue;
+	}
+	const host = lc(trim(m[1], '[]'));
+	let rule;
+	if (match(host, /^[0-9.]+$/)) {
+		rule = `IP-CIDR,${host}/32,DIRECT,no-resolve`;
+	} else if (index(host, ':') >= 0) {
+		rule = `IP-CIDR6,${host}/128,DIRECT,no-resolve`;
+	} else {
+		rule = `DOMAIN,${host},DIRECT`;
+	}
+	if (index(panel_rules, rule) < 0) {
+		push(panel_rules, rule);
+	}
+}
+
 if (length(panel_rules) > 0) {
 	config['meowx-rules'] = [ ...panel_rules, ...(config['meowx-rules'] ?? []) ];
 }

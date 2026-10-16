@@ -754,6 +754,96 @@ body.mx-dark {
     gap: 8px;
 }
 
+/* ---------- po0 加白卡（同客户端「流量控制 → po0 加白」） ---------- */
+
+.mx-po0__head {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+}
+
+.mx-po0__title {
+    flex: 1;
+    min-width: 0;
+}
+
+.mx-po0__head input[type="checkbox"] {
+    flex: none;
+    margin-top: 2px;
+}
+
+.mx-po0__group {
+    margin: 14px 0 6px;
+    color: var(--mx-t2);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .02em;
+}
+
+.mx-po0__list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.mx-po0__row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: var(--mx-r-cell);
+    background: var(--mx-elev2);
+}
+
+.mx-po0__main {
+    flex: 1;
+    min-width: 0;
+}
+
+.mx-po0__addr,
+.mx-po0__token {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.mx-po0__addr {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.mx-po0__token {
+    color: var(--mx-t2);
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12px;
+}
+
+.mx-po0__empty,
+.mx-po0__note {
+    color: var(--mx-t2);
+    font-size: 13px;
+}
+
+.mx-po0__note {
+    margin-top: 8px;
+    font-size: 12px;
+}
+
+.mx-po0__add {
+    margin-top: 12px;
+}
+
+@media (max-width: 640px) {
+    .mx-po0__add {
+        flex-wrap: wrap;
+    }
+
+    .mx-po0__add .mx-quickadd__input {
+        flex-basis: 100%;
+    }
+}
+
 /* ---------- 首页订阅卡（同客户端首页订阅条） ---------- */
 
 .mx-subcard {

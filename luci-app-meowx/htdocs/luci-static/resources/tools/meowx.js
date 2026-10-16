@@ -136,6 +136,13 @@ const callMeowXPanelSubscriptions = rpc.declare({
     expect: { '': {} }
 });
 
+const callMeowXPo0 = rpc.declare({
+    object: 'luci.meowx',
+    method: 'po0',
+    params: ['action', 'address', 'token', 'index'],
+    expect: { '': {} }
+});
+
 function formatBytes(n) {
     n = +n;
     if (!isFinite(n) || n < 0) {
@@ -343,6 +350,14 @@ return baseclass.extend({
         return callMeowXPanelProfile();
     },
 
+    po0: function (action, address, token, index) {
+        return callMeowXPo0(action, address ?? '', token ?? '', index ?? 0);
+    },
+
+    po0Status: function () {
+        return L.resolveDefault(callMeowXPo0('status', '', '', 0), { success: false, enabled: false, custom: [], panel: [] });
+    },
+
     panelSubscriptions: function () {
         return L.resolveDefault(callMeowXPanelSubscriptions(), { success: false, subscriptions: [] });
     },
@@ -447,6 +462,115 @@ return baseclass.extend({
         return card;
     },
 
+
+    // po0 加白卡（同客户端「流量控制 → po0 加白」+「自定义 po0 服务器」）：开关、主控登记的列表、自己添加的列表。
+    // 每次操作后用回包原地重画这张卡；token 只显示脱敏写法，完整值只在路由器上
+    renderPo0Card: function (po0, loggedIn) {
+        const card = E('div', { class: 'mx-account mx-po0' });
+        const draw = (state) => {
+            const error = E('div', { class: 'mx-account__error', hidden: '' });
+            const fail = (res) => {
+                error.textContent = res?.error || _('Operation failed');
+                error.hidden = false;
+            };
+            const act = (button, action, address, token, index) => this.busy(button, () =>
+                this.po0(action, address, token, index).then((res) => {
+                    if (!res?.success) {
+                        return fail(res);
+                    }
+                    draw(res);
+                }));
+
+            const toggle = E('input', { type: 'checkbox', 'aria-label': _('po0 Whitelist') });
+            toggle.checked = !!state.enabled;
+            toggle.addEventListener('change', () => {
+                toggle.disabled = true;
+                this.po0(toggle.checked ? 'enable' : 'disable').then((res) => {
+                    if (!res?.success) {
+                        toggle.checked = !toggle.checked;
+                        toggle.disabled = false;
+                        return fail(res);
+                    }
+                    draw(res);
+                }, (err) => {
+                    toggle.checked = !toggle.checked;
+                    toggle.disabled = false;
+                    fail({ error: String(err?.message ?? err) });
+                });
+            });
+
+            const children = [
+                E('div', { class: 'mx-po0__head' }, [
+                    E('div', { class: 'mx-po0__title' }, [
+                        E('span', { class: 'mx-subcard__label' }, _('po0 Whitelist')),
+                        E('div', { class: 'mx-account__hint' }, _('Report the router\'s public IP to po0 servers (registered on the panel and added by you), every 10 minutes and whenever WAN reconnects. Traffic to these po0 servers goes direct.'))
+                    ]),
+                    toggle
+                ])
+            ];
+
+            if (state.enabled) {
+                const panel = state.panel ?? [];
+                children.push(E('div', { class: 'mx-po0__group' }, _('Registered on the panel (%d)').format(panel.length)));
+                if (!loggedIn) {
+                    children.push(E('div', { class: 'mx-po0__empty' }, _('Log in to the panel account to fetch them automatically.')));
+                } else if (panel.length == 0) {
+                    children.push(E('div', { class: 'mx-po0__empty' }, _('No po0 servers for this account.')));
+                } else {
+                    children.push(E('div', { class: 'mx-po0__list' }, panel.map((server) => E('div', { class: 'mx-po0__row' }, [
+                        E('div', { class: 'mx-po0__main' }, [
+                            E('div', { class: 'mx-po0__addr' }, server.name || server.host),
+                            server.name ? E('div', { class: 'mx-po0__token' }, server.host) : ''
+                        ])
+                    ]))));
+                }
+            }
+
+            const custom = state.custom ?? [];
+            children.push(E('div', { class: 'mx-po0__group' }, _('Custom po0 servers (%d)').format(custom.length)));
+            if (custom.length > 0) {
+                children.push(E('div', { class: 'mx-po0__list' }, custom.map((server, i) => E('div', { class: 'mx-po0__row' }, [
+                    E('div', { class: 'mx-po0__main' }, [
+                        E('div', { class: 'mx-po0__addr' }, server.address),
+                        E('div', { class: 'mx-po0__token' }, server.token)
+                    ]),
+                    E('button', {
+                        type: 'button',
+                        class: 'cbi-button cbi-button-negative',
+                        click: (ev) => act(ev.currentTarget, 'remove', '', '', i)
+                    }, _('Delete'))
+                ]))));
+            }
+            if (!state.enabled && custom.length > 0) {
+                children.push(E('div', { class: 'mx-po0__empty' }, _('"po0 Whitelist" is off, so these servers are not reported for now.')));
+            }
+
+            const address = E('input', { type: 'text', class: 'mx-quickadd__input', placeholder: _('Address: IP or domain, port optional'), autocomplete: 'off', spellcheck: 'false' });
+            const token = E('input', { type: 'password', class: 'mx-quickadd__input', placeholder: _('Token, starts with pgnfw_ (@slot optional)'), autocomplete: 'new-password' });
+            const add = E('button', {
+                type: 'button',
+                class: 'cbi-button cbi-button-action',
+                click: (ev) => {
+                    const a = address.value.trim(), t = token.value.trim();
+                    address.classList.toggle('is-invalid', !a);
+                    token.classList.toggle('is-invalid', !/^pgnfw_[A-Za-z0-9_-]{4,200}(@[0-9]{1,2})?$/.test(t));
+                    if (!a || token.classList.contains('is-invalid')) {
+                        error.textContent = !a ? _('Enter the po0 server address') : _('The token should be the whole string starting with pgnfw_, @slot optional');
+                        error.hidden = false;
+                        return;
+                    }
+                    return act(ev.currentTarget, 'add', a, t);
+                }
+            }, _('Add'));
+            token.addEventListener('keydown', (ev) => { if (ev.key == 'Enter') add.click(); });
+            children.push(E('div', { class: 'mx-quickadd mx-po0__add' }, [address, token, add]));
+            children.push(error);
+            children.push(E('div', { class: 'mx-po0__note' }, _('Fill in the po0 server\'s IP or domain, port optional, e.g. 1.2.3.4 or fw.example.com:8443; copy the token from the po0 dashboard.')));
+            card.replaceChildren(...children);
+        };
+        draw(po0 ?? {});
+        return card;
+    },
 
     // 订阅显示名：没名字时用链接的主机名（同客户端 SubProfile 的缺省名）
     subscriptionName: function (section) {
