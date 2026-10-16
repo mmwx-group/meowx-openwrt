@@ -69,7 +69,7 @@ return view.extend({
             return meowx.writefile(path);
         };
 
-        return m.render();
+        return meowx.decorate(m.render());
     },
     handleSaveApply: function (ev, mode) {
         return this.handleSave(ev).finally(function () {

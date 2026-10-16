@@ -86,6 +86,6 @@ return view.extend({
         o.value('remote', _('Remote'));
         o.value('local', _('Local'));
 
-        return m.render();
+        return meowx.decorate(m.render());
     }
 });

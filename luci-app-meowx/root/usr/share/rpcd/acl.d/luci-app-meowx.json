@@ -8,6 +8,9 @@
                 "luci.meowx": [ "*" ]
             },
             "file": {
+                "/etc/meowx/profiles": ["list"],
+                "/etc/meowx/run/providers/rule": ["list"],
+                "/etc/meowx/run/providers/proxy": ["list"],
                 "/etc/meowx/profiles/*.yaml": ["read"],
                 "/etc/meowx/profiles/*.yml": ["read"],
                 "/etc/meowx/subscriptions/*.yaml": ["read"],

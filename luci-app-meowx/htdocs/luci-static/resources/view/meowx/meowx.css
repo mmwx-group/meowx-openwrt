@@ -1,0 +1,658 @@
+/*
+ * MeowX 页面主题：与 iOS / macOS / Android 客户端同一套设计语言（App/Shared/Theme.swift 的 MM token）。
+ * 只作用在 MeowX 的页面上：tools/meowx.js 的 decorate() 给 #cbi-meowx 加 .mx、给 <body> 加 .mx-page。
+ * 深色由 decorate() 看主题实际底色决定（.mx-dark），不依赖某一个主题的写法。
+ */
+
+.mx-page {
+    --mx-bg: #EFE8DF;
+    --mx-elev: #FFFFFF;
+    --mx-elev2: #F3EDE6;
+    --mx-hero: #F7CDDB;
+    --mx-hero-idle: #E3DACE;
+    --mx-stroke: #E6DED5;
+    --mx-t1: #2A2130;
+    --mx-t2: #665A69;
+    --mx-strong: #7A5647;
+    --mx-on-strong: #EFE8DF;
+    --mx-rose: #B02E63;
+    --mx-pink: #F3A6BF;
+    --mx-soft: #FCE4EC;
+    --mx-good: #17693F;
+    --mx-slow: #B93228;
+    --mx-r-card: 24px;
+    --mx-r-cell: 14px;
+    --mx-ease-snappy: cubic-bezier(.2, .9, .3, 1);
+    /* 客户端的三组弹簧（soft 170/22、bouncy 260/16、snap 400/30）用 cubic-bezier 近似 */
+    --mx-soft-spring: cubic-bezier(.22, 1, .36, 1);
+    --mx-bouncy: cubic-bezier(.34, 1.56, .64, 1);
+    --mx-press: .16s;
+    --mx-toggle: .22s;
+    --mx-content: .18s;
+}
+
+.mx-page.mx-dark {
+    --mx-bg: #0E0C11;
+    --mx-elev: #221C29;
+    --mx-elev2: #2F2838;
+    --mx-hero: #45283A;
+    --mx-hero-idle: #322A3B;
+    --mx-stroke: #352D3E;
+    --mx-t1: #F7F0F3;
+    --mx-t2: #B9ADBB;
+    --mx-strong: #F7F0F3;
+    --mx-on-strong: #0E0C11;
+    --mx-rose: #F7B6CB;
+    --mx-soft: #3E2C38;
+    --mx-good: #57D292;
+    --mx-slow: #FF8377;
+}
+
+/* ---------- 画布 ---------- */
+
+.mx {
+    color: var(--mx-t1);
+    font-family: ui-rounded, "SF Pro Rounded", system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+}
+
+body.mx-page {
+    background: var(--mx-bg);
+}
+
+.mx-page #maincontent,
+.mx-page .main-right,
+.mx-page #view {
+    background: transparent;
+}
+
+/* 顶部页签（主题渲染的子菜单：插件配置 / 配置文件 / …）→ 与选项卡同款分段胶囊；切页是整页跳转，靠卡片进场接上 */
+.mx-page #tabmenu .tabs {
+    display: inline-flex;
+    flex-wrap: nowrap;
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    gap: 4px;
+    padding: 4px;
+    margin: 4px 0 18px;
+    border: 0;
+    border-radius: 999px;
+    background: var(--mx-elev);
+    box-shadow: inset 0 0 0 1px var(--mx-stroke);
+}
+
+/* 窄屏放不下时单行左右滑，不折成两行 */
+.mx-page #tabmenu .tabs::-webkit-scrollbar,
+.mx .cbi-tabmenu::-webkit-scrollbar {
+    display: none;
+}
+
+.mx-page #tabmenu .tabs > li {
+    flex: none;
+    margin: 0;
+    border: 0;
+    background: transparent;
+    float: none;
+}
+
+.mx-page #tabmenu .tabs > li > a {
+    display: block;
+    padding: 7px 16px;
+    white-space: nowrap;
+    border: 0;
+    border-radius: 999px;
+    color: var(--mx-t2);
+    font-weight: 650;
+    background: transparent;
+    text-decoration: none;
+    transition: background-color var(--mx-toggle) var(--mx-ease-snappy), color var(--mx-toggle) ease-out, transform var(--mx-press) var(--mx-ease-snappy);
+}
+
+.mx-page #tabmenu .tabs > li > a:hover {
+    background: var(--mx-elev2);
+    color: var(--mx-t1);
+}
+
+.mx-page #tabmenu .tabs > li > a:active {
+    transform: scale(.96);
+}
+
+.mx-page #tabmenu .tabs > li.active > a {
+    background: var(--mx-strong);
+    color: var(--mx-on-strong);
+}
+
+/* 页尾「保存并应用 / 保存 / 复位」 */
+.mx-page .cbi-page-actions {
+    background: transparent;
+    border: 0;
+    padding: 4px 0 12px;
+}
+
+.mx-page .cbi-page-actions .cbi-button {
+    border-radius: 999px;
+    border: 1px solid transparent;
+    font-weight: 650;
+    padding: 0 18px;
+    min-height: 36px;
+    box-shadow: none;
+    transition: transform var(--mx-press) var(--mx-ease-snappy);
+}
+
+.mx-page .cbi-page-actions .cbi-button:active {
+    transform: scale(.96);
+}
+
+.mx-page .cbi-page-actions .cbi-button-apply,
+.mx-page .cbi-page-actions .cbi-button-save {
+    background: var(--mx-strong);
+    color: var(--mx-on-strong);
+}
+
+.mx-page .cbi-page-actions .cbi-button-save {
+    background: var(--mx-elev);
+    color: var(--mx-t1);
+    border-color: var(--mx-stroke);
+}
+
+.mx-page .cbi-page-actions .cbi-button-reset {
+    background: transparent;
+    color: var(--mx-t2);
+    border-color: var(--mx-stroke);
+}
+
+/* 首页有主卡时，地图自带的标题与说明就重复了 */
+.mx.mx-has-hero > h2,
+.mx.mx-has-hero > .cbi-map-descr {
+    display: none;
+}
+
+.mx > h2 {
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -.01em;
+    color: var(--mx-t1);
+    margin: 4px 0 6px;
+    border: 0;
+}
+
+.mx > .cbi-map-descr {
+    color: var(--mx-t2);
+    margin-bottom: 18px;
+}
+
+/* ---------- 卡片：页面只有一种容器 ---------- */
+
+.mx .cbi-section {
+    background: var(--mx-elev);
+    border: 1px solid var(--mx-stroke);
+    border-radius: var(--mx-r-card);
+    box-shadow: none;
+    padding: 18px 20px;
+    margin: 0 0 16px;
+}
+
+.mx .cbi-section > h3,
+.mx .cbi-section > legend {
+    font-size: 17px;
+    font-weight: 750;
+    color: var(--mx-t1);
+    border: 0;
+    margin: 0 0 10px;
+    padding: 0;
+}
+
+.mx .cbi-section-descr {
+    color: var(--mx-t2);
+}
+
+.mx .cbi-value {
+    border: 0;
+    border-radius: var(--mx-r-cell);
+    padding: 10px 12px;
+    margin: 0 -12px;
+    transition: background-color var(--mx-content) ease-out;
+}
+
+.mx .cbi-value:hover {
+    background: var(--mx-elev2);
+}
+
+.mx .cbi-value-title {
+    color: var(--mx-t1);
+    font-weight: 600;
+}
+
+.mx .cbi-value-description {
+    color: var(--mx-t2);
+}
+
+/* 表格节（订阅列表、访问控制等） */
+.mx .table,
+.mx .cbi-section-table {
+    border: 0;
+    border-collapse: separate;
+    border-spacing: 0 6px;
+}
+
+.mx .cbi-section-table .tr,
+.mx .table .tr {
+    background: transparent;
+}
+
+.mx .cbi-section-table .th,
+.mx .table .th {
+    color: var(--mx-t2);
+    font-weight: 600;
+    border: 0;
+    background: transparent;
+}
+
+.mx .cbi-section-table .cbi-section-table-row .td {
+    background: var(--mx-elev2);
+    border: 0;
+}
+
+.mx .cbi-section-table .cbi-section-table-row .td:first-child {
+    border-radius: var(--mx-r-cell) 0 0 var(--mx-r-cell);
+}
+
+.mx .cbi-section-table .cbi-section-table-row .td:last-child {
+    border-radius: 0 var(--mx-r-cell) var(--mx-r-cell) 0;
+}
+
+/* ---------- 输入 ---------- */
+
+.mx input[type="text"],
+.mx input[type="password"],
+.mx input[type="number"],
+.mx input:not([type]),
+.mx select,
+.mx textarea,
+.mx .cbi-dropdown {
+    background: var(--mx-elev2);
+    color: var(--mx-t1);
+    border: 1px solid transparent;
+    border-radius: 12px;
+    box-shadow: none;
+    transition: border-color var(--mx-content) ease-out, box-shadow var(--mx-content) ease-out;
+}
+
+.mx input:focus,
+.mx select:focus,
+.mx textarea:focus,
+.mx .cbi-dropdown:focus,
+.mx .cbi-dropdown[open] {
+    outline: none;
+    border-color: var(--mx-rose);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--mx-rose) 18%, transparent);
+}
+
+.mx .cbi-dropdown[open] > ul.dropdown {
+    background: var(--mx-elev);
+    border: 1px solid var(--mx-stroke);
+    border-radius: var(--mx-r-cell);
+    animation: mx-pop var(--mx-toggle) var(--mx-soft-spring);
+}
+
+.mx .cbi-dropdown > ul > li[selected],
+.mx .cbi-dropdown[open] > ul.dropdown > li.focus {
+    background: var(--mx-soft);
+    color: var(--mx-t1);
+}
+
+.mx textarea {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+/* 勾选框 → 开关（客户端的 Toggle：开 = 樱粉、关 = 次级底） */
+.mx input[type="checkbox"] {
+    -webkit-appearance: none;
+    appearance: none;
+    position: relative;
+    width: 44px;
+    height: 26px;
+    margin: 0;
+    border-radius: 999px;
+    background: var(--mx-hero-idle);
+    border: 0;
+    cursor: pointer;
+    vertical-align: middle;
+    transition: background-color var(--mx-toggle) var(--mx-ease-snappy);
+}
+
+/* 主题（bootstrap 等）用 ::before 画勾选框与对勾，开关不要它 */
+.mx input[type="checkbox"]::before {
+    content: none;
+    display: none;
+}
+
+.mx input[type="checkbox"]::after {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #FFFFFF;
+    box-shadow: 0 1px 2px rgba(42, 33, 48, .25);
+    /* bootstrap 给勾选后的 ::after 加了对勾形状的 mask，会把圆钮裁成对勾 */
+    -webkit-mask: none;
+    mask: none;
+    transition: transform var(--mx-toggle) var(--mx-bouncy);
+}
+
+.mx input[type="checkbox"]:checked {
+    background: var(--mx-pink);
+}
+
+.mx input[type="checkbox"]:checked::after {
+    transform: translateX(18px);
+}
+
+.mx input[type="checkbox"]:focus-visible {
+    outline: 2px solid var(--mx-rose);
+    outline-offset: 2px;
+}
+
+/* bootstrap 主题用 label 画假勾选框：开关自己画了，藏掉它 */
+.mx .cbi-checkbox > input[type="checkbox"] + label {
+    display: none;
+}
+
+/* ---------- 按钮 ---------- */
+
+.mx .btn,
+.mx .cbi-button,
+.mx button,
+.mx input[type="button"],
+.mx input[type="submit"] {
+    border-radius: 999px;
+    border: 1px solid transparent;
+    background: var(--mx-elev2);
+    color: var(--mx-t1);
+    font-weight: 650;
+    padding: 0 16px;
+    min-height: 34px;
+    line-height: 32px;
+    box-shadow: none;
+    text-shadow: none;
+    cursor: pointer;
+    transition: transform var(--mx-press) var(--mx-ease-snappy), background-color var(--mx-content) ease-out, opacity var(--mx-content) ease-out;
+}
+
+.mx .btn:hover,
+.mx .cbi-button:hover {
+    filter: brightness(.97);
+}
+
+.mx .btn:active,
+.mx .cbi-button:active,
+.mx button:active {
+    transform: scale(.96);
+}
+
+/* 主要动作 = 摩卡实心（客户端的 MM.strong） */
+.mx .cbi-button-action,
+.mx .cbi-button-apply,
+.mx .cbi-button-save,
+.mx .cbi-button-positive,
+.mx .cbi-button-add {
+    background: var(--mx-strong);
+    color: var(--mx-on-strong);
+}
+
+.mx .cbi-button-negative,
+.mx .cbi-button-remove,
+.mx .cbi-button-reset {
+    background: transparent;
+    color: var(--mx-slow);
+    border-color: color-mix(in srgb, var(--mx-slow) 35%, transparent);
+}
+
+.mx .cbi-button-edit {
+    background: var(--mx-soft);
+    color: var(--mx-rose);
+}
+
+/* ---------- 选项卡 → 分段控件 ---------- */
+
+.mx .cbi-tabmenu {
+    display: inline-flex;
+    flex-wrap: nowrap;
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    gap: 4px;
+    padding: 4px;
+    margin: 0 0 14px;
+    border: 0;
+    border-radius: 999px;
+    background: var(--mx-elev2);
+}
+
+.mx .cbi-tabmenu > li {
+    flex: none;
+    margin: 0;
+    border: 0;
+    background: transparent;
+    border-radius: 999px;
+    transition: background-color var(--mx-toggle) var(--mx-ease-snappy);
+}
+
+.mx .cbi-tabmenu > li > a {
+    display: block;
+    padding: 6px 14px;
+    white-space: nowrap;
+    border: 0;
+    border-radius: 999px;
+    color: var(--mx-t2);
+    font-weight: 650;
+    background: transparent;
+    text-decoration: none;
+}
+
+.mx .cbi-tabmenu > li.cbi-tab {
+    background: var(--mx-strong);
+}
+
+.mx .cbi-tabmenu > li.cbi-tab > a {
+    color: var(--mx-on-strong);
+}
+
+.mx [data-tab-active="true"] {
+    animation: mx-fade var(--mx-content) ease-out;
+}
+
+/* ---------- 首页主卡 ---------- */
+
+.mx-hero {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    padding: 22px 24px;
+    margin: 0 0 16px;
+    border-radius: 28px;
+    background: var(--mx-hero-idle);
+    color: var(--mx-t1);
+    overflow: hidden;
+    transition: background-color .4s var(--mx-soft-spring);
+}
+
+.mx-hero.is-running {
+    background: var(--mx-hero);
+}
+
+.mx-hero__logo {
+    flex: none;
+    width: 64px;
+    height: 64px;
+}
+
+.mx-hero__logo img {
+    width: 64px;
+    height: 64px;
+    border-radius: 18px;
+}
+
+.mx-hero__logo .mx-logo-dark,
+.mx-dark .mx-hero__logo .mx-logo-light {
+    display: none;
+}
+
+.mx-dark .mx-hero__logo .mx-logo-dark {
+    display: block;
+}
+
+.mx-hero__main {
+    flex: 1;
+    min-width: 0;
+}
+
+.mx-hero__title {
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: -.01em;
+    line-height: 1.2;
+}
+
+.mx-hero__meta {
+    margin-top: 4px;
+    color: var(--mx-t2);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+}
+
+.mx-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    padding: 4px 12px 4px 10px;
+    border-radius: 999px;
+    background: var(--mx-elev);
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.mx-status__dot {
+    position: relative;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--mx-t2);
+    transition: background-color var(--mx-toggle) ease-out;
+}
+
+.is-running .mx-status__dot {
+    background: var(--mx-good);
+}
+
+/* 运行中：点外扩一圈涟漪（客户端电源钮连上时的那圈） */
+.is-running .mx-status__dot::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 2px solid var(--mx-good);
+    animation: mx-ripple 1.8s var(--mx-soft-spring) infinite;
+}
+
+.mx-hero__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.mx-hero__actions .cbi-button {
+    background: var(--mx-elev);
+    color: var(--mx-t1);
+}
+
+.mx-hero__actions .cbi-button.mx-primary {
+    background: var(--mx-strong);
+    color: var(--mx-on-strong);
+}
+
+@media (max-width: 640px) {
+    .mx-hero {
+        flex-wrap: wrap;
+    }
+
+    .mx-hero__actions {
+        width: 100%;
+        justify-content: flex-start;
+    }
+}
+
+/* ---------- 进场动效 ---------- */
+
+/* 卡片逐个错峰上浮（前 12 张，decorate() 写 --mx-i） */
+.mx-enter {
+    animation: mx-rise .48s var(--mx-soft-spring) both;
+    animation-delay: calc(var(--mx-i, 0) * 45ms);
+}
+
+@keyframes mx-rise {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+@keyframes mx-fade {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+@keyframes mx-pop {
+    from {
+        opacity: 0;
+        transform: scale(.97) translateY(-4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+@keyframes mx-ripple {
+    from {
+        transform: scale(1);
+        opacity: .7;
+    }
+
+    to {
+        transform: scale(2.8);
+        opacity: 0;
+    }
+}
+
+/* 系统「减弱动态效果」：不缩放、不位移、不循环 */
+@media (prefers-reduced-motion: reduce) {
+    .mx *,
+    .mx-hero,
+    .mx-hero * {
+        animation: none !important;
+        transition: none !important;
+    }
+}

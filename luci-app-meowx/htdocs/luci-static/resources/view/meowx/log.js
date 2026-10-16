@@ -143,6 +143,6 @@ return view.extend({
             });
         };
 
-        return m.render();
+        return meowx.decorate(m.render());
     }
 });

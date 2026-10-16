@@ -5,16 +5,49 @@
 'require poll';
 'require tools.meowx as meowx';
 
-function renderStatus(running) {
-    return updateStatus(E('input', { id: 'core_status', style: 'border: unset; font-style: italic; font-weight: bold;', readonly: '' }), running);
+// 首页主卡：与客户端的连接主卡同一套样子（运行中樱粉底 + 状态点涟漪，未运行中性底）
+function renderHero(appVersion, coreVersion, running) {
+    // 浅 / 深两张 Logo 都放上，按 .mx-dark 显示一张（深浅色是 decorate() 定的，此时还没定）
+    const logo = E('span', { class: 'mx-hero__logo' }, [
+        E('img', { class: 'mx-logo-light', alt: '', src: L.resource('view/meowx/logo-light.png') }),
+        E('img', { class: 'mx-logo-dark', alt: '', src: L.resource('view/meowx/logo-dark.png') })
+    ]);
+    const meta = [];
+    if (coreVersion) {
+        meta.push(`${_('Core Version')} ${coreVersion}`);
+    }
+    if (appVersion) {
+        meta.push(`${_('App Version')} ${appVersion}`);
+    }
+    const action = function (title, handler, primary) {
+        return E('button', {
+            class: 'cbi-button' + (primary ? ' mx-primary' : ''),
+            click: function (ev) {
+                return meowx.busy(ev.currentTarget, handler);
+            }
+        }, title);
+    };
+    const hero = E('div', { class: 'mx-hero' }, [
+        logo,
+        E('div', { class: 'mx-hero__main' }, [
+            E('div', { class: 'mx-hero__title' }, 'MeowX'),
+            E('div', { class: 'mx-status' }, [E('span', { class: 'mx-status__dot' }), E('span', { class: 'mx-status__text' })]),
+            E('div', { class: 'mx-hero__meta' }, meta.join(' · '))
+        ]),
+        E('div', { class: 'mx-hero__actions' }, [
+            action(_('Reload Service'), function () { return meowx.reload(); }, true),
+            action(_('Restart Service'), function () { return meowx.restart(); }),
+            action(_('Open Dashboard'), function () { return meowx.openDashboard(); }),
+            action(_('Update Dashboard'), function () { return meowx.updateDashboard(); })
+        ])
+    ]);
+    return updateHero(hero, running);
 }
 
-function updateStatus(element, running) {
-    if (element) {
-        element.style.color = running ? 'green' : 'red';
-        element.value = running ? _('Running') : _('Not Running');
-    }
-    return element;
+function updateHero(hero, running) {
+    hero.classList.toggle('is-running', !!running);
+    hero.querySelector('.mx-status__text').textContent = running ? _('Running') : _('Not Running');
+    return hero;
 }
 
 return view.extend({
@@ -37,59 +70,12 @@ return view.extend({
 
         m = new form.Map('meowx', _('MeowX'), `${_('Transparent Proxy with Mihomo on OpenWrt.')}`);
 
-        s = m.section(form.TableSection, 'status', _('Status'));
-        s.anonymous = true;
-
-        o = s.option(form.Value, '_app_version', _('App Version'));
-        o.readonly = true;
-        o.load = function () {
-            return appVersion;
-        };
-        o.write = function () { };
-
-        o = s.option(form.Value, '_core_version', _('Core Version'));
-        o.readonly = true;
-        o.load = function () {
-            return coreVersion;
-        };
-        o.write = function () { };
-
-        o = s.option(form.DummyValue, '_core_status', _('Core Status'));
-        o.cfgvalue = function () {
-            return renderStatus(running);
-        };
+        const hero = renderHero(appVersion, coreVersion, running);
         poll.add(function () {
             return L.resolveDefault(meowx.status()).then(function (running) {
-                updateStatus(document.getElementById('core_status'), running);
+                updateHero(hero, running);
             });
         });
-
-        o = s.option(form.Button, 'reload');
-        o.inputstyle = 'action';
-        o.inputtitle = _('Reload Service');
-        o.onclick = function () {
-            return meowx.reload();
-        };
-
-        o = s.option(form.Button, 'restart');
-        o.inputstyle = 'negative';
-        o.inputtitle = _('Restart Service');
-        o.onclick = function () {
-            return meowx.restart();
-        };
-
-        o = s.option(form.Button, 'update_dashboard');
-        o.inputstyle = 'positive';
-        o.inputtitle = _('Update Dashboard');
-        o.onclick = function () {
-            return meowx.updateDashboard();
-        };
-
-        o = s.option(form.Button, 'open_dashboard');
-        o.inputtitle = _('Open Dashboard');
-        o.onclick = function () {
-            return meowx.openDashboard();
-        };
 
         s = m.section(form.NamedSection, 'config', 'config', _('App Config'));
 
@@ -200,6 +186,6 @@ return view.extend({
         o = s.taboption('environment_variable', form.Flag, 'env_skip_system_ipv6_check', _('Skip System IPv6 Check'));
         o.rmempty = false;
 
-        return m.render();
+        return meowx.decorate(m.render(), { hero: hero });
     }
 });

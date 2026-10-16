@@ -207,6 +207,6 @@ return view.extend({
         o.datatype = 'uinteger';
         o.rmempty = false;
 
-        return m.render();
+        return meowx.decorate(m.render());
     }
 });

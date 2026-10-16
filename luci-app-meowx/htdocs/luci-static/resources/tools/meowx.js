@@ -227,4 +227,67 @@ return baseclass.extend({
     debug: function () {
         return callMeowXDebug();
     },
+
+    // MeowX 页面主题（view/meowx/meowx.css，与客户端同一套设计语言）：注入样式、按主题实际底色定深浅、
+    // 卡片错峰进场。每个页面 render 都经它：return meowx.decorate(m.render(), { hero })。
+    decorate: function (rendered, options) {
+        options = options || {};
+        // 样式表每次按 no-cache 取（uhttpd 有 ETag，没变只回 304）：LuCI 的 resource_version 升级我们的包时不一定变，
+        // 用 <link> 会一直拿缓存里的旧样式。页面等样式就位再出来，不闪一下无样式的样子。
+        if (!this.themeReady) {
+            this.themeReady = fetch(L.resource('view/meowx/meowx.css'), { cache: 'no-cache', credentials: 'same-origin' })
+                .then(function (res) { return res.ok ? res.text() : ''; })
+                .then(function (css) { document.head.appendChild(E('style', { id: 'mx-css' }, css)); })
+                .catch(function () { });
+        }
+        // 先读主题自己的底色（加 .mx-page 之前），按亮度判断深浅：不依赖 bootstrap / argon 等各自的深色写法
+        if (!document.body.classList.contains('mx-page')) {
+            const rgb = (getComputedStyle(document.body).backgroundColor.match(/\d+(\.\d+)?/g) || ['255', '255', '255']).map(Number);
+            const transparent = rgb.length > 3 && rgb[3] === 0;
+            const luma = (0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]) / 255;
+            document.body.classList.toggle('mx-dark', !transparent && luma < 0.45);
+            document.body.classList.add('mx-page');
+        }
+        return Promise.all([rendered, this.themeReady]).then(function (results) {
+            const node = results[0];
+            const map = node.id === 'cbi-meowx' ? node : node.querySelector('#cbi-meowx');
+            if (!map) {
+                return node;
+            }
+            map.classList.add('mx');
+            // 窄屏页签单行滑动：当前页签不在视野里时滚到中间
+            const active = document.querySelector('#tabmenu .tabs > li.active');
+            if (active && active.parentNode.scrollWidth > active.parentNode.clientWidth) {
+                active.parentNode.scrollLeft = active.offsetLeft - (active.parentNode.clientWidth - active.offsetWidth) / 2;
+            }
+            if (options.hero) {
+                map.classList.add('mx-has-hero');
+                const descr = map.querySelector(':scope > .cbi-map-descr');
+                map.insertBefore(options.hero, descr ? descr.nextSibling : map.firstChild);
+            }
+            // 只给前 12 张卡错峰，后面的随第 12 张一起出来（同客户端节点卡的 StaggerIn）；页面在后台时不播，直接显示
+            if (document.hidden) {
+                return node;
+            }
+            const cards = map.querySelectorAll(':scope > .mx-hero, :scope > .cbi-section, :scope > .cbi-section-create');
+            cards.forEach(function (card, i) {
+                card.style.setProperty('--mx-i', Math.min(i, 12));
+                card.classList.add('mx-enter');
+            });
+            return node;
+        });
+    },
+
+    // 按钮执行期间转圈、禁止重复点；结束（成功或失败）恢复
+    busy: function (button, action) {
+        if (button.disabled) {
+            return Promise.resolve();
+        }
+        button.disabled = true;
+        button.classList.add('spinning');
+        return Promise.resolve().then(action).finally(function () {
+            button.disabled = false;
+            button.classList.remove('spinning');
+        });
+    },
 })
