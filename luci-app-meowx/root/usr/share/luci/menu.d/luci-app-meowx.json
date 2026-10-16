@@ -5,8 +5,12 @@
             "type": "firstchild"
         },
         "depends": {
-            "acl": [ "luci-app-meowx" ],
-            "uci": { "meowx": true }
+            "acl": [
+                "luci-app-meowx"
+            ],
+            "uci": {
+                "meowx": true
+            }
         }
     },
     "admin/services/meowx/config": {

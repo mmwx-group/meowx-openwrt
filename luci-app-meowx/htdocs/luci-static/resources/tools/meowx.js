@@ -372,13 +372,14 @@ return baseclass.extend({
                 .catch(function () { });
         }
         // 先读主题自己的底色（加 .mx-page 之前），按亮度判断深浅：不依赖 bootstrap / argon 等各自的深色写法
-        if (!document.body.classList.contains('mx-page')) {
+        // 主题标了 data-darkmode（bootstrap）就由 CSS 跟着它走；没标的才按底色亮度判断
+        if (!document.body.classList.contains('mx-page') && !document.documentElement.hasAttribute('data-darkmode')) {
             const rgb = (getComputedStyle(document.body).backgroundColor.match(/\d+(\.\d+)?/g) || ['255', '255', '255']).map(Number);
             const transparent = rgb.length > 3 && rgb[3] === 0;
             const luma = (0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]) / 255;
             document.body.classList.toggle('mx-dark', !transparent && luma < 0.45);
-            document.body.classList.add('mx-page');
         }
+        document.body.classList.add('mx-page');
         return Promise.all([rendered, this.themeReady]).then(function (results) {
             const node = results[0];
             const map = node.id === 'cbi-meowx' ? node : node.querySelector('#cbi-meowx');
@@ -386,11 +387,8 @@ return baseclass.extend({
                 return node;
             }
             map.classList.add('mx');
-            // 窄屏页签单行滑动：当前页签不在视野里时滚到中间
-            const active = document.querySelector('#tabmenu .tabs > li.active');
-            if (active && active.parentNode.scrollWidth > active.parentNode.clientWidth) {
-                active.parentNode.scrollLeft = active.offsetLeft - (active.parentNode.clientWidth - active.offsetWidth) / 2;
-            }
+            // 画布挂在 #view 上：这时 #view 里还是「加载中」，LuCI 紧接着在同一轮里换成内容，样式随内容一起出现
+            document.getElementById('view')?.classList.add('mx-view');
             // 主卡 / 订阅卡收进一个容器（display: contents，不影响布局）。LuCI 点「保存」等按钮后会重画整张表单、
             // 把地图下的子节点全换掉，容器跟着没了——盯住它，没了就原样放回（不重播进场动画），否则主卡消失、页面跳一下
             let head = null;

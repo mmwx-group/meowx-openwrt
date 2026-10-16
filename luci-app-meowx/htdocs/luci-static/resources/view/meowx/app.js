@@ -7,7 +7,7 @@
 
 // 首页主卡：与客户端的连接主卡同一套样子（运行中樱粉底 + 状态点涟漪，未运行中性底）
 function renderHero(appVersion, coreVersion, running) {
-    // 浅 / 深两张 Logo 都放上，按 .mx-dark 显示一张（深浅色是 decorate() 定的，此时还没定）
+    // 浅 / 深两张 Logo 都放上，由 CSS 按深浅色显示一张
     const logo = E('span', { class: 'mx-hero__logo' }, [
         E('img', { class: 'mx-logo-light', alt: '', src: L.resource('view/meowx/logo-light.png') }),
         E('img', { class: 'mx-logo-dark', alt: '', src: L.resource('view/meowx/logo-dark.png') })

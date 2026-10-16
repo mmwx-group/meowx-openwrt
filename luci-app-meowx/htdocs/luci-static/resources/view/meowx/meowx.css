@@ -1,10 +1,11 @@
 /*
  * MeowX 页面主题：与 iOS / macOS / Android 客户端同一套设计语言（App/Shared/Theme.swift 的 MM token）。
- * 只作用在 MeowX 的页面上：tools/meowx.js 的 decorate() 给 #cbi-meowx 加 .mx、给 <body> 加 .mx-page。
- * 深色由 decorate() 看主题实际底色决定（.mx-dark），不依赖某一个主题的写法。
+ * 只在 MeowX 的页面由 tools/meowx.js 的 decorate() 注入，作用范围是内容区（#view.mx-view 与地图 .mx），
+ * 不碰主题第一帧就画好的部分（页面底色、顶部页签），否则每次切页签都会先按主题画、再变样子，闪一下。
+ * 深色跟随主题给 <html> 标的 data-darkmode（bootstrap）；没有这个标记的主题由 decorate() 按底色亮度加 .mx-dark。
  */
 
-.mx-page {
+body {
     --mx-bg: #EFE8DF;
     --mx-elev: #FFFFFF;
     --mx-elev2: #F3EDE6;
@@ -31,7 +32,8 @@
     --mx-content: .18s;
 }
 
-.mx-page.mx-dark {
+:root[data-darkmode="true"] body,
+body.mx-dark {
     --mx-bg: #0E0C11;
     --mx-elev: #221C29;
     --mx-elev2: #2F2838;
@@ -56,82 +58,30 @@
     -webkit-font-smoothing: antialiased;
 }
 
-body.mx-page {
+/* 内容区做成一块奶白画布（同客户端的页面底），卡片放在上面。页面底色与顶部页签属于主题、第一帧就画好了，
+   插件没法在 <head> 里先放样式（LuCI 24.10 页头的 node.css 是旧版遗留、ucode 分发器不传），改它们就会切页闪一下 */
+#view.mx-view {
     background: var(--mx-bg);
+    border-radius: 28px;
+    padding: 18px;
+    margin-bottom: 16px;
 }
 
-.mx-page #maincontent,
-.mx-page .main-right,
-.mx-page #view {
-    background: transparent;
-}
-
-/* 顶部页签（主题渲染的子菜单：插件配置 / 配置文件 / …）→ 与选项卡同款分段胶囊；切页是整页跳转，靠卡片进场接上 */
-.mx-page #tabmenu .tabs {
-    display: inline-flex;
-    flex-wrap: nowrap;
-    max-width: 100%;
-    overflow-x: auto;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
-    gap: 4px;
-    padding: 4px;
-    margin: 4px 0 18px;
-    border: 0;
-    border-radius: 999px;
-    background: var(--mx-elev);
-    box-shadow: inset 0 0 0 1px var(--mx-stroke);
-}
-
-/* 窄屏放不下时单行左右滑，不折成两行 */
-.mx-page #tabmenu .tabs::-webkit-scrollbar,
-.mx .cbi-tabmenu::-webkit-scrollbar {
-    display: none;
-}
-
-.mx-page #tabmenu .tabs > li {
-    flex: none;
-    margin: 0;
-    border: 0;
-    background: transparent;
-    float: none;
-}
-
-.mx-page #tabmenu .tabs > li > a {
-    display: block;
-    padding: 7px 16px;
-    white-space: nowrap;
-    border: 0;
-    border-radius: 999px;
-    color: var(--mx-t2);
-    font-weight: 650;
-    background: transparent;
-    text-decoration: none;
-    transition: background-color var(--mx-toggle) var(--mx-ease-snappy), color var(--mx-toggle) ease-out, transform var(--mx-press) var(--mx-ease-snappy);
-}
-
-.mx-page #tabmenu .tabs > li > a:hover {
-    background: var(--mx-elev2);
-    color: var(--mx-t1);
-}
-
-.mx-page #tabmenu .tabs > li > a:active {
-    transform: scale(.96);
-}
-
-.mx-page #tabmenu .tabs > li.active > a {
-    background: var(--mx-strong);
-    color: var(--mx-on-strong);
+@media (max-width: 640px) {
+    #view.mx-view {
+        border-radius: 22px;
+        padding: 12px;
+    }
 }
 
 /* 页尾「保存并应用 / 保存 / 复位」 */
-.mx-page .cbi-page-actions {
+.cbi-page-actions {
     background: transparent;
     border: 0;
     padding: 4px 0 12px;
 }
 
-.mx-page .cbi-page-actions .cbi-button {
+.cbi-page-actions .cbi-button {
     border-radius: 999px;
     border: 1px solid transparent;
     font-weight: 650;
@@ -141,23 +91,23 @@ body.mx-page {
     transition: transform var(--mx-press) var(--mx-ease-snappy);
 }
 
-.mx-page .cbi-page-actions .cbi-button:active {
+.cbi-page-actions .cbi-button:active {
     transform: scale(.96);
 }
 
-.mx-page .cbi-page-actions .cbi-button-apply,
-.mx-page .cbi-page-actions .cbi-button-save {
+.cbi-page-actions .cbi-button-apply,
+.cbi-page-actions .cbi-button-save {
     background: var(--mx-strong);
     color: var(--mx-on-strong);
 }
 
-.mx-page .cbi-page-actions .cbi-button-save {
+.cbi-page-actions .cbi-button-save {
     background: var(--mx-elev);
     color: var(--mx-t1);
     border-color: var(--mx-stroke);
 }
 
-.mx-page .cbi-page-actions .cbi-button-reset {
+.cbi-page-actions .cbi-button-reset {
     background: transparent;
     color: var(--mx-t2);
     border-color: var(--mx-stroke);
@@ -506,11 +456,13 @@ body.mx-page {
 }
 
 .mx-hero__logo .mx-logo-dark,
-.mx-dark .mx-hero__logo .mx-logo-light {
+.mx-dark .mx-hero__logo .mx-logo-light,
+:root[data-darkmode="true"] .mx-hero__logo .mx-logo-light {
     display: none;
 }
 
-.mx-dark .mx-hero__logo .mx-logo-dark {
+.mx-dark .mx-hero__logo .mx-logo-dark,
+:root[data-darkmode="true"] .mx-hero__logo .mx-logo-dark {
     display: block;
 }
 
