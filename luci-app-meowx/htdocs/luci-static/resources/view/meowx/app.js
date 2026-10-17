@@ -303,8 +303,9 @@ return baseclass.extend({
         o = s.option(form.Flag, 'test_profile', _('Test Profile'));
         o.rmempty = false;
 
+        // 缺省关闭：新装即接管局域网流量（透明代理）。「仅核心」只按订阅原样跑内核、不下发防火墙 / 路由规则
         o = s.option(form.Flag, 'core_only', _('Core Only'));
-        o.default = '1';
+        o.default = '0';
         o.rmempty = false;
 
         s = m.section(form.NamedSection, 'procd', 'procd', _('procd Config'));
