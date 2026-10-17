@@ -1338,3 +1338,9 @@ msgstr ""
 
 msgid "Import"
 msgstr ""
+
+msgid "The running config has no external controller, so the web dashboard is unavailable. Turn off \"Core Only\" (the mixin adds it) or add external-controller to the profile, then reload the service."
+msgstr ""
+
+msgid "The core is not running. Choose a subscription and start the service first."
+msgstr ""

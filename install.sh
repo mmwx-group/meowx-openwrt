@@ -10,29 +10,57 @@ fi
 
 # include openwrt_release
 . /etc/openwrt_release
+[ -f /etc/os-release ] && . /etc/os-release
 
 # get branch/arch
+# 第三方固件常把 DISTRIB_RELEASE 改成自己的名字（如「Buddha Version」），依次看 DISTRIB_RELEASE / DISTRIB_REVISION /
+# os-release 的 VERSION_ID、OPENWRT_RELEASE 里有没有版本号；都认不出时按包管理器选：apk 用 25.12 的包，opkg 用 24.10 的包
 arch="$DISTRIB_ARCH"
 branch=
-case "$DISTRIB_RELEASE" in
-	*"24.10"*)
-		branch="openwrt-24.10"
-		;;
-	*"25.12"*)
+for release in "$DISTRIB_RELEASE" "$DISTRIB_REVISION" "$VERSION_ID" "$OPENWRT_RELEASE"; do
+	case "$release" in
+		*"24.10"*) branch="openwrt-24.10" ;;
+		*"25.12"*) branch="openwrt-25.12" ;;
+		*"SNAPSHOT"*) branch="SNAPSHOT" ;;
+	esac
+	[ -n "$branch" ] && break
+done
+if [ -z "$branch" ]; then
+	if [ -x "/usr/bin/apk" ]; then
 		branch="openwrt-25.12"
-		;;
-	"SNAPSHOT")
-		branch="SNAPSHOT"
-		;;
-	*)
-		echo "unsupported release: $DISTRIB_RELEASE"
-		exit 1
-		;;
-esac
+	else
+		branch="openwrt-24.10"
+	fi
+	echo "unknown release \"$DISTRIB_RELEASE\", using $branch packages"
+fi
+# 包格式跟着包管理器走：opkg 只能装 24.10 的 ipk，apk 只能装 25.12 / SNAPSHOT 的 apk（第三方固件的版本号不一定可信）
+if [ -x "/usr/bin/apk" ] && [ "$branch" = "openwrt-24.10" ]; then
+	branch="openwrt-25.12"
+elif [ ! -x "/usr/bin/apk" ] && [ "$branch" != "openwrt-24.10" ]; then
+	branch="openwrt-24.10"
+fi
+if [ -z "$arch" ]; then
+	if [ -x "/usr/bin/apk" ]; then
+		arch="$(apk --print-arch 2>/dev/null)"
+	else
+		arch="$(opkg print-architecture 2>/dev/null | awk '$2 != "all" && $2 != "noarch" { a = $2 } END { print a }')"
+	fi
+fi
 
 # feed url
 repository_url="https://dl.miaomiaowux.com/meowx/openwrt"
 feed_url="$repository_url/$branch/$arch/meowx"
+
+# 这个系统版本 / 架构有没有编出来的包
+if [ -x "/usr/bin/apk" ]; then
+	feed_index="$feed_url/packages.adb"
+else
+	feed_index="$feed_url/Packages.gz"
+fi
+if [ -z "$arch" ] || ! wget -q -O /dev/null "$feed_index"; then
+	echo "no packages for $branch / ${arch:-unknown arch}, see https://github.com/mmwx-group/meowx-openwrt"
+	exit 1
+fi
 
 if [ -x "/bin/opkg" ]; then
 	# update feeds

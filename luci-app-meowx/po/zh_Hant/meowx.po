@@ -1345,3 +1345,9 @@ msgstr "帳戶下的訂閱"
 
 msgid "Import"
 msgstr "匯入"
+
+msgid "The running config has no external controller, so the web dashboard is unavailable. Turn off \"Core Only\" (the mixin adds it) or add external-controller to the profile, then reload the service."
+msgstr "目前執行的設定裡沒有外部控制埠，Web 面板用不了：關掉「僅核心」（混入設定時會加上），或在設定裡寫上 external-controller，然後重載服務。"
+
+msgid "The core is not running. Choose a subscription and start the service first."
+msgstr "核心沒有執行：先在訂閱卡選好訂閱並啟動服務。"

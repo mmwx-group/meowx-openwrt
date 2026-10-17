@@ -39,7 +39,13 @@ function renderHero(appVersion, coreVersion, running) {
         E('div', { class: 'mx-hero__actions' }, [
             action(_('Reload Service'), function () { return meowx.reload(); }, true),
             action(_('Restart Service'), function () { return meowx.restart(); }),
-            action(_('Open Dashboard'), function () { return meowx.openDashboard(); }),
+            action(_('Open Dashboard'), function () {
+                return meowx.openDashboard().catch(function () {
+                    return meowx.status().then(function (running) {
+                        ui.addNotification(null, E('p', running ? _('The running config has no external controller, so the web dashboard is unavailable. Turn off "Core Only" (the mixin adds it) or add external-controller to the profile, then reload the service.') : _('The core is not running. Choose a subscription and start the service first.')), 'warning');
+                    });
+                });
+            }),
             // 更新的是内核自带的 Web 面板（不是插件本身，插件在「关于」里更新）：走内核的 API，内核没在跑时没法更新，给个提示而不是没反应
             action(_('Update Dashboard'), function () {
                 return meowx.status().then(function (running) {
@@ -50,8 +56,11 @@ function renderHero(appVersion, coreVersion, running) {
                     return meowx.updateDashboard().then(function (res) {
                         if (res?.status == 'ok') {
                             ui.addNotification(null, E('p', _('Web dashboard updated')), 'info');
+                        } else if (res?.message) {
+                            ui.addNotification(null, E('p', _('Failed to update the web dashboard: %s').format(res.message)), 'warning');
                         } else {
-                            ui.addNotification(null, E('p', _('Failed to update the web dashboard: %s').format(res?.message || _('no response from the core'))), 'warning');
+                            // 回包是空的：多半是运行的配置里没有外部控制端口（「仅核心」开着时不混入配置），内核的 API 根本没开
+                            ui.addNotification(null, E('p', _('The running config has no external controller, so the web dashboard is unavailable. Turn off "Core Only" (the mixin adds it) or add external-controller to the profile, then reload the service.')), 'warning');
                         }
                     });
                 });
@@ -246,7 +255,6 @@ return baseclass.extend({
         ]);
     },
     render: function (data) {
-        const subscriptions = uci.sections('meowx', 'subscription');
         const appVersion = data[1].app ?? '';
         const coreVersion = data[1].core ?? '';
         const running = data[2];
@@ -269,17 +277,8 @@ return baseclass.extend({
         o = s.option(form.Flag, 'enabled', _('Enable'));
         o.rmempty = false;
 
-        o = s.option(form.ListValue, 'profile', _('Choose Profile'));
-        o.optional = true;
-
-        for (const profile of profiles) {
-            o.value('file:' + profile.name, _('File:') + profile.name);
-        };
-
-        for (const subscription of subscriptions) {
-            o.value('subscription:' + subscription['.name'], _('Subscription:') + subscription.name);
-        };
-
+        // 当前用哪份配置只由订阅卡的「切换订阅」管（订阅与上传的配置文件都在那个菜单里）。表单里以前还有一个「选择配置文件」：
+        // 卡片切换后表单还是旧值，点「保存并应用」会把卡片刚设的配置清掉（用户实报保存报 uci/delete 未找到、随后面板打不开）
         o = s.option(form.Value, 'start_delay', _('Start Delay'));
         o.datatype = 'uinteger';
         o.placeholder = _('Start Immidiately');
