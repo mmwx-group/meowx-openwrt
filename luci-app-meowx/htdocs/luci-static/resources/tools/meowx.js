@@ -314,10 +314,20 @@ return baseclass.extend({
             'external-controller-tls': null,
             'secret': null
         });
-        const uiName = profile['external-ui-name'];
+        // 面板子目录以插件自己的设置（混入配置 → 外部控制配置）为准，不读运行配置：服务重启生成配置的那几秒里，运行配置还是
+        // 订阅原样（常带 external-ui-name: metacubexd），这时点「打开面板」会去 /ui/metacubexd/ → 404。
+        // 插件生成配置时同样以这项为准（没填就删掉订阅自带的），两边一致
+        // 控制端口、密钥、面板目录同理：插件设置里填了就以它为准（生成配置时也是写它），没填才看运行配置
+        await uci.load('meowx');
+        const mixin = (option, key) => uci.get('meowx', 'mixin', option) || profile[key] || null;
+        const uiName = uci.get('meowx', 'mixin', 'ui_name') || '';
+        const uiPath = mixin('ui_path', 'external-ui');
+        const apiListen = mixin('api_listen', 'external-controller');
+        const apiTLSListen = mixin('api_tls_listen', 'external-controller-tls');
+        const apiSecret = mixin('api_secret', 'secret') ?? '';
         // 面板还没下载过（新装的插件、刚换了面板目录）：先让内核下载一次，否则打开就是 404
-        if (profile['external-ui'] && (profile['external-controller'] || profile['external-controller-tls'])) {
-            const st = await L.resolveDefault(callMeowXDashboardStatus(profile['external-ui'], uiName || ''), { installed: true });
+        if (uiPath && (apiListen || apiTLSListen)) {
+            const st = await L.resolveDefault(callMeowXDashboardStatus(uiPath, uiName), { installed: true });
             if (!st.installed) {
                 const res = await this.updateDashboard();
                 if (res?.status != 'ok') {
@@ -325,9 +335,6 @@ return baseclass.extend({
                 }
             }
         }
-        const apiListen = profile['external-controller'];
-        const apiTLSListen = profile['external-controller-tls'];
-        const apiSecret = profile['secret'] ?? '';
         if (!apiListen && !apiTLSListen) {
             return Promise.reject(new Error('no-controller'));
         }
