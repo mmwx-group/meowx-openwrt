@@ -163,10 +163,14 @@ return baseclass.extend({
             so.value(mac, hint ? '%s (%s)'.format(mac, hint) : mac);
         };
 
+        // MeowX：新增的行默认劫持 DNS + 代理。以前两个勾默认不勾（nikki 原样），新加一行不填 IP / MAC 就保存，
+        // 等于「所有局域网设备都不走代理」——用户实报开启后面板看不到连接、也没走代理，就是这样一行。
         so = o.subsection.option(form.Flag, 'dns', _('DNS'));
+        so.default = '1';
         so.rmempty = false;
 
         so = o.subsection.option(form.Flag, 'proxy', _('Proxy'));
+        so.default = '1';
         so.rmempty = false;
 
         s.tab('bypass', _('Bypass'));
