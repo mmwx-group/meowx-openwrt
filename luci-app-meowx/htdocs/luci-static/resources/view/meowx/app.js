@@ -61,6 +61,53 @@ function renderHero(appVersion, coreVersion, running) {
     return updateHero(hero, running);
 }
 
+// 账户下还没导入的订阅：名称 + 用量 / 到期 + 「导入」
+function renderAccountSubscriptions(subscriptions, reload) {
+    const box = E('div', { class: 'mx-acctsubs' }, E('div', { class: 'mx-acctsubs__hint' }, _('Account subscriptions…')));
+    meowx.panelSubscriptions().then(function (res) {
+        const pending = meowx.notDownloaded(res?.subscriptions ?? [], subscriptions.map((s) => s.url));
+        if (pending.length == 0) {
+            box.remove();
+            return;
+        }
+        box.replaceChildren(E('div', { class: 'mx-acctsubs__hint' }, _('Subscriptions in your panel account')), ...pending.map(function (sub) {
+            const meta = [];
+            const used = +sub.traffic_used, total = +sub.traffic_total;
+            if (total > 0) {
+                meta.push(`${meowx.formatBytes(used || 0)} / ${meowx.formatBytes(total)}`);
+            }
+            const expire = sub.expire_at ? Date.parse(sub.expire_at) : NaN;
+            if (isFinite(expire)) {
+                const days = Math.floor((expire - Date.now()) / 86400000);
+                meta.push(days < 0 ? _('Expired') : _('Expires in %d days').format(days));
+            }
+            return E('div', { class: 'mx-acctsubs__row' }, [
+                E('div', { class: 'mx-acctsubs__main' }, [
+                    E('div', { class: 'mx-acctsubs__name' }, sub.name),
+                    meta.length ? E('div', { class: 'mx-acctsubs__meta' }, meta.join(' · ')) : ''
+                ]),
+                E('button', {
+                    type: 'button',
+                    class: 'cbi-button cbi-button-action',
+                    click: function (ev) {
+                        return meowx.busy(ev.currentTarget, function () {
+                            return meowx.addSubscription(sub.url, sub.name).then(function (r) {
+                                if (!r?.success) {
+                                    ui.addNotification(null, E('p', _('Subscription added, but the download failed. Check the link and update it again.')), 'warning');
+                                }
+                                return r?.section_id ? meowx.switchProfile('subscription:' + r.section_id) : null;
+                            }).then(reload);
+                        });
+                    }
+                }, _('Import'))
+            ]);
+        }));
+    }, function () {
+        box.remove();
+    });
+    return box;
+}
+
 // 首页订阅卡（同 iOS 首页订阅条）：当前订阅名 + 用量 + 到期，点「更新于…」直接刷新；「切换订阅」弹出菜单，
 // 选了就切过去并重启生效；还没有订阅时直接给「粘贴链接添加」。
 function renderSubscriptionCard(profiles, status, reload) {
@@ -72,6 +119,11 @@ function renderSubscriptionCard(profiles, status, reload) {
 
     if (subscriptions.length == 0 && profiles.length == 0) {
         card.appendChild(E('div', { class: 'mx-subcard__empty' }, _('No subscription yet')));
+        // 登录了主控：账户下的订阅直接列在这里，点「导入」下载并切过去。登录时只有账户下恰好一份才自动导入（同客户端，
+        // 多份不替用户选），以前多份时卡片上什么都不显示，要自己去找（用户实报「登录后没有显示我的已有订阅」）
+        if (status?.logged_in) {
+            card.appendChild(renderAccountSubscriptions(subscriptions, reload));
+        }
         card.appendChild(meowx.renderQuickAdd(function (section_id) {
             return section_id ? meowx.switchProfile('subscription:' + section_id).then(reload) : reload();
         }));

@@ -1339,3 +1339,9 @@ msgstr "Web 面板更新失敗：%s"
 
 msgid "no response from the core"
 msgstr "核心沒有回應"
+
+msgid "Subscriptions in your panel account"
+msgstr "帳戶下的訂閱"
+
+msgid "Import"
+msgstr "匯入"

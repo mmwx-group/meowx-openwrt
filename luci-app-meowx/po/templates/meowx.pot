@@ -1332,3 +1332,9 @@ msgstr ""
 
 msgid "no response from the core"
 msgstr ""
+
+msgid "Subscriptions in your panel account"
+msgstr ""
+
+msgid "Import"
+msgstr ""

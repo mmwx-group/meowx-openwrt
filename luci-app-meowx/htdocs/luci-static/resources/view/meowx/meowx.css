@@ -760,6 +760,48 @@ body.mx-dark {
     gap: 8px;
 }
 
+/* ---------- 订阅卡里的「账户下的订阅」（本机还没有订阅时） ---------- */
+
+#view#view .mx-acctsubs {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 10px;
+}
+
+#view#view .mx-acctsubs__hint {
+    color: var(--mx-t2);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+#view#view .mx-acctsubs__row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: var(--mx-r-cell);
+    background: var(--mx-elev2);
+}
+
+#view#view .mx-acctsubs__main {
+    flex: 1;
+    min-width: 0;
+}
+
+#view#view .mx-acctsubs__name {
+    font-size: 15px;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#view#view .mx-acctsubs__meta {
+    color: var(--mx-t2);
+    font-size: 12px;
+}
+
 /* ---------- po0 加白卡（同客户端「流量控制 → po0 加白」） ---------- */
 
 #view#view .mx-po0__head {
