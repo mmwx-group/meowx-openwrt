@@ -42,7 +42,7 @@ function renderHero(appVersion, coreVersion, running) {
             action(_('Open Dashboard'), function () {
                 return meowx.openDashboard().catch(function () {
                     return meowx.status().then(function (running) {
-                        ui.addNotification(null, E('p', running ? _('The running config has no external controller, so the web dashboard is unavailable. Turn off "Core Only" (the mixin adds it) or add external-controller to the profile, then reload the service.') : _('The core is not running. Choose a subscription and start the service first.')), 'warning');
+                        ui.addNotification(null, E('p', running ? _('The running config has no external controller, so the web dashboard is unavailable. Fill in the API listen address under Mixin Config → External Control Config, then reload the service.') : _('The core is not running. Choose a subscription and start the service first.')), 'warning');
                     });
                 });
             }),
@@ -59,8 +59,8 @@ function renderHero(appVersion, coreVersion, running) {
                         } else if (res?.message) {
                             ui.addNotification(null, E('p', _('Failed to update the web dashboard: %s').format(res.message)), 'warning');
                         } else {
-                            // 回包是空的：多半是运行的配置里没有外部控制端口（「仅核心」开着时不混入配置），内核的 API 根本没开
-                            ui.addNotification(null, E('p', _('The running config has no external controller, so the web dashboard is unavailable. Turn off "Core Only" (the mixin adds it) or add external-controller to the profile, then reload the service.')), 'warning');
+                            // 回包是空的：运行的配置里没有外部控制端口（混入配置里的 API 监听地址被清空了），内核的 API 根本没开
+                            ui.addNotification(null, E('p', _('The running config has no external controller, so the web dashboard is unavailable. Fill in the API listen address under Mixin Config → External Control Config, then reload the service.')), 'warning');
                         }
                     });
                 });

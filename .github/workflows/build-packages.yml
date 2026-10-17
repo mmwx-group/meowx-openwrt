@@ -1,58 +1,55 @@
 name: build-packages
 
+# 手动触发，编译并上传为构建产物（不签名、不发布）。arch / branch 留空 = 全部组合；
+# 只想先测一个架构时填上，如 arch=x86_64、branch=openwrt-25.12。
 on:
   workflow_dispatch:
+    inputs:
+      arch:
+        description: '只编这些架构（逗号分隔，如 x86_64,aarch64_generic；留空 = 全部）'
+        type: string
+        default: ''
+      branch:
+        description: '只编这些系统版本（openwrt-24.10 / openwrt-25.12 / SNAPSHOT，逗号分隔；留空 = 全部）'
+        type: string
+        default: ''
 
 jobs:
+  matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      include: ${{ steps.matrix.outputs.include }}
+    steps:
+      - id: matrix
+        env:
+          ARCH: ${{ inputs.arch }}
+          BRANCH: ${{ inputs.branch }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          archs = ['arm_cortex-a5_vfpv4', 'arm_cortex-a7_neon-vfpv4', 'arm_cortex-a8_vfpv3', 'arm_cortex-a9', 'arm_cortex-a9_vfpv3-d16', 'arm_cortex-a9_neon', 'arm_cortex-a15_neon-vfpv4', 'aarch64_cortex-a53', 'aarch64_cortex-a72', 'aarch64_cortex-a76', 'aarch64_generic', 'mips_24kc', 'mips_4kec', 'mips_mips32', 'mipsel_24kc', 'mipsel_24kc_24kf', 'mipsel_74kc', 'mipsel_mips32', 'mips64_octeonplus', 'riscv64_riscv64', 'riscv64_generic', 'loongarch64_generic', 'i386_pentium4', 'x86_64']
+          branches = ['openwrt-24.10', 'openwrt-25.12', 'SNAPSHOT']
+          exclude = {('mips_4kec', 'openwrt-25.12'), ('mips_4kec', 'SNAPSHOT'), ('riscv64_riscv64', 'openwrt-25.12'), ('riscv64_riscv64', 'SNAPSHOT'), ('riscv64_generic', 'openwrt-24.10'), ('loongarch64_generic', 'openwrt-24.10')}
+          want_arch = {a.strip() for a in os.environ.get('ARCH', '').split(',') if a.strip()}
+          want_branch = {b.strip() for b in os.environ.get('BRANCH', '').split(',') if b.strip()}
+          include = [{'arch': a, 'branch': b} for a in archs for b in branches
+                     if (a, b) not in exclude
+                     and (not want_arch or a in want_arch) and (not want_branch or b in want_branch)]
+          if not include:
+              raise SystemExit('没有匹配的架构 / 系统版本组合')
+          print(f'{len(include)} 个组合')
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write('include=' + json.dumps(include) + '\n')
+          PY
+
   build:
+    needs: matrix
     name: ${{ matrix.arch }}-${{ matrix.branch }} build
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        arch:
-          - arm_cortex-a5_vfpv4
-          - arm_cortex-a7_neon-vfpv4
-          - arm_cortex-a8_vfpv3
-          - arm_cortex-a9
-          - arm_cortex-a9_vfpv3-d16
-          - arm_cortex-a9_neon
-          - arm_cortex-a15_neon-vfpv4
-          - aarch64_cortex-a53
-          - aarch64_cortex-a72
-          - aarch64_cortex-a76
-          - aarch64_generic
-          - mips_24kc
-          - mips_4kec
-          - mips_mips32
-          - mipsel_24kc
-          - mipsel_24kc_24kf
-          - mipsel_74kc
-          - mipsel_mips32
-          - mips64_octeonplus
-          - riscv64_riscv64
-          - riscv64_generic
-          - loongarch64_generic
-          - i386_pentium4
-          - x86_64
-        branch:
-          - openwrt-24.10
-          - openwrt-25.12
-          - SNAPSHOT
-        exclude:
-          - arch: mips_4kec
-            branch: openwrt-25.12
-          - arch: mips_4kec
-            branch: SNAPSHOT
-          - arch: riscv64_riscv64
-            branch: openwrt-25.12
-          - arch: riscv64_riscv64
-            branch: SNAPSHOT
-          - arch: riscv64_generic
-            branch: openwrt-24.10
-          # 24.10 的 SDK 编 meowx-core 失败（25.12 / SNAPSHOT 正常），先不出这一组
-          - arch: loongarch64_generic
-            branch: openwrt-24.10
+        include: ${{ fromJSON(needs.matrix.outputs.include) }}
 
     steps:
       - name: checkout

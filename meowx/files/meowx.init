@@ -200,6 +200,29 @@ start_service() {
 				yq -M -i '(.listeners[] | select(.type == "tun")) |= (.auto-route = false | .auto-redirect = false | .auto-detect-interface = false | .disable-icmp-forwarding = true)' "$RUN_PROFILE_PATH"
 			fi
 		fi
+	else
+		# 仅核心：订阅原样用，只写入「混入配置 → 外部控制配置」里的外部控制端口 / 密钥 / Web 面板，
+		# 否则订阅里多半没有 external-controller，「打开面板」「更新 Web 面板」和插件取状态都用不了
+		log "Mixin" "Core only, set external controller."
+		ucode -l uci -e '
+			const c = uci.cursor();
+			const out = {};
+			const keys = {
+				"external-controller": "api_listen",
+				"external-controller-tls": "api_tls_listen",
+				"secret": "api_secret",
+				"external-ui": "ui_path",
+				"external-ui-name": "ui_name",
+				"external-ui-url": "ui_url"
+			};
+			for (let k, o in keys) {
+				const v = c.get("meowx", "mixin", o);
+				if (v != null && v != "") {
+					out[k] = v;
+				}
+			}
+			printf("%J\n", out);
+		' | yq -M -p json -o yaml | yq -M -i eval-all '. as $item ireduce ({}; . * $item )' "$RUN_PROFILE_PATH" -
 	fi
 	# check profile
 	if [ "$core_only" = 0 ] && [ "$proxy_enabled" = 1 ]; then
