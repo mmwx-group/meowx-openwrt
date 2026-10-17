@@ -1345,3 +1345,9 @@ msgstr ""
 
 msgid "The running config has no external controller, so the web dashboard is unavailable. Fill in the API listen address under Mixin Config → External Control Config, then reload the service."
 msgstr ""
+
+msgid "Failed to download the web dashboard: %s"
+msgstr ""
+
+msgid "Core only: the core runs, but router and LAN traffic is not taken over. Turn off \"Core Only\" below and save to start the transparent proxy."
+msgstr ""

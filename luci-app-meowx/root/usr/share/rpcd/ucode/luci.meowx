@@ -115,6 +115,21 @@ const methods = {
 			return { success: true, running: true };
 		}
 	},
+	// 内核目录下的 Web 面板装了没有（「打开面板」前看一眼：新装的插件从没下载过面板，直接打开是 404）。
+	// 路径与运行配置一致：<内核目录 /etc/meowx/run>/<external-ui>/<external-ui-name>/index.html
+	dashboard_status: {
+		args: { ui: 'ui', name: 'name' },
+		call: function(req) {
+			const ui = req.args?.ui ?? '';
+			const name = req.args?.name ?? '';
+			if (!ui || match(ui, /\.\./) || match(name, /\.\.|\//)) {
+				return { installed: false };
+			}
+			const base = substr(ui, 0, 1) == '/' ? ui : '/etc/meowx/run/' + ui;
+			const dir = name ? base + '/' + name : base;
+			return { installed: !!access(dir + '/index.html') };
+		}
+	},
 	upgrade_status: {
 		call: function() {
 			const log = readfile('/var/log/meowx-upgrade.log') ?? '';

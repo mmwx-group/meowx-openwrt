@@ -154,6 +154,13 @@ const callMeowXUpgradeStatus = rpc.declare({
     expect: { '': {} }
 });
 
+const callMeowXDashboardStatus = rpc.declare({
+    object: 'luci.meowx',
+    method: 'dashboard_status',
+    params: ['ui', 'name'],
+    expect: { '': {} }
+});
+
 const callMeowXPo0 = rpc.declare({
     object: 'luci.meowx',
     method: 'po0',
@@ -284,18 +291,45 @@ return baseclass.extend({
     },
 
     openDashboard: async function () {
+        // 点击时先开一个空白窗口：后面要等读配置、可能还要下载面板，等完再 window.open 会被浏览器当弹窗拦掉
+        const win = window.open('about:blank', '_blank');
+        try {
+            const url = await this.dashboardURL();
+            if (win) {
+                win.location.href = url;
+            } else {
+                window.open(url, '_blank');
+            }
+        } catch (err) {
+            win?.close();
+            throw err;
+        }
+    },
+
+    dashboardURL: async function () {
         const profile = await callMeowXProfile({
+            'external-ui': null,
             'external-ui-name': null,
             'external-controller': null,
             'external-controller-tls': null,
             'secret': null
         });
         const uiName = profile['external-ui-name'];
+        // 面板还没下载过（新装的插件、刚换了面板目录）：先让内核下载一次，否则打开就是 404
+        if (profile['external-ui'] && (profile['external-controller'] || profile['external-controller-tls'])) {
+            const st = await L.resolveDefault(callMeowXDashboardStatus(profile['external-ui'], uiName || ''), { installed: true });
+            if (!st.installed) {
+                const res = await this.updateDashboard();
+                if (res?.status != 'ok') {
+                    return Promise.reject(new Error(res?.message || 'download-failed'));
+                }
+            }
+        }
         const apiListen = profile['external-controller'];
         const apiTLSListen = profile['external-controller-tls'];
         const apiSecret = profile['secret'] ?? '';
         if (!apiListen && !apiTLSListen) {
-            return Promise.reject('API has not been configured');
+            return Promise.reject(new Error('no-controller'));
         }
 
         let protocol;
@@ -322,9 +356,7 @@ return baseclass.extend({
             url = `${protocol}://${window.location.hostname}:${port}/ui/?${query}`;
         }
 
-        setTimeout(function () { window.open(url, '_blank') }, 0);
-
-        return Promise.resolve();
+        return url;
     },
 
     getIdentifiers: function () {

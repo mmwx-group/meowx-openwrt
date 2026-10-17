@@ -613,6 +613,21 @@ body.mx-dark {
     font-variant-numeric: tabular-nums;
 }
 
+#view#view .mx-hero__hint {
+    margin-top: 8px;
+    padding: 6px 10px;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--mx-elev) 70%, transparent);
+    color: var(--mx-t1);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.5;
+}
+
+#view#view .mx-hero__hint[hidden] {
+    display: none;
+}
+
 #view#view .mx-status {
     display: inline-flex;
     align-items: center;

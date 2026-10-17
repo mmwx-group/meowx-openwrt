@@ -34,13 +34,19 @@ function renderHero(appVersion, coreVersion, running) {
         E('div', { class: 'mx-hero__main' }, [
             E('div', { class: 'mx-hero__title' }, 'MeowX'),
             E('div', { class: 'mx-status' }, [E('span', { class: 'mx-status__dot' }), E('span', { class: 'mx-status__text' })]),
-            E('div', { class: 'mx-hero__meta' }, meta.join(' · '))
+            E('div', { class: 'mx-hero__meta' }, meta.join(' · ')),
+            E('div', { class: 'mx-hero__hint', hidden: '' }, _('Core only: the core runs, but router and LAN traffic is not taken over. Turn off "Core Only" below and save to start the transparent proxy.'))
         ]),
         E('div', { class: 'mx-hero__actions' }, [
             action(_('Reload Service'), function () { return meowx.reload(); }, true),
             action(_('Restart Service'), function () { return meowx.restart(); }),
             action(_('Open Dashboard'), function () {
-                return meowx.openDashboard().catch(function () {
+                return meowx.openDashboard().catch(function (err) {
+                    // 面板下载失败（内核拉不到 GitHub 等）
+                    if (err?.message && err.message != 'no-controller') {
+                        ui.addNotification(null, E('p', _('Failed to download the web dashboard: %s').format(err.message == 'download-failed' ? _('no response from the core') : err.message)), 'warning');
+                        return;
+                    }
                     return meowx.status().then(function (running) {
                         ui.addNotification(null, E('p', running ? _('The running config has no external controller, so the web dashboard is unavailable. Fill in the API listen address under Mixin Config → External Control Config, then reload the service.') : _('The core is not running. Choose a subscription and start the service first.')), 'warning');
                     });
@@ -240,6 +246,9 @@ function renderSubscriptionCard(profiles, status, reload) {
 function updateHero(hero, running) {
     hero.classList.toggle('is-running', !!running);
     hero.querySelector('.mx-status__text').textContent = running ? _('Running') : _('Not Running');
+    // 「仅核心」开着时局域网不走内核：用户实报「路由器起来后电脑访问根本不走核心」，开关在下面表单里，不显眼。
+    // 跟着轮询更新（保存后 uci 缓存会重新载入）
+    hero.querySelector('.mx-hero__hint').hidden = uci.get('meowx', 'config', 'core_only') != '1';
     return hero;
 }
 

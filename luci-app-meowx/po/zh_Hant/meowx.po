@@ -1352,3 +1352,9 @@ msgstr "核心沒有執行：先在訂閱卡選好訂閱並啟動服務。"
 
 msgid "The running config has no external controller, so the web dashboard is unavailable. Fill in the API listen address under Mixin Config → External Control Config, then reload the service."
 msgstr "目前執行的設定裡沒有外部控制埠，Web 面板用不了：在「混入設定 → 外部控制設定」裡填好 API 監聽位址，然後重載服務。"
+
+msgid "Failed to download the web dashboard: %s"
+msgstr "Web 面板下載失敗：%s"
+
+msgid "Core only: the core runs, but router and LAN traffic is not taken over. Turn off \"Core Only\" below and save to start the transparent proxy."
+msgstr "僅核心：只執行核心，不接管路由器和區域網路的流量。要讓區域網路裝置走代理，在下面關掉「僅核心」並儲存。"
