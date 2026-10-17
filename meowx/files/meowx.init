@@ -215,14 +215,18 @@ start_service() {
 				"external-ui-name": "ui_name",
 				"external-ui-url": "ui_url"
 			};
+			// 混入配置里没填的也写成 null，盖掉订阅自带的（如 external-ui-name: metacubexd 而面板装在 ui/ 下，打开就 404）
 			for (let k, o in keys) {
 				const v = c.get("meowx", "mixin", o);
-				if (v != null && v != "") {
-					out[k] = v;
-				}
+				out[k] = (v != null && v != "") ? v : null;
 			}
 			printf("%J\n", out);
 		' | yq -M -p json -o yaml | yq -M -i eval-all '. as $item ireduce ({}; . * $item )' "$RUN_PROFILE_PATH" -
+	fi
+	# Web 面板放在 external-ui 目录下的哪个子目录，以混入配置为准：没填就去掉订阅自带的 external-ui-name
+	# （订阅常带 metacubexd，「更新 Web 面板」却装在 ui/ 下，打开面板就 404；混入配置的空值在 trim_all 里被丢掉，盖不住它）
+	if [ -z "$(uci -q get meowx.mixin.ui_name)" ]; then
+		yq -M -i 'del(.external-ui-name)' "$RUN_PROFILE_PATH"
 	fi
 	# check profile
 	if [ "$core_only" = 0 ] && [ "$proxy_enabled" = 1 ]; then
@@ -742,6 +746,12 @@ switch_profile() {
 	case "$profile" in
 		file:*|subscription:*) ;;
 		*) return 1 ;;
+	esac
+	# 订阅还没下载过（导入时下载失败等）就先下载，否则启动时找不到订阅文件直接退出
+	case "$profile" in
+		subscription:*)
+			[ -f "$SUBSCRIPTIONS_DIR/${profile#subscription:}.yaml" ] || update_subscription "${profile#subscription:}"
+			;;
 	esac
 	uci_set "meowx" "config" "profile" "$profile"
 	uci_set "meowx" "config" "enabled" "1"

@@ -66,8 +66,8 @@ function auto_import(base) {
 	uci.set('meowx', section_id, 'user_agent', 'meowx');
 	uci.set('meowx', section_id, 'prefer', 'remote');
 	uci.commit('meowx');
-	system(['service', 'meowx', 'update_subscription', section_id]);
-	system(['service', 'meowx', 'switch_profile', 'subscription:' + section_id]);
+	system(['/etc/init.d/meowx', 'update_subscription', section_id]);
+	system(['/etc/init.d/meowx', 'switch_profile', 'subscription:' + section_id]);
 	return sub.name;
 }
 
@@ -172,7 +172,7 @@ const methods = {
 			let success = false;
 			const section_id = req.args?.section_id;
 			if (section_id) {
-				success = system(['service', 'meowx', 'update_subscription', section_id]) == 0;
+				success = system(['/etc/init.d/meowx', 'update_subscription', section_id]) == 0;
 			}
 			return { success: success };
 		}
@@ -185,7 +185,7 @@ const methods = {
 			if (!match(section_id ?? '', /^[A-Za-z0-9_]+$/)) {
 				return { success: false };
 			}
-			system(['service', 'meowx', 'refresh_subscription', section_id]);
+			system(['/etc/init.d/meowx', 'refresh_subscription', section_id]);
 			return { success: cursor().get('meowx', section_id, 'success') == '1' };
 		}
 	},
@@ -197,7 +197,7 @@ const methods = {
 			if (!match(profile, /^(file:[^\/]+|subscription:[A-Za-z0-9_]+)$/)) {
 				return { success: false };
 			}
-			return { success: system(['service', 'meowx', 'switch_profile', profile]) == 0 };
+			return { success: system(['/etc/init.d/meowx', 'switch_profile', profile]) == 0 };
 		}
 	},
 	// 只要一个链接就能加订阅：名字等下载后按 profile-title 自动填（同客户端），UA 用官方客户端那份
@@ -219,7 +219,7 @@ const methods = {
 				uci.set('meowx', section_id, 'name', name);
 			}
 			uci.commit('meowx');
-			system(['service', 'meowx', 'update_subscription', section_id]);
+			system(['/etc/init.d/meowx', 'update_subscription', section_id]);
 			return { success: cursor().get('meowx', section_id, 'success') == '1', section_id: section_id };
 		}
 	},
@@ -292,7 +292,7 @@ const methods = {
 			}
 			uci.commit('meowx');
 			if (active_removed) {
-				system(next ? ['service', 'meowx', 'restart'] : ['service', 'meowx', 'stop']);
+				system(next ? ['/etc/init.d/meowx', 'restart'] : ['/etc/init.d/meowx', 'stop']);
 			}
 			panel_sync(active_removed ? po0_urls() : urls, false);
 			res.removed = length(removed);
