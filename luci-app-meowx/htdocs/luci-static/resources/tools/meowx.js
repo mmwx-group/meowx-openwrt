@@ -291,33 +291,21 @@ return baseclass.extend({
     },
 
     openDashboard: async function () {
-        // 点击时先开一个窗口：后面要等读配置、可能还要下载面板，等完再 window.open 会被浏览器当弹窗拦掉。
-        // 窗口里先写一句「正在打开」：首次打开要等内核从 GitHub 下载面板，可能一两分钟，空白的 about:blank 看起来像坏了
-        const win = window.open('about:blank', '_blank');
-        const say = (text) => {
-            try {
-                win.document.title = 'MeowX';
-                win.document.body.style.cssText = 'margin:0;height:100vh;display:flex;align-items:center;justify-content:center;font:15px/1.6 -apple-system,system-ui,sans-serif;color:#5b4d55;background:#f5efe9';
-                win.document.body.textContent = text;
-            } catch (e) {}
-        };
-        if (win) {
-            say(_('Opening the web dashboard…'));
-        }
+        // 先在本页算好地址再开窗口，不能反过来：LuCI 把请求排进队列、借 requestAnimationFrame 统一发出，
+        // 先开窗口的话本页退到后台、动画帧停了，请求就一直排在队列里（Edge 上必现，新窗口一直空白）。
+        // 地址几十毫秒就算好，点击之后几秒内 window.open 仍算用户操作，不会被当成弹窗拦掉
+        let note = null;
+        let url;
         try {
-            const url = await this.dashboardURL(function () {
-                if (win) {
-                    say(_('Downloading the web dashboard for the first time, this may take a minute or two…'));
-                }
+            url = await this.dashboardURL(function () {
+                note = ui.addNotification(null, E('p', _('Downloading the web dashboard for the first time, this may take a minute or two…')), 'info');
             });
-            if (win) {
-                win.location.href = url;
-            } else {
-                window.open(url, '_blank');
-            }
-        } catch (err) {
-            win?.close();
-            throw err;
+        } finally {
+            note?.remove();
+        }
+        if (!window.open(url, '_blank')) {
+            // 首次下载面板等太久，点击那一下已经失效，浏览器拦了弹窗：给个链接自己点
+            ui.addTimeLimitedNotification(null, E('p', {}, [E('a', { href: url, target: '_blank', rel: 'noopener' }, _('The web dashboard is ready. Click here to open it.'))]), 30000, 'info');
         }
     },
 
