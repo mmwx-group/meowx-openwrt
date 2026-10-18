@@ -6,6 +6,11 @@ import { access, popen, readfile, writefile } from 'fs';
 import { cursor } from 'uci';
 import { get_users, get_groups, get_cgroups, load_profile } from '/etc/meowx/ucode/include.uc';
 
+// 拼进 shell 命令行的参数一律经它：整个值包进单引号，值里的单引号换成 '\''（popen 走 /bin/sh -c）
+function shell_quote(value) {
+	return "'" + replace(`${value ?? ''}`, "'", "'\\''") + "'";
+}
+
 function panel_cmd(args) {
 	const process = popen(`/usr/bin/meowx-core panel ${args} 2>/dev/null`);
 	if (!process) {
@@ -328,7 +333,7 @@ const methods = {
 				return { success: false, error: 'invalid link' };
 			}
 			const urls = po0_urls();
-			const res = panel_cmd(`login '${link}'`);
+			const res = panel_cmd(`login ${shell_quote(link)}`);
 			if (!res?.success) {
 				return res;
 			}
@@ -411,14 +416,14 @@ const methods = {
 			if (action == 'add') {
 				const address = trim(req.args?.address ?? '');
 				const token = trim(req.args?.token ?? '');
-				// 只放行地址里可能出现的字符（拼进单引号命令行，规范化在 meowx-core 里做）；POSIX 方括号里 ] 要放第一个
+				// 只放行地址里可能出现的字符（规范化在 meowx-core 里做）；POSIX 方括号里 ] 要放第一个
 				if (!match(address, /^[][A-Za-z0-9.:\/_-]{1,255}$/)) {
 					return { success: false, error: 'invalid address' };
 				}
 				if (!match(token, /^pgnfw_[A-Za-z0-9_-]{4,200}(@[0-9]{1,2})?$/)) {
 					return { success: false, error: 'invalid token' };
 				}
-				args = `po0 add '${address}' '${token}'`;
+				args = `po0 add ${shell_quote(address)} ${shell_quote(token)}`;
 			} else if (action == 'remove') {
 				args = `po0 remove ${int(req.args?.index ?? -1)}`;
 			} else if (index([ 'status', 'enable', 'disable', 'fetch' ], action) >= 0) {
@@ -456,10 +461,33 @@ const methods = {
 
 			const url = (api_tls_listen ?? api_listen) + path;
 
-			const process = popen(`curl --proto-default '${protocol}' --insecure --request '${method}' --oauth2-bearer '${api_secret}' --url-query '${query}' --data '${body}' '${url}'`);
+			// 方法只放行 HTTP 动词，路径必须以 / 开头；其余参数（含节点名的路径、body、secret）都经 shell_quote，
+			// 以前直接包在单引号里，值里带单引号就能跳出来执行任意命令。没传 query / body 时不带这两个参数
+			// （以前会拼成字面量 'null'：请求地址多出 ?null、GET 也带上 body）
+			if (!match(method ?? '', /^(GET|POST|PUT|PATCH|DELETE)$/) || substr(path ?? '', 0, 1) != '/') {
+				return result;
+			}
+			let command = `curl --proto-default ${shell_quote(protocol)} --insecure --request ${shell_quote(method)}`;
+			if (api_secret != null) {
+				command += ` --oauth2-bearer ${shell_quote(api_secret)}`;
+			}
+			if (query != null) {
+				command += ` --url-query ${shell_quote(query)}`;
+			}
+			if (body != null) {
+				command += ` --data ${shell_quote(body)}`;
+			}
+			command += ` ${shell_quote(url)}`;
+			const process = popen(command);
 			if (process) {
-				result = json(process);
+				const output = trim(process.read('all'));
 				process.close();
+				// 内核对 PUT 等回 204 空包、出错时可能回纯文本：不是 JSON 也别让整个 RPC 报错
+				try {
+					result = json(output || '{}');
+				} catch (e) {
+					result = { message: output };
+				}
 			}
 
 			return result;
