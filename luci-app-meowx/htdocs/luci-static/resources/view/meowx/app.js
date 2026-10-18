@@ -109,7 +109,7 @@ function renderAccountSubscriptions(subscriptions, reload) {
                         return meowx.busy(ev.currentTarget, function () {
                             return meowx.addSubscription(sub.url, sub.name).then(function (r) {
                                 if (!r?.success) {
-                                    ui.addNotification(null, E('p', _('Subscription added, but the download failed. Check the link and update it again.')), 'warning');
+                                    ui.addNotification(null, E('p', _('Subscription added, but the update failed: %s. Check the link and update it again.').format(meowx.subscriptionError(r))), 'warning');
                                 }
                                 return r?.section_id ? meowx.switchProfile('subscription:' + r.section_id) : null;
                             }).then(reload);
@@ -256,7 +256,7 @@ function updateHero(hero, running, lastError) {
     // 上次启动 / 重载 / 切换没成功（订阅不存在、缓存缺失又下载失败、配置测试不过等）：原因写在这里，别让用户只看到「未在运行」
     const error = hero.querySelector('.mx-hero__error');
     error.hidden = !lastError?.error;
-    error.textContent = lastError?.error ? _('Last start or reload failed: %s').format(lastError.error) : '';
+    error.textContent = lastError?.error ? _('Last start or reload failed: %s').format(meowx.stripPeriod(lastError.error)) : '';
     error.title = lastError?.time ? new Date(lastError.time * 1000).toLocaleString() : '';
     return hero;
 }

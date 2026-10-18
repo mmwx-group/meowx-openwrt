@@ -42,6 +42,36 @@ function new_subscription(uci) {
 	return id;
 }
 
+// 服务上次启动 / 重载 / 切换没成功的原因（init 写在 /var/run/meowx/last_error：「时间戳<TAB>原因」，启动成功时删掉）
+function read_last_error() {
+	const line = trim(readfile('/var/run/meowx/last_error') ?? '');
+	const tab = index(line, '\t');
+	if (tab < 0) {
+		return { error: null };
+	}
+	return { time: int(substr(line, 0, tab)), error: substr(line, tab + 1) };
+}
+
+function service_running() {
+	return system('/etc/init.d/meowx running >/dev/null 2>&1') == 0;
+}
+
+// 这个订阅正在更新：init 在下载 → 校验 → 替换缓存期间拿着这把锁
+function subscription_busy(section_id) {
+	const lock = `/var/run/meowx/subscription.${section_id}.lock`;
+	return !!access(lock) && system(['flock', '-n', lock, 'true']) != 0;
+}
+
+// 订阅这次更新的结果：success 只代表下载并校验通过、缓存已替换；失败时 error_type = download / invalid / test，error 是具体原因
+function subscription_result(section_id) {
+	const uci = cursor();
+	return {
+		success: uci.get('meowx', section_id, 'success') == '1',
+		error_type: uci.get('meowx', section_id, 'error_type'),
+		error: uci.get('meowx', section_id, 'error')
+	};
+}
+
 // 订阅地址的主机名（小写）与路径
 function url_parts(u) {
 	const m = match(u ?? '', /^[A-Za-z][A-Za-z0-9+.-]*:\/\/(\[[^\]]+\]|[^\/:?#]+)(:[0-9]+)?([^?#]*)/);
@@ -144,12 +174,7 @@ const methods = {
 	// 服务上次启动 / 重载 / 切换没成功的原因（init 写在 /var/run/meowx/last_error：「时间戳<TAB>原因」，启动成功时删掉）
 	last_error: {
 		call: function() {
-			const line = trim(readfile('/var/run/meowx/last_error') ?? '');
-			const tab = index(line, '\t');
-			if (tab < 0) {
-				return { error: null };
-			}
-			return { time: int(substr(line, 0, tab)), error: substr(line, tab + 1) };
+			return read_last_error();
 		}
 	},
 	upgrade_status: {
@@ -206,15 +231,22 @@ const methods = {
 	update_subscription: {
 		args: { section_id: 'section_id' },
 		call: function(req) {
-			let success = false;
 			const section_id = req.args?.section_id;
-			if (section_id) {
-				success = system(['/etc/init.d/meowx', 'update_subscription', section_id]) == 0;
+			if (!match(section_id ?? '', /^[A-Za-z0-9_]+$/)) {
+				return { success: false };
 			}
-			return { success: success };
+			if (subscription_busy(section_id)) {
+				return { success: false, busy: true };
+			}
+			const rc = system(['/etc/init.d/meowx', 'update_subscription', section_id]);
+			const res = subscription_result(section_id);
+			res.busy = rc == 3;
+			return res;
 		}
 	},
-	// 同客户端：刷新后若正是在用的订阅、服务又在跑，立刻重载生效
+	// 同客户端：刷新后若正是在用的订阅、服务又在跑，立刻重载生效。
+	// 下载成功与套用成功分开报：success = 下载并校验通过（缓存已换）；需要套用时 applied = true / false（false 时运行中的配置保持不动，
+	// 原因在 apply_error）；不需要套用（不是在用的订阅、服务没在跑）时没有 applied
 	refresh_subscription: {
 		args: { section_id: 'section_id' },
 		call: function(req) {
@@ -222,11 +254,24 @@ const methods = {
 			if (!match(section_id ?? '', /^[A-Za-z0-9_]+$/)) {
 				return { success: false };
 			}
-			system(['/etc/init.d/meowx', 'refresh_subscription', section_id]);
-			return { success: cursor().get('meowx', section_id, 'success') == '1' };
+			// 同一个订阅已经在更新：直接告诉界面，不排队等
+			if (subscription_busy(section_id)) {
+				return { success: false, busy: true };
+			}
+			const active = cursor().get('meowx', 'config', 'profile') == 'subscription:' + section_id;
+			const rc = system(['/etc/init.d/meowx', 'refresh_subscription', section_id]);
+			const res = subscription_result(section_id);
+			res.busy = rc == 3;
+			if (rc == 2) {
+				res.applied = false;
+				res.apply_error = read_last_error().error;
+			} else if (rc == 0 && active && service_running()) {
+				res.applied = true;
+			}
+			return res;
 		}
 	},
-	// 切换在用的配置并重启（没启用就顺手启用）
+	// 切换在用的配置（没启用就顺手启用）。服务在跑时新配置不能用就退回原来的选择、运行中的保持不动（kept = true）
 	switch_profile: {
 		args: { profile: 'profile' },
 		call: function(req) {
@@ -234,7 +279,12 @@ const methods = {
 			if (!match(profile, /^(file:[^\/]+|subscription:[A-Za-z0-9_]+)$/)) {
 				return { success: false };
 			}
-			return { success: system(['/etc/init.d/meowx', 'switch_profile', profile]) == 0 };
+			const running = service_running();
+			const rc = system(['/etc/init.d/meowx', 'switch_profile', profile]);
+			if (rc == 0) {
+				return { success: true };
+			}
+			return { success: false, kept: rc == 2 && running, error: rc == 2 ? read_last_error().error : null };
 		}
 	},
 	// 只要一个链接就能加订阅：名字等下载后按 profile-title 自动填（同客户端），UA 用官方客户端那份
@@ -257,7 +307,9 @@ const methods = {
 			}
 			uci.commit('meowx');
 			system(['/etc/init.d/meowx', 'update_subscription', section_id]);
-			return { success: cursor().get('meowx', section_id, 'success') == '1', section_id: section_id };
+			const res = subscription_result(section_id);
+			res.section_id = section_id;
+			return res;
 		}
 	},
 	// ---------- 主控账户（登录链接）：实际的加密 RPC 在 meowx-core panel 子命令里 ----------

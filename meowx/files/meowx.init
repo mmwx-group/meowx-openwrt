@@ -57,17 +57,16 @@ start_service() {
 	# check if executable
 	if [ ! -x $PROG ]; then
 		log "App" "Core is not executable."
+		set_error "Core is not executable."
 		log "App" "Exit."
 		return
 	fi
 	# get config
 	## app config
-	local scheduled_restart scheduled_restart_cron profile test_profile core_only
+	local scheduled_restart scheduled_restart_cron test_profile
 	config_get_bool scheduled_restart "config" "scheduled_restart" 0
 	config_get scheduled_restart_cron "config" "scheduled_restart_cron"
-	config_get profile "config" "profile"
 	config_get_bool test_profile "config" "test_profile" 0
-	config_get_bool core_only "config" "core_only" 0
 	## procd config
 	### general
 	local fast_reload
@@ -93,206 +92,24 @@ start_service() {
 	config_get_bool env_disable_quic_go_gso "procd" "env_disable_quic_go_gso" 0
 	config_get_bool env_disable_quic_go_ecn "procd" "env_disable_quic_go_ecn" 0
 	config_get_bool env_skip_system_ipv6_check "procd" "env_skip_system_ipv6_check" 0
-	## mixin config
-	### overwrite
-	local overwrite_authentication overwrite_tun_dns_hijack overwrite_fake_ip_filter overwrite_hosts overwrite_dns_nameserver overwrite_dns_nameserver_policy overwrite_sniffer_sniff overwrite_sniffer_force_domain_name overwrite_sniffer_ignore_domain_name
-	config_get_bool overwrite_authentication "mixin" "authentication" 0
-	config_get_bool overwrite_tun_dns_hijack "mixin" "tun_dns_hijack" 0
-	config_get_bool overwrite_fake_ip_filter "mixin" "fake_ip_filter" 0
-	config_get_bool overwrite_hosts "mixin" "hosts" 0
-	config_get_bool overwrite_dns_nameserver "mixin" "dns_nameserver" 0
-	config_get_bool overwrite_dns_nameserver_policy "mixin" "dns_nameserver_policy" 0
-	config_get_bool overwrite_sniffer_force_domain_name "mixin" "sniffer_force_domain_name" 0
-	config_get_bool overwrite_sniffer_ignore_domain_name "mixin" "sniffer_ignore_domain_name" 0
-	config_get_bool overwrite_sniffer_sniff "mixin" "sniffer_sniff" 0
-	### mixin file content
-	local mixin_file_content
-	config_get_bool mixin_file_content "mixin" "mixin_file_content" 0
-	## core config
-	local redirect_listener_name tproxy_listener_name tun_listener_name
-	config_get redirect_listener_name "core" "redirect_listener_name"
-	config_get tproxy_listener_name "core" "tproxy_listener_name"
-	config_get tun_listener_name "core" "tun_listener_name"
-	## proxy config
-	local proxy_enabled ipv4_dns_hijack ipv6_dns_hijack tcp_mode udp_mode
-	config_get_bool proxy_enabled "proxy" "enabled" 0
-	config_get_bool ipv4_dns_hijack "proxy" "ipv4_dns_hijack" 0
-	config_get_bool ipv6_dns_hijack "proxy" "ipv6_dns_hijack" 0
-	config_get tcp_mode "proxy" "tcp_mode"
-	config_get udp_mode "proxy" "udp_mode"
 	## log config
 	local log_scheduled_clear log_scheduled_clear_cron
 	config_get_bool log_scheduled_clear "log" "scheduled_clear" 0
 	config_get log_scheduled_clear_cron "log" "scheduled_clear_cron"
-	# get profile
-	local profile_type; profile_type=$(echo "$profile" | cut -d ':' -f 1)
-	local profile_id; profile_id=$(echo "$profile" | cut -d ':' -f 2)
-	if [ "$profile_type" = "file" ]; then
-		local profile_name; profile_name="$profile_id"
-		local profile_file; profile_file="$PROFILES_DIR/$profile_name"
-		log "Profile" "Use file: $profile_name."
-		if [ ! -f "$profile_file" ]; then
-			log "Profile" "File not found."
-			log "App" "Exit."
-			return
-		fi
-		cp -f "$profile_file" "$RUN_PROFILE_PATH"
-	elif [ "$profile_type" = "subscription" ]; then
-		local subscription_section; subscription_section="$profile_id"
-		# 在用的订阅 section 不存在（被删掉，或旧版匿名 section 调整顺序后 ID 变了）：明确报错，不拿空名字往下走
-		if ! subscription_exists "$subscription_section"; then
-			log "Profile" "Subscription not found: $subscription_section. Please choose a subscription again."
-			set_error "Subscription not found: $subscription_section. Please choose a subscription again."
-			log "App" "Exit."
-			return
-		fi
-		local subscription_name subscription_prefer
-		config_get subscription_name "$subscription_section" "name"
-		config_get subscription_prefer "$subscription_section" "prefer" "remote"
-		log "Profile" "Use subscription: $subscription_name."
-		local subscription_file; subscription_file="$SUBSCRIPTIONS_DIR/$subscription_section.yaml"
-		if [ "$subscription_prefer" = "remote" ] || [ ! -f "$subscription_file" ]; then
-			update_subscription "$subscription_section"
-		fi
-		if [ ! -f "$subscription_file" ]; then
-			log "Profile" "Subscription file not found."
-			set_error "Subscription $subscription_name has no local copy and the download failed."
-			log "App" "Exit."
-			return
-		fi
-		cp -f "$subscription_file" "$RUN_PROFILE_PATH"
+	# profile
+	if [ -n "$PREPARED_PROFILE" ]; then
+		# reload 已经生成并测试过
+		install_file "$PREPARED_PROFILE" "$RUN_PROFILE_PATH"
+		PREPARED_PROFILE=""
 	else
-		log "Profile" "No profile/subscription selected."
-		log "App" "Exit."
-		return
-	fi
-	# mixin
-	if [ "$core_only" = 0 ]; then
-		log "Mixin" "Mixin config."
-		if [ "$overwrite_authentication" = 1 ]; then
-			yq -M -i 'del(.authentication)' "$RUN_PROFILE_PATH"
-		fi
-		if [ "$overwrite_tun_dns_hijack" = 1 ]; then
-			yq -M -i 'del(.tun.dns-hijack)' "$RUN_PROFILE_PATH"
-		fi
-		if [ "$overwrite_fake_ip_filter" = 1 ]; then
-			yq -M -i 'del(.dns.fake-ip-filter)' "$RUN_PROFILE_PATH"
-		fi
-		if [ "$overwrite_hosts" = 1 ]; then
-			yq -M -i 'del(.hosts)' "$RUN_PROFILE_PATH"
-		fi
-		if [ "$overwrite_dns_nameserver" = 1 ]; then
-			yq -M -i 'del(.dns.default-nameserver) | del(.dns.proxy-server-nameserver) | del(.dns.direct-nameserver) | del(.dns.nameserver) | del(.dns.fallback) ' "$RUN_PROFILE_PATH"
-		fi
-		if [ "$overwrite_dns_nameserver_policy" = 1 ]; then
-			yq -M -i 'del(.dns.nameserver-policy)' "$RUN_PROFILE_PATH"
-		fi
-		if [ "$overwrite_sniffer_force_domain_name" = 1 ]; then
-			yq -M -i 'del(.sniffer.force-domain)' "$RUN_PROFILE_PATH"
-		fi
-		if [ "$overwrite_sniffer_ignore_domain_name" = 1 ]; then
-			yq -M -i 'del(.sniffer.skip-domain)' "$RUN_PROFILE_PATH"
-		fi
-		if [ "$overwrite_sniffer_sniff" = 1 ]; then
-			yq -M -i 'del(.sniffer.sniff)' "$RUN_PROFILE_PATH"
-		fi
-		if [ "$mixin_file_content" = 0 ]; then
-			ucode -S "$MIXIN_UC" | yq -M -p json -o yaml | yq -M -i eval-all '... comments="" | . as $item ireduce ({}; . * $item ) | .proxies = .meowx-proxies + .proxies | del(.meowx-proxies) | .proxy-groups = .meowx-proxy-groups + .proxy-groups | del(.meowx-proxy-groups) | .rules = .meowx-rules + .rules | del(.meowx-rules) | explode(.)' "$RUN_PROFILE_PATH" -
-		elif [ "$mixin_file_content" = 1 ]; then
-			ucode -S "$MIXIN_UC" | yq -M -p json -o yaml | yq -M -i eval-all '... comments="" | . as $item ireduce ({}; . * $item ) | .proxies = .meowx-proxies + .proxies | del(.meowx-proxies) | .proxy-groups = .meowx-proxy-groups + .proxy-groups | del(.meowx-proxy-groups) | .rules = .meowx-rules + .rules | del(.meowx-rules) | explode(.)' "$RUN_PROFILE_PATH" "$MIXIN_FILE_PATH" -
-		fi
-		if [ "$proxy_enabled" = 1 ]; then
-			if yq -M -e 'has("tun")' "$RUN_PROFILE_PATH" > /dev/null 2>&1; then
-				yq -M -i '(.tun) |= (.auto-route = false | .auto-redirect = false | .auto-detect-interface = false | .disable-icmp-forwarding = true)' "$RUN_PROFILE_PATH"
-			fi
-			if yq -M -e 'has("listeners")' "$RUN_PROFILE_PATH" > /dev/null 2>&1; then
-				yq -M -i '(.listeners[] | select(.type == "tun")) |= (.auto-route = false | .auto-redirect = false | .auto-detect-interface = false | .disable-icmp-forwarding = true)' "$RUN_PROFILE_PATH"
-			fi
-		fi
-	else
-		# 仅核心：订阅原样用，只写入「混入配置 → 外部控制配置」里的外部控制端口 / 密钥 / Web 面板，
-		# 否则订阅里多半没有 external-controller，「打开面板」「更新 Web 面板」和插件取状态都用不了
-		log "Mixin" "Core only, set external controller."
-		ucode -l uci -e '
-			const c = uci.cursor();
-			const out = {};
-			const keys = {
-				"external-controller": "api_listen",
-				"external-controller-tls": "api_tls_listen",
-				"secret": "api_secret",
-				"external-ui": "ui_path",
-				"external-ui-name": "ui_name",
-				"external-ui-url": "ui_url"
-			};
-			// 混入配置里没填的也写成 null，盖掉订阅自带的（如 external-ui-name: metacubexd 而面板装在 ui/ 下，打开就 404）
-			for (let k, o in keys) {
-				const v = c.get("meowx", "mixin", o);
-				out[k] = (v != null && v != "") ? v : null;
-			}
-			printf("%J\n", out);
-		' | yq -M -p json -o yaml | yq -M -i eval-all '. as $item ireduce ({}; . * $item )' "$RUN_PROFILE_PATH" -
-	fi
-	# Web 面板放在 external-ui 目录下的哪个子目录，以混入配置为准：没填就去掉订阅自带的 external-ui-name
-	# （订阅常带 metacubexd，「更新 Web 面板」却装在 ui/ 下，打开面板就 404；混入配置的空值在 trim_all 里被丢掉，盖不住它）
-	if [ -z "$(uci -q get meowx.mixin.ui_name)" ]; then
-		yq -M -i 'del(.external-ui-name)' "$RUN_PROFILE_PATH"
-	fi
-	# check profile
-	if [ "$core_only" = 0 ] && [ "$proxy_enabled" = 1 ]; then
-		log "Profile" "Checking..."
-		if [ "$ipv4_dns_hijack" = 1 ] || [ "$ipv6_dns_hijack" = 1 ]; then
-			if yq -M -e '(has("dns") and (.dns | .enable) and (.dns | has("listen"))) | not' "$RUN_PROFILE_PATH" > /dev/null 2>&1; then
-				log "Profile" "Check failed."
-				log "Profile" "DNS should be enabled and listen should be defined."
-				log "App" "Exit."
-				return
-			fi
-		fi
-		if [ "$tcp_mode" = "redirect" ]; then
-			if yq -M -e "(has(\"redir-port\") or (has(\"listeners\") and .listeners | any_c(.name == \"$redirect_listener_name\" and .type == \"redir\"))) | not" "$RUN_PROFILE_PATH" > /dev/null 2>&1; then
-				log "Profile" "Check failed."
-				log "Profile" "Redirect Port/Listener should be defined."
-				log "App" "Exit."
-				return
-			fi
-		fi
-		if [ "$tcp_mode" = "tproxy" ] || [ "$udp_mode" = "tproxy" ]; then
-			if yq -M -e "(has(\"tproxy-port\") or (has(\"listeners\") and .listeners | any_c(.name == \"$tproxy_listener_name\" and .type == \"tproxy\"))) | not" "$RUN_PROFILE_PATH" > /dev/null 2>&1; then
-				log "Profile" "Check failed."
-				log "Profile" "TPROXY Port/Listener should be defined."
-				log "App" "Exit."
-				return
-			fi
-		fi
-		if [ "$tcp_mode" = "tun" ] || [ "$udp_mode" = "tun" ]; then
-			if yq -M -e "(has(\"tun\") and (.tun | .enable) and (.tun | has(\"device\"))) or (has(\"listeners\") and .listeners | any_c(.name == \"$tun_listener_name\" and .type == \"tun\" and has(\"device\")))) | not" "$RUN_PROFILE_PATH" > /dev/null 2>&1; then
-				log "Profile" "Check failed."
-				log "Profile" "TUN should be defined."
-				log "App" "Exit."
-				return
-			fi
-		fi
-		log "Profile" "Check passed."
-	fi
-	# test profile
-	if [ "$test_profile" = 1 ]; then
-		log "Profile" "Testing..."
-		if env \
-			GOMAXPROCS="$env_go_max_procs" \
-			GOMEMLIMIT="$env_go_mem_limit" \
-			SAFE_PATHS="$env_safe_paths" \
-			DISABLE_LOOPBACK_DETECTOR="$env_disable_loopback_detector" \
-			QUIC_GO_DISABLE_GSO="$env_disable_quic_go_gso" \
-			QUIC_GO_DISABLE_ECN="$env_disable_quic_go_ecn" \
-			SKIP_SYSTEM_IPV6_CHECK="$env_skip_system_ipv6_check" \
-			$PROG -d "$RUN_DIR" -t >> "$CORE_LOG_PATH" 2>&1; then
-			log "Profile" "Test passed."
-		else
-			log "Profile" "Test failed."
-			log "Profile" "Please check the core log to find out the problem."
+		local candidate_path; candidate_path=$(mktemp "$TEMP_DIR/config.XXXXXX")
+		if ! build_profile "$candidate_path" "$test_profile"; then
+			rm -f "$candidate_path"
+			set_error "$BUILD_ERROR"
 			log "App" "Exit."
 			return
 		fi
+		install_file "$candidate_path" "$RUN_PROFILE_PATH"
 	fi
 	# start core
 	clear_error
@@ -350,6 +167,285 @@ start_service() {
 	fi
 	# set started flag
 	touch "$STARTED_FLAG_PATH"
+}
+
+# 把 $1 原子地装到 $2（先拷到同目录的临时文件再 mv：/var/run 与 /etc 不在同一个文件系统，直接 mv 不是原子的），然后删掉 $1
+install_file() {
+	cp -f "$1" "$2.tmp" && mv -f "$2.tmp" "$2"
+	local result=$?
+	rm -f "$1"
+	return $result
+}
+
+# 按当前选择的配置（上传的文件 / 订阅）生成完整的运行配置写到 $1：取配置 → 混入 → 检查 →（$2 = 1 时）用内核测试。
+# 不碰正在运行的 config.yaml；失败返回 1，原因放在 BUILD_ERROR
+build_profile() {
+	local profile_path; profile_path="$1"
+	local test; test="$2"
+	BUILD_ERROR=""
+	config_load meowx
+	local profile; config_get profile "config" "profile"
+	case "$profile" in
+		file:*)
+			local profile_name; profile_name="${profile#file:}"
+			local profile_file; profile_file="$PROFILES_DIR/$profile_name"
+			log "Profile" "Use file: $profile_name."
+			if [ ! -f "$profile_file" ]; then
+				log "Profile" "File not found."
+				BUILD_ERROR="Profile file not found: $profile_name."
+				return 1
+			fi
+			cp -f "$profile_file" "$profile_path"
+			;;
+		subscription:*)
+			local subscription_section; subscription_section="${profile#subscription:}"
+			# 在用的订阅 section 不存在（被删掉，或旧版匿名 section 调整顺序后 ID 变了）：明确报错，不拿空名字往下走
+			if ! subscription_exists "$subscription_section"; then
+				log "Profile" "Subscription not found: $subscription_section. Please choose a subscription again."
+				BUILD_ERROR="Subscription not found: $subscription_section. Please choose a subscription again."
+				return 1
+			fi
+			local subscription_name subscription_prefer
+			config_get subscription_name "$subscription_section" "name"
+			config_get subscription_prefer "$subscription_section" "prefer" "remote"
+			log "Profile" "Use subscription: ${subscription_name:-$subscription_section}."
+			local subscription_file; subscription_file="$SUBSCRIPTIONS_DIR/$subscription_section.yaml"
+			# 本次刚下载并测试过（刷新订阅后紧接着重载）就不再下载、不再测试
+			if [ "$SUBSCRIPTION_UPDATED" = "$subscription_section" ] && [ -f "$subscription_file" ]; then
+				test=0
+			elif [ "$subscription_prefer" = "remote" ] || [ ! -f "$subscription_file" ]; then
+				if update_subscription "$subscription_section"; then
+					test=0
+				elif [ -f "$subscription_file" ]; then
+					log "Profile" "Subscription update failed, use the last downloaded copy."
+				fi
+				config_load meowx
+				config_get subscription_name "$subscription_section" "name"
+			fi
+			if [ ! -f "$subscription_file" ]; then
+				local subscription_error; config_get subscription_error "$subscription_section" "error"
+				log "Profile" "Subscription file not found."
+				BUILD_ERROR="Subscription ${subscription_name:-$subscription_section} has no local copy and the update failed${subscription_error:+: $subscription_error}."
+				return 1
+			fi
+			cp -f "$subscription_file" "$profile_path"
+			;;
+		*)
+			log "Profile" "No profile/subscription selected."
+			BUILD_ERROR="No profile/subscription selected."
+			return 1
+			;;
+	esac
+	mixin_profile "$profile_path"
+	check_profile "$profile_path" || return 1
+	# test profile
+	if [ "$test" = 1 ]; then
+		log "Profile" "Testing..."
+		if test_profile_file "$profile_path"; then
+			log "Profile" "Test passed."
+		else
+			log "Profile" "Test failed: $TEST_ERROR"
+			log "Profile" "Please check the core log to find out the problem."
+			BUILD_ERROR="Profile test failed: $TEST_ERROR"
+			return 1
+		fi
+	fi
+	return 0
+}
+
+# 混入：按插件设置改写 $1（启动生成运行配置、更新订阅时校验，走的是同一份）
+mixin_profile() {
+	local profile_path; profile_path="$1"
+	local core_only; config_get_bool core_only "config" "core_only" 0
+	## mixin config
+	### overwrite
+	local overwrite_authentication overwrite_tun_dns_hijack overwrite_fake_ip_filter overwrite_hosts overwrite_dns_nameserver overwrite_dns_nameserver_policy overwrite_sniffer_sniff overwrite_sniffer_force_domain_name overwrite_sniffer_ignore_domain_name
+	config_get_bool overwrite_authentication "mixin" "authentication" 0
+	config_get_bool overwrite_tun_dns_hijack "mixin" "tun_dns_hijack" 0
+	config_get_bool overwrite_fake_ip_filter "mixin" "fake_ip_filter" 0
+	config_get_bool overwrite_hosts "mixin" "hosts" 0
+	config_get_bool overwrite_dns_nameserver "mixin" "dns_nameserver" 0
+	config_get_bool overwrite_dns_nameserver_policy "mixin" "dns_nameserver_policy" 0
+	config_get_bool overwrite_sniffer_force_domain_name "mixin" "sniffer_force_domain_name" 0
+	config_get_bool overwrite_sniffer_ignore_domain_name "mixin" "sniffer_ignore_domain_name" 0
+	config_get_bool overwrite_sniffer_sniff "mixin" "sniffer_sniff" 0
+	### mixin file content
+	local mixin_file_content
+	config_get_bool mixin_file_content "mixin" "mixin_file_content" 0
+	## proxy config
+	local proxy_enabled; config_get_bool proxy_enabled "proxy" "enabled" 0
+	# mixin
+	if [ "$core_only" = 0 ]; then
+		log "Mixin" "Mixin config."
+		if [ "$overwrite_authentication" = 1 ]; then
+			yq -M -i 'del(.authentication)' "$profile_path"
+		fi
+		if [ "$overwrite_tun_dns_hijack" = 1 ]; then
+			yq -M -i 'del(.tun.dns-hijack)' "$profile_path"
+		fi
+		if [ "$overwrite_fake_ip_filter" = 1 ]; then
+			yq -M -i 'del(.dns.fake-ip-filter)' "$profile_path"
+		fi
+		if [ "$overwrite_hosts" = 1 ]; then
+			yq -M -i 'del(.hosts)' "$profile_path"
+		fi
+		if [ "$overwrite_dns_nameserver" = 1 ]; then
+			yq -M -i 'del(.dns.default-nameserver) | del(.dns.proxy-server-nameserver) | del(.dns.direct-nameserver) | del(.dns.nameserver) | del(.dns.fallback) ' "$profile_path"
+		fi
+		if [ "$overwrite_dns_nameserver_policy" = 1 ]; then
+			yq -M -i 'del(.dns.nameserver-policy)' "$profile_path"
+		fi
+		if [ "$overwrite_sniffer_force_domain_name" = 1 ]; then
+			yq -M -i 'del(.sniffer.force-domain)' "$profile_path"
+		fi
+		if [ "$overwrite_sniffer_ignore_domain_name" = 1 ]; then
+			yq -M -i 'del(.sniffer.skip-domain)' "$profile_path"
+		fi
+		if [ "$overwrite_sniffer_sniff" = 1 ]; then
+			yq -M -i 'del(.sniffer.sniff)' "$profile_path"
+		fi
+		if [ "$mixin_file_content" = 0 ]; then
+			ucode -S "$MIXIN_UC" | yq -M -p json -o yaml | yq -M -i eval-all '... comments="" | . as $item ireduce ({}; . * $item ) | .proxies = .meowx-proxies + .proxies | del(.meowx-proxies) | .proxy-groups = .meowx-proxy-groups + .proxy-groups | del(.meowx-proxy-groups) | .rules = .meowx-rules + .rules | del(.meowx-rules) | explode(.)' "$profile_path" -
+		elif [ "$mixin_file_content" = 1 ]; then
+			ucode -S "$MIXIN_UC" | yq -M -p json -o yaml | yq -M -i eval-all '... comments="" | . as $item ireduce ({}; . * $item ) | .proxies = .meowx-proxies + .proxies | del(.meowx-proxies) | .proxy-groups = .meowx-proxy-groups + .proxy-groups | del(.meowx-proxy-groups) | .rules = .meowx-rules + .rules | del(.meowx-rules) | explode(.)' "$profile_path" "$MIXIN_FILE_PATH" -
+		fi
+		if [ "$proxy_enabled" = 1 ]; then
+			if yq -M -e 'has("tun")' "$profile_path" > /dev/null 2>&1; then
+				yq -M -i '(.tun) |= (.auto-route = false | .auto-redirect = false | .auto-detect-interface = false | .disable-icmp-forwarding = true)' "$profile_path"
+			fi
+			if yq -M -e 'has("listeners")' "$profile_path" > /dev/null 2>&1; then
+				yq -M -i '(.listeners[] | select(.type == "tun")) |= (.auto-route = false | .auto-redirect = false | .auto-detect-interface = false | .disable-icmp-forwarding = true)' "$profile_path"
+			fi
+		fi
+	else
+		# 仅核心：订阅原样用，只写入「混入配置 → 外部控制配置」里的外部控制端口 / 密钥 / Web 面板，
+		# 否则订阅里多半没有 external-controller，「打开面板」「更新 Web 面板」和插件取状态都用不了
+		log "Mixin" "Core only, set external controller."
+		ucode -l uci -e '
+			const c = uci.cursor();
+			const out = {};
+			const keys = {
+				"external-controller": "api_listen",
+				"external-controller-tls": "api_tls_listen",
+				"secret": "api_secret",
+				"external-ui": "ui_path",
+				"external-ui-name": "ui_name",
+				"external-ui-url": "ui_url"
+			};
+			// 混入配置里没填的也写成 null，盖掉订阅自带的（如 external-ui-name: metacubexd 而面板装在 ui/ 下，打开就 404）
+			for (let k, o in keys) {
+				const v = c.get("meowx", "mixin", o);
+				out[k] = (v != null && v != "") ? v : null;
+			}
+			printf("%J\n", out);
+		' | yq -M -p json -o yaml | yq -M -i eval-all '. as $item ireduce ({}; . * $item )' "$profile_path" -
+	fi
+	# Web 面板放在 external-ui 目录下的哪个子目录，以混入配置为准：没填就去掉订阅自带的 external-ui-name
+	# （订阅常带 metacubexd，「更新 Web 面板」却装在 ui/ 下，打开面板就 404；混入配置的空值在 trim_all 里被丢掉，盖不住它）
+	if [ -z "$(uci -q get meowx.mixin.ui_name)" ]; then
+		yq -M -i 'del(.external-ui-name)' "$profile_path"
+	fi
+}
+
+# 检查 $1 里有没有透明代理需要的 DNS / 入站；不通过返回 1，原因放在 BUILD_ERROR
+check_profile() {
+	local profile_path; profile_path="$1"
+	local core_only; config_get_bool core_only "config" "core_only" 0
+	## core config
+	local redirect_listener_name tproxy_listener_name tun_listener_name
+	config_get redirect_listener_name "core" "redirect_listener_name"
+	config_get tproxy_listener_name "core" "tproxy_listener_name"
+	config_get tun_listener_name "core" "tun_listener_name"
+	## proxy config
+	local proxy_enabled ipv4_dns_hijack ipv6_dns_hijack tcp_mode udp_mode
+	config_get_bool proxy_enabled "proxy" "enabled" 0
+	config_get_bool ipv4_dns_hijack "proxy" "ipv4_dns_hijack" 0
+	config_get_bool ipv6_dns_hijack "proxy" "ipv6_dns_hijack" 0
+	config_get tcp_mode "proxy" "tcp_mode"
+	config_get udp_mode "proxy" "udp_mode"
+	# check profile
+	if [ "$core_only" = 0 ] && [ "$proxy_enabled" = 1 ]; then
+		log "Profile" "Checking..."
+		if [ "$ipv4_dns_hijack" = 1 ] || [ "$ipv6_dns_hijack" = 1 ]; then
+			if yq -M -e '(has("dns") and (.dns | .enable) and (.dns | has("listen"))) | not' "$profile_path" > /dev/null 2>&1; then
+				log "Profile" "Check failed."
+				log "Profile" "DNS should be enabled and listen should be defined."
+				BUILD_ERROR="Profile check failed: DNS should be enabled and listen should be defined."
+				return 1
+			fi
+		fi
+		if [ "$tcp_mode" = "redirect" ]; then
+			if yq -M -e "(has(\"redir-port\") or (has(\"listeners\") and .listeners | any_c(.name == \"$redirect_listener_name\" and .type == \"redir\"))) | not" "$profile_path" > /dev/null 2>&1; then
+				log "Profile" "Check failed."
+				log "Profile" "Redirect Port/Listener should be defined."
+				BUILD_ERROR="Profile check failed: Redirect Port/Listener should be defined."
+				return 1
+			fi
+		fi
+		if [ "$tcp_mode" = "tproxy" ] || [ "$udp_mode" = "tproxy" ]; then
+			if yq -M -e "(has(\"tproxy-port\") or (has(\"listeners\") and .listeners | any_c(.name == \"$tproxy_listener_name\" and .type == \"tproxy\"))) | not" "$profile_path" > /dev/null 2>&1; then
+				log "Profile" "Check failed."
+				log "Profile" "TPROXY Port/Listener should be defined."
+				BUILD_ERROR="Profile check failed: TPROXY Port/Listener should be defined."
+				return 1
+			fi
+		fi
+		if [ "$tcp_mode" = "tun" ] || [ "$udp_mode" = "tun" ]; then
+			if yq -M -e "(has(\"tun\") and (.tun | .enable) and (.tun | has(\"device\"))) or (has(\"listeners\") and .listeners | any_c(.name == \"$tun_listener_name\" and .type == \"tun\" and has(\"device\")))) | not" "$profile_path" > /dev/null 2>&1; then
+				log "Profile" "Check failed."
+				log "Profile" "TUN should be defined."
+				BUILD_ERROR="Profile check failed: TUN should be defined."
+				return 1
+			fi
+		fi
+		log "Profile" "Check passed."
+	fi
+	return 0
+}
+
+# 用内核测试 $1（-f 指定文件），在独立的临时目录里测，不碰正在运行的 run 目录与 config.yaml。
+# 地理数据从 run 目录软链过去（不然每测一次内核都要重新下载）；run 目录里还没有、测试时下载下来的挪回 run 目录给启动用。
+# 不通过返回 1，内核报的第一条错误放在 TEST_ERROR
+test_profile_file() {
+	local profile_path; profile_path="$1"
+	TEST_ERROR=""
+	local env_go_max_procs env_go_mem_limit env_safe_paths env_disable_loopback_detector env_disable_quic_go_gso env_disable_quic_go_ecn env_skip_system_ipv6_check
+	config_get env_go_max_procs "procd" "env_go_max_procs"
+	config_get env_go_mem_limit "procd" "env_go_mem_limit"
+	config_get env_safe_paths "procd" "env_safe_paths"
+	config_get_bool env_disable_loopback_detector "procd" "env_disable_loopback_detector" 0
+	config_get_bool env_disable_quic_go_gso "procd" "env_disable_quic_go_gso" 0
+	config_get_bool env_disable_quic_go_ecn "procd" "env_disable_quic_go_ecn" 0
+	config_get_bool env_skip_system_ipv6_check "procd" "env_skip_system_ipv6_check" 0
+	local test_dir; test_dir=$(mktemp -d "$TEMP_DIR/test.XXXXXX")
+	local file
+	for file in "$RUN_DIR"/*.mmdb "$RUN_DIR"/*.metadb "$RUN_DIR"/*.dat; do
+		[ -f "$file" ] && ln -s "$file" "$test_dir/${file##*/}"
+	done
+	local output result
+	# 配置里写在 run 目录下的绝对路径（如混入的规则集文件）照样要能用：run 目录加进 SAFE_PATHS
+	output=$(env \
+		GOMAXPROCS="$env_go_max_procs" \
+		GOMEMLIMIT="$env_go_mem_limit" \
+		SAFE_PATHS="$RUN_DIR${env_safe_paths:+:$env_safe_paths}" \
+		DISABLE_LOOPBACK_DETECTOR="$env_disable_loopback_detector" \
+		QUIC_GO_DISABLE_GSO="$env_disable_quic_go_gso" \
+		QUIC_GO_DISABLE_ECN="$env_disable_quic_go_ecn" \
+		SKIP_SYSTEM_IPV6_CHECK="$env_skip_system_ipv6_check" \
+		$PROG -t -d "$test_dir" -f "$profile_path" 2>&1)
+	result=$?
+	echo "$output" >> "$CORE_LOG_PATH"
+	for file in "$test_dir"/*.mmdb "$test_dir"/*.metadb "$test_dir"/*.dat; do
+		[ -f "$file" ] && [ ! -L "$file" ] && [ ! -e "$RUN_DIR/${file##*/}" ] && mv -f "$file" "$RUN_DIR/"
+	done
+	rm -rf "$test_dir"
+	if [ "$result" != 0 ]; then
+		TEST_ERROR=$(echo "$output" | grep -m 1 -E 'level=(error|fatal)' | sed -n 's/.*msg="\(.*\)".*/\1/p')
+		[ -z "$TEST_ERROR" ] && TEST_ERROR=$(echo "$output" | grep -v -E 'level=(info|warning|debug)' | head -n 1)
+		[ -z "$TEST_ERROR" ] && TEST_ERROR="core exited with code $result"
+		return 1
+	fi
+	return 0
 }
 
 service_started() {
@@ -497,7 +593,24 @@ service_stopped() {
 }
 
 reload_service() {
-	cleanup
+	prepare_files
+	config_load meowx
+	local enabled; config_get_bool enabled "config" "enabled" 0
+	if [ "$enabled" = 1 ] && [ -x $PROG ]; then
+		# 先生成并测试新配置，通过才拆掉旧的、换上新的；不通过就保留现在运行的不动
+		# （以前先 cleanup 再生成，生成或测试失败时代理已经拆了，路由器就断网了）
+		log "App" "Reload."
+		local candidate_path; candidate_path=$(mktemp "$TEMP_DIR/config.XXXXXX")
+		if ! build_profile "$candidate_path" 1; then
+			rm -f "$candidate_path"
+			log "App" "Reload failed, keep the running config: $BUILD_ERROR"
+			set_error "$BUILD_ERROR"
+			return 1
+		fi
+		PREPARED_PROFILE="$candidate_path"
+	fi
+	# 重载不是停止：不按「停止时清空日志」清掉，刚才生成 / 测试新配置的日志要留着
+	cleanup keep_logs
 	start
 }
 
@@ -518,7 +631,7 @@ cleanup() {
 	config_get tun_route_table "routing" "tun_route_table" "81"
 	config_get dummy_device "routing" "dummy_device" "meowx-dummy"
 	# clear logs if needed
-	if [  "$log_clear_at_stop" = 1 ]; then
+	if [  "$log_clear_at_stop" = 1 ] && [ "$1" != "keep_logs" ]; then
 		echo -n > "$APP_LOG_PATH"
 		echo -n > "$CORE_LOG_PATH"
 		log "Log" "Logs are cleared due to clear at stop is enabled."
@@ -608,6 +721,7 @@ official_user_agent() {
 	echo "mihomo/1.19.0 MeowX/${version:-0} (OpenWrt)"
 }
 
+# 更新订阅。返回 0 成功（缓存已替换）/ 1 失败（旧缓存保留，原因写在 UCI 的 error_type / error）/ 3 等别的任务更新超时
 update_subscription() {
 	local subscription_section; subscription_section="$1"
 	if ! subscription_exists "$subscription_section"; then
@@ -616,6 +730,24 @@ update_subscription() {
 	fi
 	# 服务还没启动过时这些目录都不存在（启动时才建），在界面里先添加、刷新订阅会写不进去
 	mkdir -p "$LOG_DIR" "$TEMP_DIR" "$SUBSCRIPTIONS_DIR"
+	# 下载 → 校验 → 替换缓存整个过程按订阅加锁：自动更新、手动刷新、启动时的更新不会同时改同一份缓存。
+	# （24.10 的 procd.sh 被 source 时就拿了服务锁，经 init 脚本的调用本来就是串行的；这把锁不依赖它，界面也靠它判断「正在更新」）
+	{
+		local waited; waited=0
+		while ! flock -n 9; do
+			if [ "$waited" -ge 600 ]; then
+				log "Profile" "Subscription $subscription_section is being updated by another task."
+				return 3
+			fi
+			sleep 1
+			waited=$((waited + 1))
+		done
+		update_subscription_locked "$subscription_section"
+	} 9> "$TEMP_DIR/subscription.$subscription_section.lock"
+}
+
+update_subscription_locked() {
+	local subscription_section; subscription_section="$1"
 	# load config
 	config_load meowx
 	# get subscription config
@@ -625,53 +757,76 @@ update_subscription() {
 	config_get subscription_url "$subscription_section" "url"
 	config_get subscription_user_agent "$subscription_section" "user_agent"
 	subscription_user_agent=$(official_user_agent "$subscription_user_agent")
-	# reset subscription info
-	uci_remove "meowx" "$subscription_section" "expire" > /dev/null 2>&1
-	uci_remove "meowx" "$subscription_section" "upload" > /dev/null 2>&1
-	uci_remove "meowx" "$subscription_section" "download" > /dev/null 2>&1
-	uci_remove "meowx" "$subscription_section" "total" > /dev/null 2>&1
-	uci_remove "meowx" "$subscription_section" "used" > /dev/null 2>&1
-	uci_remove "meowx" "$subscription_section" "avaliable" > /dev/null 2>&1
-	uci_remove "meowx" "$subscription_section" "update" > /dev/null 2>&1
-	uci_remove "meowx" "$subscription_section" "success" > /dev/null 2>&1
 	# update subscription
-	log "Profile" "Update subscription: $subscription_name."
-	local success
-	local subscription_info_header_tmpfile; subscription_info_header_tmpfile="$TEMP_DIR/$subscription_section.info.header"
-	local subscription_header_tmpfile; subscription_header_tmpfile="$TEMP_DIR/$subscription_section.header"
-	local subscription_tmpfile; subscription_tmpfile="$TEMP_DIR/$subscription_section.yaml"
+	log "Profile" "Update subscription: ${subscription_name:-$subscription_section}."
+	# 临时文件每次都用新的（以前按 section 名固定，自动更新与手动刷新会互相覆盖）
+	local subscription_info_header_tmpfile; subscription_info_header_tmpfile=$(mktemp "$TEMP_DIR/subscription.XXXXXX")
+	local subscription_header_tmpfile; subscription_header_tmpfile=$(mktemp "$TEMP_DIR/subscription.XXXXXX")
+	local subscription_tmpfile; subscription_tmpfile=$(mktemp "$TEMP_DIR/subscription.XXXXXX")
 	local subscription_info_file
 	local subscription_file; subscription_file="$SUBSCRIPTIONS_DIR/$subscription_section.yaml"
+	local error_type error
 	# fetch subscription info
 	if [ -n "$subscription_info_url" ]; then
 		log "Profile" "Fetch subscription info."
 		if curl -s -f -m 120 --connect-timeout 15 --retry 3 -L -X GET -A "$subscription_user_agent" -D "$subscription_info_header_tmpfile" "$subscription_info_url" > /dev/null 2>&1; then
-			if [ ! -f "$subscription_info_file" ] && grep -q -i "subscription-userinfo:" "$subscription_info_header_tmpfile"; then
+			if grep -q -i "subscription-userinfo:" "$subscription_info_header_tmpfile"; then
 				subscription_info_file="$subscription_info_header_tmpfile"
 			fi
 		fi
 	fi
 	# download subscription
 	log "Profile" "Download subscription."
-	if curl -s -f -m 120 --connect-timeout 15 --retry 3 -L -X GET -A "$subscription_user_agent" -D "$subscription_header_tmpfile" -o "$subscription_tmpfile" "$subscription_url" > /dev/null 2>&1; then
+	local http_code curl_result
+	http_code=$(curl -s -f -m 120 --connect-timeout 15 --retry 3 -L -X GET -A "$subscription_user_agent" -D "$subscription_header_tmpfile" -o "$subscription_tmpfile" -w '%{http_code}' "$subscription_url" 2> /dev/null)
+	curl_result=$?
+	if [ "$curl_result" != 0 ]; then
+		error_type="download"
+		if [ "$curl_result" = 22 ]; then
+			error="HTTP $http_code"
+		else
+			error="curl exit code $curl_result"
+		fi
+		log "Profile" "Subscription download failed: $error."
+	else
 		log "Profile" "Subscription download successful."
-		if [ ! -f "$subscription_info_file" ] && grep -q -i "subscription-userinfo:" "$subscription_header_tmpfile"; then
+		if [ -z "$subscription_info_file" ] && grep -q -i "subscription-userinfo:" "$subscription_header_tmpfile"; then
 			subscription_info_file="$subscription_header_tmpfile"
 		fi
-		if yq -M -p yaml -o yaml -e 'has("proxies") or has("proxy-providers")' "$subscription_tmpfile" > /dev/null 2>&1; then
-			log "Profile" "Subscription is valid."
-			success=1
-		else
+		# proxies 必须是非空列表，或 proxy-providers 是非空映射（以前只看有没有这个键，proxies: null 也能过）
+		if ! yq -M -p yaml -o yaml -e '((.proxies | tag) == "!!seq" and (.proxies | length) > 0) or ((.["proxy-providers"] | tag) == "!!map" and (.["proxy-providers"] | length) > 0)' "$subscription_tmpfile" > /dev/null 2>&1; then
+			error_type="invalid"
+			error="no proxies or proxy-providers in it, or it is not a Clash YAML"
 			log "Profile" "Subscription is not valid."
-			success=0
+		else
+			# 按真实的插件设置混入出完整配置，用内核测一遍（与启动时生成运行配置同一条路径）
+			local candidate_path; candidate_path=$(mktemp "$TEMP_DIR/subscription.XXXXXX")
+			cp -f "$subscription_tmpfile" "$candidate_path"
+			mixin_profile "$candidate_path"
+			if test_profile_file "$candidate_path"; then
+				log "Profile" "Subscription is valid."
+			else
+				error_type="test"
+				error="$TEST_ERROR"
+				log "Profile" "Subscription failed the core test: $error"
+			fi
+			rm -f "$candidate_path"
 		fi
-	else
-		log "Profile" "Subscription download failed."
-		success=0
 	fi
 	# check if success
-	if [ "$success" = 1 ]; then
+	if [ -z "$error_type" ]; then
 		log "Profile" "Subscription update successful."
+		# 先换缓存（同目录临时文件 + mv，原子替换），再改 UCI 里的订阅信息
+		install_file "$subscription_tmpfile" "$subscription_file"
+		# reset subscription info
+		uci_remove "meowx" "$subscription_section" "expire" > /dev/null 2>&1
+		uci_remove "meowx" "$subscription_section" "upload" > /dev/null 2>&1
+		uci_remove "meowx" "$subscription_section" "download" > /dev/null 2>&1
+		uci_remove "meowx" "$subscription_section" "total" > /dev/null 2>&1
+		uci_remove "meowx" "$subscription_section" "used" > /dev/null 2>&1
+		uci_remove "meowx" "$subscription_section" "avaliable" > /dev/null 2>&1
+		uci_remove "meowx" "$subscription_section" "error_type" > /dev/null 2>&1
+		uci_remove "meowx" "$subscription_section" "error" > /dev/null 2>&1
 		if [ -f "$subscription_info_file" ]; then
 			local subscription_expire subscription_upload subscription_download subscription_total subscription_used subscription_avaliable
 			subscription_expire=$(grep -i "subscription-userinfo: " "$subscription_info_file" | grep -i -o -E "expire=[[:digit:]]+" | cut -d '=' -f 2)
@@ -722,57 +877,71 @@ update_subscription() {
 		fi
 		subscription_interval=$(grep -i "^profile-update-interval:" "$subscription_header_tmpfile" | tail -n 1 | grep -o -E "[[:digit:]]+" | head -n 1)
 		uci_set "meowx" "$subscription_section" "update_interval" "${subscription_interval:-}"
-		# update subscription file
-		rm -f "$subscription_info_header_tmpfile"
-		rm -f "$subscription_header_tmpfile"
-		mv -f "$subscription_tmpfile" "$subscription_file"
-	elif [ "$success" = 0 ]; then
-		log "Profile" "Subscription update failed."
-		# update subscription info
+	else
+		# 失败：旧缓存与上次的用量 / 更新时间都保留，记下失败原因给界面
+		log "Profile" "Subscription update failed, keep the last downloaded copy."
 		uci_set "meowx" "$subscription_section" "success" "0"
-		# remove tmpfile
-		rm -f "$subscription_info_header_tmpfile"
-		rm -f "$subscription_header_tmpfile"
-		rm -f "$subscription_tmpfile"
+		uci_set "meowx" "$subscription_section" "error_type" "$error_type"
+		uci_set "meowx" "$subscription_section" "error" "$error"
 	fi
+	rm -f "$subscription_info_header_tmpfile" "$subscription_header_tmpfile" "$subscription_tmpfile"
 	uci_commit "meowx"
+	if [ -z "$error_type" ]; then
+		SUBSCRIPTION_UPDATED="$subscription_section"
+		return 0
+	fi
+	return 1
 }
 
-# 刷新订阅；它正是当前在用的配置、服务又在跑时重载（客户端刷新当前订阅后立刻生效，同此）
+# 刷新订阅；它正是当前在用的配置、服务又在跑时重载（客户端刷新当前订阅后立刻生效，同此）。
+# 返回 0 已更新（在用的话也已套用）/ 1 更新失败 / 2 已更新但套用失败（运行中的保持不动，原因在 last_error）/ 3 等别的任务更新超时
 refresh_subscription() {
 	local subscription_section; subscription_section="$1"
 	subscription_exists "$subscription_section" || return 1
-	update_subscription "$subscription_section"
+	update_subscription "$subscription_section" || return $?
 	config_load meowx
-	local profile success; config_get profile "config" "profile"; config_get success "$subscription_section" "success" "0"
-	if [ "$success" = 1 ] && [ "$profile" = "subscription:$subscription_section" ] && service_running_meowx; then
+	local profile; config_get profile "config" "profile"
+	if [ "$profile" = "subscription:$subscription_section" ] && service_running_meowx; then
 		log "Profile" "Active subscription updated, reload."
-		reload
+		reload || return 2
 	fi
+	return 0
 }
 
-# 切换在用的配置（file:<文件名> / subscription:<section>）。启用中就重启生效；没启用的话顺手启用，同客户端「选了订阅就连上」
+# 切换在用的配置（file:<文件名> / subscription:<section>）。没启用的话顺手启用，同客户端「选了订阅就连上」。
+# 服务在跑时先生成并测试新配置，不能用就退回原来的选择、运行中的保持不动（返回 2，原因在 last_error）
 switch_profile() {
 	local profile; profile="$1"
 	case "$profile" in
 		file:*|subscription:*) ;;
 		*) return 1 ;;
 	esac
-	# 订阅还没下载过（导入时下载失败等）就先下载，否则启动时找不到订阅文件直接退出
 	case "$profile" in
 		subscription:*)
 			if ! subscription_exists "${profile#subscription:}"; then
 				log "Profile" "Subscription not found: ${profile#subscription:}."
 				return 1
 			fi
-			[ -f "$SUBSCRIPTIONS_DIR/${profile#subscription:}.yaml" ] || update_subscription "${profile#subscription:}"
 			;;
 	esac
+	local previous; previous=$(uci -q get meowx.config.profile)
 	uci_set "meowx" "config" "profile" "$profile"
 	uci_set "meowx" "config" "enabled" "1"
 	uci_commit "meowx"
 	log "Profile" "Switch to: $profile."
-	restart
+	if service_running_meowx; then
+		if ! reload; then
+			uci_set "meowx" "config" "profile" "$previous"
+			uci_commit "meowx"
+			log "Profile" "Switch failed, keep using: $previous."
+			return 2
+		fi
+	else
+		# 订阅还没下载过（导入时下载失败等）启动时会先下载
+		restart
+		[ -s "$LAST_ERROR_PATH" ] && return 2
+	fi
+	return 0
 }
 
 # 每小时由 cron 调一次：当前订阅距上次更新超过 auto_update_interval 小时（缺省 24，0 关闭）就刷新

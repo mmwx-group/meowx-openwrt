@@ -188,6 +188,11 @@ function formatBytes(n) {
     return (i == 0 || n >= 100 ? Math.round(n) : n.toFixed(1)) + ' ' + units[i];
 }
 
+// 后端给的原因句末带英文句号，套进翻译句子前去掉，免得出现「….。」
+function stripPeriod(text) {
+    return String(text ?? '').replace(/[.。]\s*$/, '');
+}
+
 function relativeTime(ts) {
     const diff = Math.max(0, Date.now() / 1000 - (+ts));
     if (diff < 60) {
@@ -421,12 +426,40 @@ return baseclass.extend({
         return callMeowXDebug();
     },
 
+    // 刷新订阅并按结果提示：下载 / 校验没过（旧的保留）、下载成功但套用失败（运行中的保持不动）、更新并已套用，分开说
     refreshSubscription: function (section_id) {
-        return callMeowXRefreshSubscription(section_id);
+        return callMeowXRefreshSubscription(section_id).then((res) => {
+            if (res?.busy) {
+                ui.addTimeLimitedNotification(null, E('p', _('This subscription is being updated, please try again later.')), 5000, 'warning');
+            } else if (!res?.success) {
+                ui.addNotification(null, E('p', _('Subscription update failed: %s. The last downloaded copy is kept.').format(this.subscriptionError(res))), 'warning');
+            } else if (res.applied === false) {
+                ui.addNotification(null, E('p', _('Subscription updated, but applying it failed: %s. The proxy keeps running with the previous config.').format(stripPeriod(res.apply_error) || _('see the log'))), 'warning');
+            } else {
+                ui.addTimeLimitedNotification(null, E('p', res.applied ? _('Subscription updated and applied.') : _('Subscription updated.')), 4000, 'info');
+            }
+            return res;
+        });
     },
 
+    // 切换配置；没成功时提示原因（服务在跑时新配置不能用会退回原来的选择，运行中的保持不动）
     switchProfile: function (profile) {
-        return callMeowXSwitchProfile(profile);
+        return callMeowXSwitchProfile(profile).then((res) => {
+            if (!res?.success && res?.error) {
+                ui.addNotification(null, E('p', (res.kept ? _('Switching failed: %s. Still using the previous config.') : _('Failed to start: %s')).format(stripPeriod(res.error))), 'warning');
+            }
+            return res;
+        });
+    },
+
+    // 订阅更新失败的原因（UCI / RPC 回包里的 error_type 与 error）：短标签 + 具体原因
+    subscriptionErrorLabel: function (res) {
+        return { download: _('Download failed'), invalid: _('Invalid content'), test: _('Core test failed') }[res?.error_type] || _('Update failed');
+    },
+
+    subscriptionError: function (res) {
+        const label = this.subscriptionErrorLabel(res);
+        return res?.error ? _('%s (%s)').format(label, res.error) : label;
     },
 
     addSubscription: function (url, name) {
@@ -434,6 +467,8 @@ return baseclass.extend({
     },
 
     formatBytes: formatBytes,
+
+    stripPeriod: stripPeriod,
 
     panelStatus: function () {
         return L.resolveDefault(callMeowXPanelStatus(), { logged_in: false });
@@ -704,12 +739,14 @@ return baseclass.extend({
             const days = Math.floor((+section.expire_ts - Date.now() / 1000) / 86400);
             parts.push(days < 0 ? _('Expired') : _('Expires in %d days').format(days));
         }
+        // 上次更新失败：按钮上是短原因（下载失败 / 内容无效 / 内核测试没过），悬停看具体原因；用的仍是上次下载成功的那份
+        const failed = section.success == '0';
         const updated = E('button', {
             type: 'button',
-            class: 'mx-sub__updated' + (section.success == '0' ? ' is-failed' : ''),
-            title: _('Update'),
+            class: 'mx-sub__updated' + (failed ? ' is-failed' : ''),
+            title: failed ? this.subscriptionError(section) : _('Update'),
             click: onRefresh ? (ev) => this.busy(ev.currentTarget, onRefresh) : null
-        }, section.success == '0' ? _('Update failed') : (+section.update_ts > 0 ? _('Updated %s').format(relativeTime(section.update_ts)) : _('Never updated')));
+        }, failed ? this.subscriptionErrorLabel(section) : (+section.update_ts > 0 ? _('Updated %s').format(relativeTime(section.update_ts)) : _('Never updated')));
         return E('div', { class: 'mx-sub__usage' }, [
             E('div', { class: 'mx-sub__bar' + (hasTotal ? '' : ' is-empty') }, E('span', { style: `transform: scaleX(${ratio})` })),
             E('div', { class: 'mx-sub__line' }, [
@@ -736,7 +773,7 @@ return baseclass.extend({
                 input.classList.remove('is-invalid');
                 return this.addSubscription(url).then((res) => {
                     if (!res?.success) {
-                        ui.addNotification(null, E('p', _('Subscription added, but the download failed. Check the link and update it again.')), 'warning');
+                        ui.addNotification(null, E('p', _('Subscription added, but the update failed: %s. Check the link and update it again.').format(this.subscriptionError(res))), 'warning');
                     }
                     input.value = '';
                     return onAdded ? onAdded(res?.section_id) : null;

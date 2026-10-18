@@ -1363,3 +1363,42 @@ msgstr ""
 
 msgid "The subscription in use no longer exists. Choose a subscription again."
 msgstr ""
+
+msgid "This subscription is being updated, please try again later."
+msgstr ""
+
+msgid "Subscription update failed: %s. The last downloaded copy is kept."
+msgstr ""
+
+msgid "Subscription updated, but applying it failed: %s. The proxy keeps running with the previous config."
+msgstr ""
+
+msgid "see the log"
+msgstr ""
+
+msgid "Subscription updated and applied."
+msgstr ""
+
+msgid "Subscription updated."
+msgstr ""
+
+msgid "Switching failed: %s. Still using the previous config."
+msgstr ""
+
+msgid "Failed to start: %s"
+msgstr ""
+
+msgid "Download failed"
+msgstr ""
+
+msgid "Invalid content"
+msgstr ""
+
+msgid "Core test failed"
+msgstr ""
+
+msgid "%s (%s)"
+msgstr ""
+
+msgid "Subscription added, but the update failed: %s. Check the link and update it again."
+msgstr ""

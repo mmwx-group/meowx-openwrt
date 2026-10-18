@@ -1370,3 +1370,42 @@ msgstr "上次啟動 / 重載沒有成功：%s"
 
 msgid "The subscription in use no longer exists. Choose a subscription again."
 msgstr "使用中的訂閱已經不存在了，請重新選擇訂閱。"
+
+msgid "This subscription is being updated, please try again later."
+msgstr "這個訂閱正在更新，請稍後再試。"
+
+msgid "Subscription update failed: %s. The last downloaded copy is kept."
+msgstr "訂閱更新失敗：%s。仍使用上次下載成功的版本。"
+
+msgid "Subscription updated, but applying it failed: %s. The proxy keeps running with the previous config."
+msgstr "訂閱已更新，但套用失敗：%s。代理仍按原來的設定執行。"
+
+msgid "see the log"
+msgstr "詳見日誌"
+
+msgid "Subscription updated and applied."
+msgstr "訂閱已更新並套用。"
+
+msgid "Subscription updated."
+msgstr "訂閱已更新。"
+
+msgid "Switching failed: %s. Still using the previous config."
+msgstr "切換失敗：%s。仍在使用原來的設定。"
+
+msgid "Failed to start: %s"
+msgstr "啟動失敗：%s"
+
+msgid "Download failed"
+msgstr "下載失敗"
+
+msgid "Invalid content"
+msgstr "內容無效"
+
+msgid "Core test failed"
+msgstr "核心測試未通過"
+
+msgid "%s (%s)"
+msgstr "%s（%s）"
+
+msgid "Subscription added, but the update failed: %s. Check the link and update it again."
+msgstr "訂閱已新增，但更新失敗：%s。請檢查連結後再更新一次。"
