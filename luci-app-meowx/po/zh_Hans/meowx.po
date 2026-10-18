@@ -1353,6 +1353,12 @@ msgstr "内核没有运行：先在订阅卡选好订阅并启动服务。"
 msgid "The running config has no external controller, so the web dashboard is unavailable. Fill in the API listen address under Mixin Config → External Control Config, then reload the service."
 msgstr "当前运行的配置里没有外部控制端口，Web 面板用不了：在「混入配置 → 外部控制配置」里填好 API 监听地址，然后重载服务。"
 
+msgid "Opening the web dashboard…"
+msgstr "正在打开 Web 面板…"
+
+msgid "Downloading the web dashboard for the first time, this may take a minute or two…"
+msgstr "首次打开，正在下载 Web 面板，可能要一两分钟…"
+
 msgid "Failed to download the web dashboard: %s"
 msgstr "Web 面板下载失败：%s"
 

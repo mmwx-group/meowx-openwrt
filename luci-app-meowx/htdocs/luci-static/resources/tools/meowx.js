@@ -291,10 +291,25 @@ return baseclass.extend({
     },
 
     openDashboard: async function () {
-        // 点击时先开一个空白窗口：后面要等读配置、可能还要下载面板，等完再 window.open 会被浏览器当弹窗拦掉
+        // 点击时先开一个窗口：后面要等读配置、可能还要下载面板，等完再 window.open 会被浏览器当弹窗拦掉。
+        // 窗口里先写一句「正在打开」：首次打开要等内核从 GitHub 下载面板，可能一两分钟，空白的 about:blank 看起来像坏了
         const win = window.open('about:blank', '_blank');
+        const say = (text) => {
+            try {
+                win.document.title = 'MeowX';
+                win.document.body.style.cssText = 'margin:0;height:100vh;display:flex;align-items:center;justify-content:center;font:15px/1.6 -apple-system,system-ui,sans-serif;color:#5b4d55;background:#f5efe9';
+                win.document.body.textContent = text;
+            } catch (e) {}
+        };
+        if (win) {
+            say(_('Opening the web dashboard…'));
+        }
         try {
-            const url = await this.dashboardURL();
+            const url = await this.dashboardURL(function () {
+                if (win) {
+                    say(_('Downloading the web dashboard for the first time, this may take a minute or two…'));
+                }
+            });
             if (win) {
                 win.location.href = url;
             } else {
@@ -306,7 +321,8 @@ return baseclass.extend({
         }
     },
 
-    dashboardURL: async function () {
+    // onDownload：面板还没下载过、要先让内核下载时调一次（打开面板的窗口里换成「正在下载」）
+    dashboardURL: async function (onDownload) {
         const profile = await callMeowXProfile({
             'external-ui': null,
             'external-ui-name': null,
@@ -329,6 +345,7 @@ return baseclass.extend({
         if (uiPath && (apiListen || apiTLSListen)) {
             const st = await L.resolveDefault(callMeowXDashboardStatus(uiPath, uiName), { installed: true });
             if (!st.installed) {
+                onDownload?.();
                 const res = await this.updateDashboard();
                 if (res?.status != 'ok') {
                     return Promise.reject(new Error(res?.message || 'download-failed'));
@@ -353,7 +370,10 @@ return baseclass.extend({
             host: window.location.hostname,
             hostname: window.location.hostname,
             port: port,
-            secret: apiSecret
+            secret: apiSecret,
+            // 每次地址都不同：面板目录的首页 / 目录列表带 Last-Modified，地址不变时 Chrome 会按启发式缓存直接拿旧页面
+            // （面板换过目录、刚重新下载过时打开的还是以前那份）
+            t: Date.now()
         };
         const query = new URLSearchParams(params).toString();
         let url;

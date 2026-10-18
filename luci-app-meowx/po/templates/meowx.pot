@@ -1346,6 +1346,12 @@ msgstr ""
 msgid "The running config has no external controller, so the web dashboard is unavailable. Fill in the API listen address under Mixin Config → External Control Config, then reload the service."
 msgstr ""
 
+msgid "Opening the web dashboard…"
+msgstr ""
+
+msgid "Downloading the web dashboard for the first time, this may take a minute or two…"
+msgstr ""
+
 msgid "Failed to download the web dashboard: %s"
 msgstr ""
 
