@@ -229,6 +229,19 @@ log_scheduled_clear_size_limit_unit=$(uci -q get meowx.log.scheduled_clear_size_
 
 config_clear_at_stop=$(uci -q get meowx.log.clear_at_stop); [ -z "$config_clear_at_stop" ] && uci set meowx.log.clear_at_stop=1
 
+# since meowx 0.1.7
+
+# 订阅改用具名 section（sub_<8 位十六进制>）：匿名 section 的 ID（cfgXXXXXX）按位置算，调整顺序后就变了，
+# 而在用的配置（subscription:<ID>）与缓存文件（subscriptions/<ID>.yaml）都靠它关联，一变就对不上。
+# 按当前的对应关系改名，profile 与缓存文件跟着改
+profile=$(uci -q get meowx.config.profile)
+for subscription in $(uci -X show meowx | sed -n 's/^meowx\.\(cfg[0-9a-f]\{6\}\)=subscription$/\1/p'); do
+	subscription_id=$(new_subscription_id)
+	uci rename "meowx.$subscription=$subscription_id"
+	[ -f "$SUBSCRIPTIONS_DIR/$subscription.yaml" ] && mv -f "$SUBSCRIPTIONS_DIR/$subscription.yaml" "$SUBSCRIPTIONS_DIR/$subscription_id.yaml"
+	[ "$profile" = "subscription:$subscription" ] && uci set meowx.config.profile="subscription:$subscription_id"
+done
+
 # commit
 uci commit meowx
 

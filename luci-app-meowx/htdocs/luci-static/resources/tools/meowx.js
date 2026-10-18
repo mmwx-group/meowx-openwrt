@@ -161,6 +161,12 @@ const callMeowXDashboardStatus = rpc.declare({
     expect: { '': {} }
 });
 
+const callMeowXLastError = rpc.declare({
+    object: 'luci.meowx',
+    method: 'last_error',
+    expect: { '': {} }
+});
+
 const callMeowXPo0 = rpc.declare({
     object: 'luci.meowx',
     method: 'po0',
@@ -215,6 +221,11 @@ return baseclass.extend({
 
     reload: function () {
         return callRCInit('meowx', 'reload');
+    },
+
+    // 服务上次启动 / 重载 / 切换没成功的原因：{ error, time }，没有失败时 error 为空
+    lastError: function () {
+        return L.resolveDefault(callMeowXLastError(), {});
     },
 
     restart: function () {

@@ -1364,3 +1364,9 @@ msgstr "Web 面板下载失败：%s"
 
 msgid "Core only: the core runs, but router and LAN traffic is not taken over. Turn off \"Core Only\" below and save to start the transparent proxy."
 msgstr "仅核心：只运行内核，不接管路由器和局域网的流量。要让局域网设备走代理，在下面关掉「仅核心」并保存。"
+
+msgid "Last start or reload failed: %s"
+msgstr "上次启动 / 重载没有成功：%s"
+
+msgid "The subscription in use no longer exists. Choose a subscription again."
+msgstr "在用的订阅已经不存在了，请重新选择订阅。"

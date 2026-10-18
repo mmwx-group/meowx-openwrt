@@ -1357,3 +1357,9 @@ msgstr ""
 
 msgid "Core only: the core runs, but router and LAN traffic is not taken over. Turn off \"Core Only\" below and save to start the transparent proxy."
 msgstr ""
+
+msgid "Last start or reload failed: %s"
+msgstr ""
+
+msgid "The subscription in use no longer exists. Choose a subscription again."
+msgstr ""

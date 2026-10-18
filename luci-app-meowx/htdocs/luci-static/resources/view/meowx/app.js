@@ -7,7 +7,7 @@
 'require tools.meowx as meowx';
 
 // 首页主卡：与客户端的连接主卡同一套样子（运行中樱粉底 + 状态点涟漪，未运行中性底）
-function renderHero(appVersion, coreVersion, running) {
+function renderHero(appVersion, coreVersion, running, lastError) {
     // 浅 / 深两张 Logo 都放上，由 CSS 按深浅色显示一张
     const logo = E('span', { class: 'mx-hero__logo' }, [
         E('img', { class: 'mx-logo-light', alt: '', src: L.resource('view/meowx/logo-light.png') }),
@@ -35,7 +35,8 @@ function renderHero(appVersion, coreVersion, running) {
             E('div', { class: 'mx-hero__title' }, 'MeowX'),
             E('div', { class: 'mx-status' }, [E('span', { class: 'mx-status__dot' }), E('span', { class: 'mx-status__text' })]),
             E('div', { class: 'mx-hero__meta' }, meta.join(' · ')),
-            E('div', { class: 'mx-hero__hint', hidden: '' }, _('Core only: the core runs, but router and LAN traffic is not taken over. Turn off "Core Only" below and save to start the transparent proxy.'))
+            E('div', { class: 'mx-hero__hint', hidden: '' }, _('Core only: the core runs, but router and LAN traffic is not taken over. Turn off "Core Only" below and save to start the transparent proxy.')),
+            E('div', { class: 'mx-hero__error', hidden: '' })
         ]),
         E('div', { class: 'mx-hero__actions' }, [
             action(_('Reload Service'), function () { return meowx.reload(); }, true),
@@ -73,7 +74,7 @@ function renderHero(appVersion, coreVersion, running) {
             })
         ])
     ]);
-    return updateHero(hero, running);
+    return updateHero(hero, running, lastError);
 }
 
 // 账户下还没导入的订阅：名称 + 用量 / 到期 + 「导入」
@@ -234,6 +235,9 @@ function renderSubscriptionCard(profiles, status, reload) {
         card.appendChild(meowx.renderUsage(active, function () {
             return meowx.refreshSubscription(active['.name']).then(reload);
         }));
+    } else if (current.startsWith('subscription:')) {
+        // 在用的订阅已经不在了（被删掉等）：明确说出来，不当成「没选配置」
+        card.appendChild(E('div', { class: 'mx-subcard__error' }, _('The subscription in use no longer exists. Choose a subscription again.')));
     } else if (current.startsWith('file:')) {
         card.appendChild(E('div', { class: 'mx-subcard__name' }, current.slice(5)));
         card.appendChild(E('div', { class: 'mx-subcard__hint' }, _('Local Files')));
@@ -243,12 +247,17 @@ function renderSubscriptionCard(profiles, status, reload) {
     return card;
 }
 
-function updateHero(hero, running) {
+function updateHero(hero, running, lastError) {
     hero.classList.toggle('is-running', !!running);
     hero.querySelector('.mx-status__text').textContent = running ? _('Running') : _('Not Running');
     // 「仅核心」开着时局域网不走内核：用户实报「路由器起来后电脑访问根本不走核心」，开关在下面表单里，不显眼。
     // 跟着轮询更新（保存后 uci 缓存会重新载入）
     hero.querySelector('.mx-hero__hint').hidden = uci.get('meowx', 'config', 'core_only') != '1';
+    // 上次启动 / 重载 / 切换没成功（订阅不存在、缓存缺失又下载失败、配置测试不过等）：原因写在这里，别让用户只看到「未在运行」
+    const error = hero.querySelector('.mx-hero__error');
+    error.hidden = !lastError?.error;
+    error.textContent = lastError?.error ? _('Last start or reload failed: %s').format(lastError.error) : '';
+    error.title = lastError?.time ? new Date(lastError.time * 1000).toLocaleString() : '';
     return hero;
 }
 
@@ -260,7 +269,8 @@ return baseclass.extend({
             meowx.version(),
             meowx.status(),
             meowx.listProfiles(),
-            meowx.panelStatus()
+            meowx.panelStatus(),
+            meowx.lastError()
         ]);
     },
     render: function (data) {
@@ -274,10 +284,10 @@ return baseclass.extend({
 
         m = new form.Map('meowx', _('MeowX'), `${_('Transparent Proxy with Mihomo on OpenWrt.')}`);
 
-        const hero = renderHero(appVersion, coreVersion, running);
+        const hero = renderHero(appVersion, coreVersion, running, data[5]);
         poll.add(function () {
-            return L.resolveDefault(meowx.status()).then(function (running) {
-                updateHero(hero, running);
+            return Promise.all([L.resolveDefault(meowx.status()), meowx.lastError()]).then(function (res) {
+                updateHero(hero, res[0], res[1]);
             });
         });
 

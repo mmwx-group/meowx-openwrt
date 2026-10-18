@@ -46,6 +46,7 @@ start_service() {
 	local enabled
 	config_get_bool enabled "config" "enabled" 0
 	if [ "$enabled" = 0 ]; then
+		clear_error
 		log "App" "Disabled."
 		log "App" "Exit."
 		return
@@ -138,6 +139,13 @@ start_service() {
 		cp -f "$profile_file" "$RUN_PROFILE_PATH"
 	elif [ "$profile_type" = "subscription" ]; then
 		local subscription_section; subscription_section="$profile_id"
+		# 在用的订阅 section 不存在（被删掉，或旧版匿名 section 调整顺序后 ID 变了）：明确报错，不拿空名字往下走
+		if ! subscription_exists "$subscription_section"; then
+			log "Profile" "Subscription not found: $subscription_section. Please choose a subscription again."
+			set_error "Subscription not found: $subscription_section. Please choose a subscription again."
+			log "App" "Exit."
+			return
+		fi
 		local subscription_name subscription_prefer
 		config_get subscription_name "$subscription_section" "name"
 		config_get subscription_prefer "$subscription_section" "prefer" "remote"
@@ -148,6 +156,7 @@ start_service() {
 		fi
 		if [ ! -f "$subscription_file" ]; then
 			log "Profile" "Subscription file not found."
+			set_error "Subscription $subscription_name has no local copy and the download failed."
 			log "App" "Exit."
 			return
 		fi
@@ -286,6 +295,7 @@ start_service() {
 		fi
 	fi
 	# start core
+	clear_error
 	log "Core" "Start."
 	procd_open_instance meowx
 
@@ -600,8 +610,9 @@ official_user_agent() {
 
 update_subscription() {
 	local subscription_section; subscription_section="$1"
-	if [ -z "$subscription_section" ]; then
-		return
+	if ! subscription_exists "$subscription_section"; then
+		log "Profile" "Subscription not found: $subscription_section."
+		return 1
 	fi
 	# 服务还没启动过时这些目录都不存在（启动时才建），在界面里先添加、刷新订阅会写不进去
 	mkdir -p "$LOG_DIR" "$TEMP_DIR" "$SUBSCRIPTIONS_DIR"
@@ -730,7 +741,7 @@ update_subscription() {
 # 刷新订阅；它正是当前在用的配置、服务又在跑时重载（客户端刷新当前订阅后立刻生效，同此）
 refresh_subscription() {
 	local subscription_section; subscription_section="$1"
-	[ -z "$subscription_section" ] && return 1
+	subscription_exists "$subscription_section" || return 1
 	update_subscription "$subscription_section"
 	config_load meowx
 	local profile success; config_get profile "config" "profile"; config_get success "$subscription_section" "success" "0"
@@ -750,6 +761,10 @@ switch_profile() {
 	# 订阅还没下载过（导入时下载失败等）就先下载，否则启动时找不到订阅文件直接退出
 	case "$profile" in
 		subscription:*)
+			if ! subscription_exists "${profile#subscription:}"; then
+				log "Profile" "Subscription not found: ${profile#subscription:}."
+				return 1
+			fi
 			[ -f "$SUBSCRIPTIONS_DIR/${profile#subscription:}.yaml" ] || update_subscription "${profile#subscription:}"
 			;;
 	esac
@@ -768,6 +783,10 @@ auto_update() {
 	config_get interval "config" "auto_update_interval" "24"
 	case "$profile" in subscription:*) ;; *) return 0 ;; esac
 	[ "$interval" -gt 0 ] 2>/dev/null || return 0
+	if ! subscription_exists "${profile#subscription:}"; then
+		log "Profile" "Auto update skipped, the active subscription is not found: ${profile#subscription:}."
+		return 1
+	fi
 	config_get last "${profile#subscription:}" "update_ts" "0"
 	now=$(date +%s)
 	if [ $((now - last)) -ge $((interval * 3600)) ]; then

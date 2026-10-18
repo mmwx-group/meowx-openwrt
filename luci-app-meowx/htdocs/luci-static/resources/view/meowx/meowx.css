@@ -628,6 +628,19 @@ body.mx-dark {
     display: none;
 }
 
+#view#view .mx-hero__error {
+    margin-top: 8px;
+    color: var(--mx-slow);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+#view#view .mx-hero__error[hidden] {
+    display: none;
+}
+
 #view#view .mx-status {
     display: inline-flex;
     align-items: center;
@@ -1032,6 +1045,12 @@ body.mx-dark {
 #view#view .mx-subcard__hint {
     margin: 6px 0 10px;
     color: var(--mx-t2);
+}
+
+#view#view .mx-subcard__error {
+    margin: 6px 0 10px;
+    color: var(--mx-slow);
+    font-weight: 600;
 }
 
 /* 行尾文字按钮「切换订阅」（客户端订阅卡同款入口） */

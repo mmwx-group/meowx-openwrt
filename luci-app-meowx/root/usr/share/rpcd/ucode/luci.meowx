@@ -31,6 +31,17 @@ function panel_sync(urls_before, report) {
 	}
 }
 
+// 新订阅一律建具名 section（sub_<8 位十六进制>）：匿名 section 的 ID（cfgXXXXXX）按位置算，调整顺序后就变，
+// 而在用的配置（subscription:<ID>）与缓存文件（subscriptions/<ID>.yaml）都靠它关联
+function new_subscription(uci) {
+	let id = 'sub_' + hexenc(readfile('/dev/urandom', 4));
+	while (uci.get('meowx', id) != null) {
+		id = 'sub_' + hexenc(readfile('/dev/urandom', 4));
+	}
+	uci.set('meowx', id, 'subscription');
+	return id;
+}
+
 // 订阅地址的主机名（小写）与路径
 function url_parts(u) {
 	const m = match(u ?? '', /^[A-Za-z][A-Za-z0-9+.-]*:\/\/(\[[^\]]+\]|[^\/:?#]+)(:[0-9]+)?([^?#]*)/);
@@ -60,7 +71,7 @@ function auto_import(base) {
 		return null;   // 多份不替用户选
 	}
 	const sub = list.subscriptions[0];
-	const section_id = uci.add('meowx', 'subscription');
+	const section_id = new_subscription(uci);
 	uci.set('meowx', section_id, 'url', sub.url);
 	uci.set('meowx', section_id, 'name', sub.name);
 	uci.set('meowx', section_id, 'user_agent', 'meowx');
@@ -128,6 +139,17 @@ const methods = {
 			const base = substr(ui, 0, 1) == '/' ? ui : '/etc/meowx/run/' + ui;
 			const dir = name ? base + '/' + name : base;
 			return { installed: !!access(dir + '/index.html') };
+		}
+	},
+	// 服务上次启动 / 重载 / 切换没成功的原因（init 写在 /var/run/meowx/last_error：「时间戳<TAB>原因」，启动成功时删掉）
+	last_error: {
+		call: function() {
+			const line = trim(readfile('/var/run/meowx/last_error') ?? '');
+			const tab = index(line, '\t');
+			if (tab < 0) {
+				return { error: null };
+			}
+			return { time: int(substr(line, 0, tab)), error: substr(line, tab + 1) };
 		}
 	},
 	upgrade_status: {
@@ -225,7 +247,7 @@ const methods = {
 			}
 			const uci = cursor();
 			uci.load('meowx');
-			const section_id = uci.add('meowx', 'subscription');
+			const section_id = new_subscription(uci);
 			uci.set('meowx', section_id, 'url', url);
 			uci.set('meowx', section_id, 'user_agent', 'meowx');
 			uci.set('meowx', section_id, 'prefer', 'remote');

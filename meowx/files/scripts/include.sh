@@ -22,6 +22,7 @@ PID_FILE_PATH="$TEMP_DIR/meowx.pid"
 STARTED_FLAG_PATH="$TEMP_DIR/started.flag"
 BRIDGE_NF_CALL_IPTABLES_FLAG_PATH="$TEMP_DIR/bridge_nf_call_iptables.flag"
 BRIDGE_NF_CALL_IP6TABLES_FLAG_PATH="$TEMP_DIR/bridge_nf_call_ip6tables.flag"
+LAST_ERROR_PATH="$TEMP_DIR/last_error"
 
 # ucode
 UCODE_DIR="$HOME_DIR/ucode"
@@ -82,4 +83,32 @@ prepare_files() {
 
 log() {
 	echo "[$(date "+%Y-%m-%d %H:%M:%S")] [$1] $2" >> "$APP_LOG_PATH"
+}
+
+# 服务级错误（启动 / 重载 / 切换没成功的原因）：写一行「时间戳<TAB>原因」，界面首页读它显示；启动成功时清掉
+set_error() {
+	mkdir -p "$TEMP_DIR"
+	printf '%s\t%s\n' "$(date +%s)" "$1" > "$LAST_ERROR_PATH"
+}
+
+clear_error() {
+	rm -f "$LAST_ERROR_PATH"
+}
+
+# 订阅 section 名只允许字母、数字、下划线（会进 config_get 的 eval 和文件名），并且必须真是一个 subscription section
+subscription_exists() {
+	case "$1" in
+		''|*[!A-Za-z0-9_]*) return 1 ;;
+	esac
+	[ "$(uci -q get "meowx.$1")" = "subscription" ]
+}
+
+# 新订阅 section 名：sub_<8 位十六进制>（具名 section，不随顺序变）
+new_subscription_id() {
+	local id
+	while :; do
+		id="sub_$(cut -c 1-8 /proc/sys/kernel/random/uuid)"
+		[ -z "$(uci -q get "meowx.$id")" ] && break
+	done
+	echo "$id"
 }
