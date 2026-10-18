@@ -1,6 +1,6 @@
 include $(TOPDIR)/rules.mk
 
-PKG_VERSION:=0.1.4
+PKG_VERSION:=0.1.5
 
 LUCI_TITLE:=LuCI Support for meowx
 LUCI_DEPENDS:=+luci-base +meowx
