@@ -4,3 +4,4 @@
 /etc/meowx/run/providers/rule/
 /etc/meowx/run/providers/proxy/
 /etc/meowx/panel.json
+/etc/meowx/run/cache.db
