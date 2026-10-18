@@ -244,6 +244,12 @@ if (length(panel_rules) > 0) {
 	config['meowx-rules'] = [ ...panel_rules, ...(config['meowx-rules'] ?? []) ];
 }
 
+// 阻止 QUIC（同客户端的「阻止 QUIC」）：发往 UDP 443 的一律拒绝，应用回落 TCP——有的线路 UDP 与 TCP 的落地出口不同，
+// 走 QUIC 的 App 会被判到别的地区。排在全部规则最前；只在规则模式下生效
+if (uci_bool(uci.get('meowx', 'mixin', 'block_quic'))) {
+	config['meowx-rules'] = [ 'AND,((NETWORK,UDP),(DST-PORT,443)),REJECT', ...(config['meowx-rules'] ?? []) ];
+}
+
 const geoip_format = uci.get('meowx', 'mixin', 'geoip_format');
 config['geodata-mode'] = geoip_format == null ? null : geoip_format == 'dat';
 config['geodata-loader'] = uci.get('meowx', 'mixin', 'geodata_loader');

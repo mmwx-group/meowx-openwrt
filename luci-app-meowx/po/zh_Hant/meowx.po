@@ -1409,3 +1409,12 @@ msgstr "%s（%s）"
 
 msgid "Subscription added, but the update failed: %s. Check the link and update it again."
 msgstr "訂閱已新增，但更新失敗：%s。請檢查連結後再更新一次。"
+
+msgid "Block QUIC"
+msgstr "阻擋 QUIC"
+
+msgid "Reject UDP port 443 (QUIC / HTTP/3) so apps fall back to TCP, same as \"Block QUIC\" in the MeowX apps. Use it when apps over QUIC land in a different region than TCP. Works in rule mode only, and UDP must be proxied (UDP Mode is not disabled)."
+msgstr "拒絕發往 UDP 443 連接埠的流量（QUIC / HTTP/3），讓應用回落到 TCP，同 MeowX 手機 / 電腦客戶端的「阻擋 QUIC」。適合走 QUIC 的 App 落地地區和 TCP 不一樣的情況。只在規則模式下生效，而且 UDP 要走代理（代理設定裡 UDP 模式不是停用）。"
+
+msgid "\"Core Only\" is on, so mixin config (including this switch) does not take effect."
+msgstr "「僅核心」開著，混入設定（包括這個開關）不生效。"

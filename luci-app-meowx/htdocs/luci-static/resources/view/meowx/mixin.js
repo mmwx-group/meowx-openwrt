@@ -43,6 +43,12 @@ return baseclass.extend({
         o.value('rule', _('Rule Mode'));
         o.value('direct', _('Direct Mode'));
 
+        // 同客户端的「阻止 QUIC」：混入一条排在最前的规则，「仅核心」开着时混入整体不生效，在说明里提示
+        o = s.taboption('general', form.Flag, 'block_quic', _('Block QUIC'),
+            _('Reject UDP port 443 (QUIC / HTTP/3) so apps fall back to TCP, same as "Block QUIC" in the MeowX apps. Use it when apps over QUIC land in a different region than TCP. Works in rule mode only, and UDP must be proxied (UDP Mode is not disabled).') +
+            (uci.get('meowx', 'config', 'core_only') == '1' ? ' ' + _('"Core Only" is on, so mixin config (including this switch) does not take effect.') : ''));
+        o.rmempty = false;
+
         o = s.taboption('general', form.ListValue, 'match_process', _('Match Process'));
         o.optional = true;
         o.placeholder = _('Unmodified');

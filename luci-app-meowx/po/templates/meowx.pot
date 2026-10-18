@@ -1402,3 +1402,12 @@ msgstr ""
 
 msgid "Subscription added, but the update failed: %s. Check the link and update it again."
 msgstr ""
+
+msgid "Block QUIC"
+msgstr ""
+
+msgid "Reject UDP port 443 (QUIC / HTTP/3) so apps fall back to TCP, same as \"Block QUIC\" in the MeowX apps. Use it when apps over QUIC land in a different region than TCP. Works in rule mode only, and UDP must be proxied (UDP Mode is not disabled)."
+msgstr ""
+
+msgid "\"Core Only\" is on, so mixin config (including this switch) does not take effect."
+msgstr ""
