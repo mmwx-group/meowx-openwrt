@@ -439,6 +439,23 @@ const methods = {
 			return res;
 		}
 	},
+	// GitHub 加速：action = status（预设列表 + 上次测速结果）/ test（由路由器测一轮，约 5 秒）
+	ghproxy: {
+		args: { action: 'action' },
+		call: function(req) {
+			const action = req.args?.action ?? 'status';
+			if (action != 'status' && action != 'test') {
+				return { error: 'invalid action' };
+			}
+			const process = popen(`ucode -S /etc/meowx/ucode/ghproxy_cli.uc ${action} 2>/dev/null`);
+			if (!process) {
+				return { error: 'ucode not found' };
+			}
+			const output = process.read('all');
+			process.close();
+			return json(trim(output) || 'null') ?? { error: 'bad output' };
+		}
+	},
 	api: {
 		args: { method: 'method', path: 'path', query: 'query', body: 'body' },
 		call: function(req) {

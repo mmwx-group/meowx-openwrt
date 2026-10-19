@@ -242,6 +242,13 @@ for subscription in $(uci -X show meowx | sed -n 's/^meowx\.\(cfg[0-9a-f]\{6\}\)
 	[ "$profile" = "subscription:$subscription" ] && uci set meowx.config.profile="subscription:$subscription_id"
 done
 
+# GitHub 加速：缺省不加速
+section_ghproxy=$(uci -q get meowx.ghproxy); [ -z "$section_ghproxy" ] && {
+	uci set meowx.ghproxy=ghproxy
+	uci set meowx.ghproxy.mode=off
+	uci set meowx.ghproxy.custom_type=auto
+}
+
 # commit
 uci commit meowx
 

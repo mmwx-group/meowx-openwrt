@@ -1418,3 +1418,90 @@ msgstr "拒绝发往 UDP 443 端口的流量（QUIC / HTTP/3），让应用回�
 
 msgid "\"Core Only\" is on, so mixin config (including this switch) does not take effect."
 msgstr "「仅核心」开着，混入配置（包括这个开关）不生效。"
+
+msgid "GitHub Acceleration"
+msgstr "GitHub 加速"
+
+msgid "Download the web dashboard, GeoX data and rule sets hosted on GitHub through a mirror, so the first start does not time out. Third-party mirrors can change what they serve, and the dashboard is a web app running on your router, so this is off by default: turn it on only if you trust the mirror. Only these download addresses in the running config are rewritten (the subscription file is not changed); proxy providers and subscription addresses may contain tokens and never go through a mirror."
+msgstr "面板、Geo 数据、规则集这些放在 GitHub 上的文件经加速地址下载，避免首次启动时下载超时。第三方加速站能改动它转发的内容，而面板是在路由器上运行的网页程序，所以缺省不加速，信得过加速站再打开。只改写运行配置里的这几项下载地址（不改订阅原文件）；代理集合（proxy-providers）与订阅地址可能带令牌，一律不经加速站。"
+
+msgid "Mirror"
+msgstr "加速地址"
+
+msgid "No acceleration (direct)"
+msgstr "不加速（直连）"
+
+msgid "Auto (fastest)"
+msgstr "自动选最快"
+
+msgid "Custom Mirror"
+msgstr "自定义"
+
+msgid "jsDelivr mirrors only serve files in repositories, so release assets such as the dashboard keep the original address. Auto tests the mirrors when the service starts (the result is kept for a day) and once a day, and uses the fastest reachable one (release assets then go through the fastest prefix mirror); when none is reachable it downloads directly."
+msgstr "jsDelivr 只能加速仓库里的文件，面板这类 release 附件仍用原始地址。自动选最快：服务启动时测一轮（结果保留一天）、之后每天测一次，用延迟最低且能访问的那个（选中 jsDelivr 时 release 附件改走最快的前缀型地址）；全部不可达时直连下载。"
+
+msgid "Custom Mirror Address"
+msgstr "自定义加速地址"
+
+msgid "Please enter the mirror address"
+msgstr "请填写加速地址"
+
+msgid "Invalid address, the format is http(s)://host[/path]"
+msgstr "地址格式不对，应为 http(s)://主机[/路径]"
+
+msgid "Mirror Type"
+msgstr "加速地址类型"
+
+msgid "Detect from address"
+msgstr "按地址判断"
+
+msgid "Prefix (mirror + full original URL)"
+msgstr "前缀型（加速地址 + 完整原始地址）"
+
+msgid "jsDelivr (gh/user/repo@branch/path)"
+msgstr "jsDelivr 型（gh/用户/仓库@分支/路径）"
+
+msgid "Speed Test"
+msgstr "测速"
+
+msgid "Direct"
+msgstr "直连"
+
+msgid "Prefix"
+msgstr "前缀型"
+
+msgid "Selected %s. Click \"Save & Apply\" at the bottom of the page to take effect."
+msgstr "已选中 %s，点页面底部的「保存并应用」后生效。"
+
+msgid "Connection timed out"
+msgstr "连接超时"
+
+msgid "Unreachable"
+msgstr "无法访问"
+
+msgid "Auto selected"
+msgstr "自动选中"
+
+msgid "Release assets"
+msgstr "release 附件"
+
+msgid "In use"
+msgstr "使用中"
+
+msgid "Last tested %s"
+msgstr "上次测速：%s"
+
+msgid "Not tested yet. The router downloads the same small file through each mirror (5 seconds at most each)."
+msgstr "还没测过。由路由器经各加速地址下载同一个小文件测延迟（每个最多 5 秒）。"
+
+msgid "Speed test failed: %s"
+msgstr "测速失败：%s"
+
+msgid "Test Now"
+msgstr "开始测速"
+
+msgid "Mirror Address"
+msgstr "加速地址"
+
+msgid "Latency"
+msgstr "延迟"

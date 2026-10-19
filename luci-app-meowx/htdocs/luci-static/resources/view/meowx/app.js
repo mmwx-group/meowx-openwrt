@@ -261,6 +261,117 @@ function updateHero(hero, running, lastError) {
     return hero;
 }
 
+function ghproxyTypeLabel(type) {
+    return type == 'jsdelivr' ? 'jsDelivr' : (type == 'direct' ? _('Direct') : _('Prefix'));
+}
+
+// GitHub 加速的测速表（同 OpenClash 的加速地址表）：由路由器逐个测，延迟 ≤500 ms 绿、≤1000 ms 黄、更慢红，
+// 失败显示「连接超时 / 无法访问」；每行「使用」把上面的选项换成这一行（保存并应用后生效）
+function renderGhproxyTest(state, modeOption, sectionId) {
+    const meta = E('span', { class: 'mx-ghproxy__meta' });
+    const body = E('tbody');
+    const current = function () {
+        return modeOption.formvalue(sectionId) ?? modeOption.cfgvalue(sectionId) ?? 'off';
+    };
+    const use = function (value, url) {
+        const select = modeOption.getUIElement(sectionId)?.node?.querySelector('select');
+        if (!select) {
+            return;
+        }
+        select.value = value;
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+        draw();
+        ui.addTimeLimitedNotification(null, E('p', _('Selected %s. Click "Save & Apply" at the bottom of the page to take effect.').format(url)), 5000, 'info');
+    };
+    const latencyCell = function (result) {
+        if (!result) {
+            return E('span', { class: 'mx-ghproxy__lat' }, '--');
+        }
+        if (result.status == 'ok') {
+            const ms = +result.latency;
+            return E('span', { class: 'mx-ghproxy__lat ' + (ms <= 500 ? 'is-fast' : ms <= 1000 ? 'is-medium' : 'is-slow') }, `${ms} ms`);
+        }
+        return E('span', { class: 'mx-ghproxy__lat is-error' }, result.status == 'timeout' ? _('Connection timed out') : _('Unreachable'));
+    };
+    const draw = function () {
+        const results = {};
+        for (const r of state.results ?? []) {
+            results[r.url] = r;
+        }
+        const rows = [{ url: state.direct ?? 'https://raw.githubusercontent.com/', type: 'direct', value: 'off', title: _('No acceleration (direct)') }];
+        for (const preset of state.presets ?? []) {
+            rows.push({ url: preset.url, type: preset.type, value: preset.url });
+        }
+        for (const r of state.results ?? []) {
+            if (r.custom) {
+                rows.push({ url: r.url, type: r.type, value: 'custom', title: _('Custom Mirror') });
+            }
+        }
+        const value = current();
+        const auto = value == 'auto' ? state.auto : null;
+        body.replaceChildren(...rows.map(function (row) {
+            const inUse = row.value == value;
+            const badges = [];
+            if (auto?.url == row.url) {
+                badges.push(E('span', { class: 'mx-ghproxy__badge' }, _('Auto selected')));
+            }
+            if (auto?.fallback?.url == row.url) {
+                badges.push(E('span', { class: 'mx-ghproxy__badge is-muted' }, _('Release assets')));
+            }
+            return E('tr', { class: inUse ? 'is-current' : '' }, [
+                E('td', { class: 'mx-ghproxy__url' }, [
+                    row.title ? E('div', { class: 'mx-ghproxy__title' }, row.title) : '',
+                    E('div', {}, row.url),
+                    badges.length ? E('div', { class: 'mx-ghproxy__badges' }, badges) : ''
+                ]),
+                E('td', {}, ghproxyTypeLabel(row.type)),
+                E('td', {}, latencyCell(results[row.url])),
+                E('td', { class: 'mx-ghproxy__action' }, inUse
+                    ? E('span', { class: 'mx-ghproxy__badge' }, _('In use'))
+                    : E('button', { type: 'button', class: 'cbi-button', click: () => use(row.value, row.url) }, _('Use')))
+            ]);
+        }));
+        meta.textContent = state.tested_at
+            ? _('Last tested %s').format(meowx.relativeTime(state.tested_at))
+            : _('Not tested yet. The router downloads the same small file through each mirror (5 seconds at most each).');
+    };
+    modeOption.onchange = function () {
+        draw();
+    };
+    draw();
+    return E('div', { class: 'mx-ghproxy' }, [
+        E('div', { class: 'mx-ghproxy__bar' }, [
+            E('button', {
+                type: 'button',
+                class: 'cbi-button cbi-button-action',
+                click: function (ev) {
+                    return meowx.busy(ev.currentTarget, function () {
+                        return meowx.ghproxyTest().then(function (res) {
+                            if (!res || res.error) {
+                                throw new Error(res?.error ?? 'no response');
+                            }
+                            state = res;
+                            draw();
+                        }).catch(function (err) {
+                            ui.addNotification(null, E('p', _('Speed test failed: %s').format(err?.message ?? err)), 'warning');
+                        });
+                    });
+                }
+            }, _('Test Now')),
+            meta
+        ]),
+        E('div', { class: 'mx-ghproxy__scroll' }, E('table', { class: 'mx-ghproxy__table' }, [
+            E('thead', {}, E('tr', {}, [
+                E('th', {}, _('Mirror Address')),
+                E('th', {}, _('Type')),
+                E('th', {}, _('Latency')),
+                E('th', {}, '')
+            ])),
+            body
+        ]))
+    ]);
+}
+
 // 页面模块：由 main.js 在页内切换时加载、渲染（不再是独立视图，切页签不刷新页面）
 return baseclass.extend({
     load: function () {
@@ -270,7 +381,8 @@ return baseclass.extend({
             meowx.status(),
             meowx.listProfiles(),
             meowx.panelStatus(),
-            meowx.lastError()
+            meowx.lastError(),
+            meowx.ghproxyStatus()
         ]);
     },
     render: function (data) {
@@ -317,6 +429,46 @@ return baseclass.extend({
         o = s.option(form.Flag, 'core_only', _('Core Only'));
         o.default = '0';
         o.rmempty = false;
+
+        // GitHub 加速：面板、Geo 数据、规则集经加速地址下载（生成运行配置时改写，见 init 的 ghproxy_apply）
+        const ghproxy = data[6] ?? {};
+        s = m.section(form.NamedSection, 'ghproxy', 'ghproxy', _('GitHub Acceleration'),
+            _('Download the web dashboard, GeoX data and rule sets hosted on GitHub through a mirror, so the first start does not time out. Third-party mirrors can change what they serve, and the dashboard is a web app running on your router, so this is off by default: turn it on only if you trust the mirror. Only these download addresses in the running config are rewritten (the subscription file is not changed); proxy providers and subscription addresses may contain tokens and never go through a mirror.'));
+
+        o = s.option(form.ListValue, 'mode', _('Mirror'));
+        o.value('off', _('No acceleration (direct)'));
+        o.value('auto', _('Auto (fastest)'));
+        for (const preset of ghproxy.presets ?? []) {
+            o.value(preset.url, `${preset.url} · ${ghproxyTypeLabel(preset.type)}`);
+        }
+        o.value('custom', _('Custom Mirror'));
+        o.default = 'off';
+        o.rmempty = false;
+        o.description = _('jsDelivr mirrors only serve files in repositories, so release assets such as the dashboard keep the original address. Auto tests the mirrors when the service starts (the result is kept for a day) and once a day, and uses the fastest reachable one (release assets then go through the fastest prefix mirror); when none is reachable it downloads directly.');
+        const modeOption = o;
+
+        o = s.option(form.Value, 'custom_url', _('Custom Mirror Address'));
+        o.depends('mode', 'custom');
+        o.placeholder = 'https://example.com/';
+        o.validate = function (section_id, value) {
+            value = (value ?? '').trim();
+            if (value == '') {
+                return _('Please enter the mirror address');
+            }
+            return /^https?:\/\/[A-Za-z0-9.-]+(:[0-9]+)?(\/[^\s?#]*)?$/i.test(value) ? true : _('Invalid address, the format is http(s)://host[/path]');
+        };
+
+        o = s.option(form.ListValue, 'custom_type', _('Mirror Type'));
+        o.depends('mode', 'custom');
+        o.value('auto', _('Detect from address'));
+        o.value('prefix', _('Prefix (mirror + full original URL)'));
+        o.value('jsdelivr', _('jsDelivr (gh/user/repo@branch/path)'));
+        o.default = 'auto';
+
+        o = s.option(form.DummyValue, '_speedtest', _('Speed Test'));
+        o.renderWidget = function (section_id) {
+            return renderGhproxyTest(ghproxy, modeOption, section_id);
+        };
 
         s = m.section(form.NamedSection, 'procd', 'procd', _('procd Config'));
 

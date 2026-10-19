@@ -39,6 +39,8 @@ define Package/meowx/install
 	$(INSTALL_BIN) $(CURDIR)/files/ucode/include.uc $(1)/etc/meowx/ucode/include.uc
 	$(INSTALL_BIN) $(CURDIR)/files/ucode/mixin.uc $(1)/etc/meowx/ucode/mixin.uc
 	$(INSTALL_BIN) $(CURDIR)/files/ucode/hijack.ut $(1)/etc/meowx/ucode/hijack.ut
+	$(INSTALL_BIN) $(CURDIR)/files/ucode/ghproxy.uc $(1)/etc/meowx/ucode/ghproxy.uc
+	$(INSTALL_BIN) $(CURDIR)/files/ucode/ghproxy_cli.uc $(1)/etc/meowx/ucode/ghproxy_cli.uc
 
 	$(INSTALL_BIN) $(CURDIR)/files/scripts/include.sh $(1)/etc/meowx/scripts/include.sh
 	$(INSTALL_BIN) $(CURDIR)/files/scripts/firewall_include.sh $(1)/etc/meowx/scripts/firewall_include.sh

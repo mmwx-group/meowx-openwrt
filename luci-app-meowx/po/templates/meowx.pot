@@ -1411,3 +1411,90 @@ msgstr ""
 
 msgid "\"Core Only\" is on, so mixin config (including this switch) does not take effect."
 msgstr ""
+
+msgid "GitHub Acceleration"
+msgstr ""
+
+msgid "Download the web dashboard, GeoX data and rule sets hosted on GitHub through a mirror, so the first start does not time out. Third-party mirrors can change what they serve, and the dashboard is a web app running on your router, so this is off by default: turn it on only if you trust the mirror. Only these download addresses in the running config are rewritten (the subscription file is not changed); proxy providers and subscription addresses may contain tokens and never go through a mirror."
+msgstr ""
+
+msgid "Mirror"
+msgstr ""
+
+msgid "No acceleration (direct)"
+msgstr ""
+
+msgid "Auto (fastest)"
+msgstr ""
+
+msgid "Custom Mirror"
+msgstr ""
+
+msgid "jsDelivr mirrors only serve files in repositories, so release assets such as the dashboard keep the original address. Auto tests the mirrors when the service starts (the result is kept for a day) and once a day, and uses the fastest reachable one (release assets then go through the fastest prefix mirror); when none is reachable it downloads directly."
+msgstr ""
+
+msgid "Custom Mirror Address"
+msgstr ""
+
+msgid "Please enter the mirror address"
+msgstr ""
+
+msgid "Invalid address, the format is http(s)://host[/path]"
+msgstr ""
+
+msgid "Mirror Type"
+msgstr ""
+
+msgid "Detect from address"
+msgstr ""
+
+msgid "Prefix (mirror + full original URL)"
+msgstr ""
+
+msgid "jsDelivr (gh/user/repo@branch/path)"
+msgstr ""
+
+msgid "Speed Test"
+msgstr ""
+
+msgid "Direct"
+msgstr ""
+
+msgid "Prefix"
+msgstr ""
+
+msgid "Selected %s. Click \"Save & Apply\" at the bottom of the page to take effect."
+msgstr ""
+
+msgid "Connection timed out"
+msgstr ""
+
+msgid "Unreachable"
+msgstr ""
+
+msgid "Auto selected"
+msgstr ""
+
+msgid "Release assets"
+msgstr ""
+
+msgid "In use"
+msgstr ""
+
+msgid "Last tested %s"
+msgstr ""
+
+msgid "Not tested yet. The router downloads the same small file through each mirror (5 seconds at most each)."
+msgstr ""
+
+msgid "Speed test failed: %s"
+msgstr ""
+
+msgid "Test Now"
+msgstr ""
+
+msgid "Mirror Address"
+msgstr ""
+
+msgid "Latency"
+msgstr ""

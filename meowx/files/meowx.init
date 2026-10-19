@@ -15,6 +15,7 @@ extra_command 'auto_update' 'Refresh the active subscription if it is older than
 extra_command 'panel_cron' 'Set the firewall whitelist report cron (panel account / po0)'
 extra_command 'panel_report' 'Report the firewall whitelist now, reload if the po0 list changed'
 extra_command 'clear_logs' 'Clear logs if size exceeds the limit'
+extra_command 'ghproxy_cron' 'Re-test GitHub mirrors (auto mode), reload if the selected one became unreachable'
 
 boot_func() {
 	# prepare files
@@ -160,6 +161,11 @@ start_service() {
 	## 客户端 IP 白名单（主控账户 + po0）上报的定时任务，启动时先报一次
 	set_panel_cron
 	(/etc/init.d/meowx panel_report >/dev/null 2>&1 &)
+	## GitHub 加速选「自动选最快」时每天重测一次（启动时缓存还新就不测）
+	if [ "$(uci -q get meowx.ghproxy.mode)" = "auto" ]; then
+		log "App" "Set GitHub mirror test cron."
+		echo "41 4 * * * /etc/init.d/meowx ghproxy_cron #meowx ghproxy" >> "/etc/crontabs/root"
+	fi
 	## add log scheduled clear cron if needed
 	if [ "$log_scheduled_clear" = 1 ] && [ -n "$log_scheduled_clear_cron" ]; then
 		log "App" "Set log scheduled clear."
@@ -345,6 +351,22 @@ mixin_profile() {
 	if [ -z "$(uci -q get meowx.mixin.ui_name)" ]; then
 		yq -M -i 'del(.external-ui-name)' "$profile_path"
 	fi
+	ghproxy_apply "$profile_path"
+}
+
+# GitHub 加速（插件配置 → GitHub 加速）：把 $1 里面板、Geo 数据、规则集指向 GitHub 的下载地址换成加速地址。
+# 只改运行配置（与混入同一步），不改订阅原文件；proxy-providers 与订阅地址不碰（可能带令牌，经第三方加速站会泄漏）。
+# 「仅核心」开着时同样生效：这是下载用的设置，不是混入
+ghproxy_apply() {
+	local profile_path; profile_path="$1"
+	local mode; mode=$(uci -q get meowx.ghproxy.mode)
+	[ -z "$mode" ] || [ "$mode" = "off" ] && return 0
+	local patch
+	patch=$(yq -M -p yaml -o json 'explode(.) | {"external-ui": .["external-ui"], "external-ui-url": .["external-ui-url"], "geox-url": .["geox-url"], "rule-providers": .["rule-providers"]}' "$profile_path" 2>/dev/null | ucode -S "$GHPROXY_CLI" apply)
+	if [ -z "$patch" ] || [ "$patch" = "{}" ] || [ "$patch" = "{ }" ]; then
+		return 0
+	fi
+	echo "$patch" | yq -M -p json -o yaml | yq -M -i eval-all '. as $item ireduce ({}; . * $item )' "$profile_path" -
 }
 
 # 检查 $1 里有没有透明代理需要的 DNS / 入站；不通过返回 1，原因放在 BUILD_ERROR
@@ -1007,5 +1029,14 @@ panel_report() {
 	if [ "$before" != "$after" ] && /etc/init.d/meowx running; then
 		log "App" "po0 list changed, reload."
 		/etc/init.d/meowx reload
+	fi
+}
+
+# 每天一次（只在「自动选最快」时挂）：重测各加速地址；原来选中的已经不可达、新选的又不一样时重载，
+# 否则只更新缓存、下次启动再用（不为换一个更快的地址打断连接）
+ghproxy_cron() {
+	if [ "$(ucode -S "$GHPROXY_CLI" cron)" = "reload" ] && service_running_meowx; then
+		log "App" "GitHub mirror changed, reload."
+		reload
 	fi
 }

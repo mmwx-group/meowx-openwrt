@@ -23,6 +23,7 @@ body {
     --mx-soft: #FCE4EC;
     --mx-good: #17693F;
     --mx-slow: #B93228;
+    --mx-mid: #A15C00;
     --mx-r-card: 24px;
     --mx-r-cell: 14px;
     --mx-ease-snappy: cubic-bezier(.2, .9, .3, 1);
@@ -50,6 +51,7 @@ body.mx-dark {
     --mx-soft: #3E2C38;
     --mx-good: #57D292;
     --mx-slow: #FF8377;
+    --mx-mid: #F2C14E;
 }
 
 /* ---------- 画布 ---------- */
@@ -1539,5 +1541,142 @@ body.mx-dark {
 #view#view .mx-shell * {
         animation: none !important;
         transition: none !important;
+    }
+}
+
+/* ---------- GitHub 加速：测速表 ---------- */
+
+#view#view .mx .mx-ghproxy {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+}
+
+#view#view .mx .mx-ghproxy__bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+#view#view .mx .mx-ghproxy__meta {
+    color: var(--mx-t2);
+    font-size: 12px;
+}
+
+#view#view .mx .mx-ghproxy__scroll {
+    overflow-x: auto;
+    border: 1px solid var(--mx-stroke);
+    border-radius: var(--mx-r-cell);
+    background: var(--mx-elev);
+}
+
+#view#view .mx .mx-ghproxy__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+#view#view .mx .mx-ghproxy__table th {
+    text-align: left;
+    color: var(--mx-t2);
+    font-weight: 600;
+    font-size: 12px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--mx-stroke);
+    white-space: nowrap;
+}
+
+#view#view .mx .mx-ghproxy__table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--mx-stroke);
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+#view#view .mx .mx-ghproxy__table tr:last-child td {
+    border-bottom: 0;
+}
+
+#view#view .mx .mx-ghproxy__table tr.is-current td {
+    background: var(--mx-soft);
+}
+
+#view#view .mx .mx-ghproxy__table td.mx-ghproxy__url {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12px;
+    white-space: normal;
+    word-break: break-all;
+    min-width: 180px;
+}
+
+#view#view .mx .mx-ghproxy__title {
+    font-family: inherit;
+    font-weight: 600;
+    color: var(--mx-t1);
+}
+
+#view#view .mx .mx-ghproxy__badges {
+    display: flex;
+    gap: 6px;
+    margin-top: 4px;
+}
+
+#view#view .mx .mx-ghproxy__badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--mx-soft);
+    color: var(--mx-rose);
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+#view#view .mx .mx-ghproxy__badge.is-muted {
+    background: var(--mx-elev2);
+    color: var(--mx-t2);
+}
+
+#view#view .mx .mx-ghproxy__lat {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    color: var(--mx-t2);
+}
+
+#view#view .mx .mx-ghproxy__lat.is-fast {
+    color: var(--mx-good);
+}
+
+#view#view .mx .mx-ghproxy__lat.is-medium {
+    color: var(--mx-mid);
+}
+
+#view#view .mx .mx-ghproxy__lat.is-slow,
+#view#view .mx .mx-ghproxy__lat.is-error {
+    color: var(--mx-slow);
+}
+
+#view#view .mx .mx-ghproxy__action {
+    text-align: right;
+}
+
+
+/* 窄屏：去掉「类型」列、地址可折行，延迟与「使用」不被挤到右边看不见 */
+@media (max-width: 640px) {
+    #view#view .mx .mx-ghproxy__table th:nth-child(2),
+    #view#view .mx .mx-ghproxy__table td:nth-child(2) {
+        display: none;
+    }
+
+    #view#view .mx .mx-ghproxy__table th,
+    #view#view .mx .mx-ghproxy__table td {
+        padding: 8px;
+    }
+
+    #view#view .mx .mx-ghproxy__table td.mx-ghproxy__url {
+        min-width: 0;
     }
 }

@@ -174,6 +174,13 @@ const callMeowXPo0 = rpc.declare({
     expect: { '': {} }
 });
 
+const callMeowXGhproxy = rpc.declare({
+    object: 'luci.meowx',
+    method: 'ghproxy',
+    params: ['action'],
+    expect: { '': {} }
+});
+
 function formatBytes(n) {
     n = +n;
     if (!isFinite(n) || n < 0) {
@@ -219,6 +226,7 @@ return baseclass.extend({
     appLogPath: appLogPath,
     coreLogPath: coreLogPath,
     debugLogPath: debugLogPath,
+    relativeTime: relativeTime,
 
     status: async function () {
         return (await callRCList('meowx'))?.meowx?.running;
@@ -231,6 +239,16 @@ return baseclass.extend({
     // 服务上次启动 / 重载 / 切换没成功的原因：{ error, time }，没有失败时 error 为空
     lastError: function () {
         return L.resolveDefault(callMeowXLastError(), {});
+    },
+
+    // GitHub 加速：预设列表 + 上次测速结果（不测速）
+    ghproxyStatus: function () {
+        return L.resolveDefault(callMeowXGhproxy('status'), {});
+    },
+
+    // GitHub 加速：由路由器测一轮各加速地址（约 5 秒），返回同 ghproxyStatus
+    ghproxyTest: function () {
+        return callMeowXGhproxy('test');
     },
 
     restart: function () {

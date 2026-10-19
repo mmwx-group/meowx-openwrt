@@ -29,6 +29,7 @@ UCODE_DIR="$HOME_DIR/ucode"
 INCLUDE_UC="$UCODE_DIR/include.uc"
 MIXIN_UC="$UCODE_DIR/mixin.uc"
 HIJACK_UT="$UCODE_DIR/hijack.ut"
+GHPROXY_CLI="$UCODE_DIR/ghproxy_cli.uc"
 
 # scripts
 SH_DIR="$HOME_DIR/scripts"
