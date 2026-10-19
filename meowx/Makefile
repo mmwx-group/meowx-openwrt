@@ -14,7 +14,7 @@ define Package/meowx
   CATEGORY:=Network
   TITLE:=Transparent Proxy with Mihomo on OpenWrt.
   URL:=https://miaomiaowux.com
-  DEPENDS:=+ca-bundle +curl +yq firewall4 +ip-full +kmod-inet-diag +kmod-nft-socket +kmod-nft-tproxy +kmod-tun +kmod-dummy +jsonfilter +meowx-core
+  DEPENDS:=+ca-bundle +curl +yq firewall4 +ip-full +kmod-inet-diag +kmod-nft-socket +kmod-nft-tproxy +kmod-tun +jsonfilter +meowx-core
 endef
 
 define Package/meowx/conffiles

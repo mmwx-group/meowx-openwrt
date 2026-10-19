@@ -78,6 +78,8 @@ if [ -x "/bin/opkg" ]; then
 	opkg install "$feed_url/meowx-core_${meowx_core_version}_${arch}.ipk"
 	opkg install "$feed_url/meowx_${meowx_version}_${arch}.ipk"
 	opkg install "$feed_url/luci-app-meowx_${luci_app_meowx_version}_all.ipk"
+	# kmod-dummy 可选（只给 IPv6 fake-ip 网段挂路由用）：有些第三方固件的软件源里没有，装不上不影响使用
+	opkg install kmod-dummy > /dev/null 2>&1 || echo "kmod-dummy is unavailable, skip (only needed by the IPv6 fake-ip range)"
 	for lang in $languages; do
 		lang_version=$(jsonfilter -i meowx.version -e "@['packages']['luci-i18n-meowx-${lang}']")
 		opkg install "$feed_url/luci-i18n-meowx-${lang}_${lang_version}_all.ipk"
@@ -95,6 +97,8 @@ elif [ -x "/usr/bin/apk" ]; then
 	echo "install apks from remote repository"
 	# --upgrade：已经装过的也升到软件源里的新版（apk add 缺省不升级已安装的包，再跑一遍安装脚本等于没升）
 	apk add --upgrade --allow-untrusted -X $feed_url/packages.adb meowx-core meowx luci-app-meowx
+	# kmod-dummy 可选（只给 IPv6 fake-ip 网段挂路由用）：有些第三方固件的软件源里没有，装不上不影响使用
+	apk add kmod-dummy > /dev/null 2>&1 || echo "kmod-dummy is unavailable, skip (only needed by the IPv6 fake-ip range)"
 	for lang in $languages; do
 		apk add --upgrade --allow-untrusted -X $feed_url/packages.adb "luci-i18n-meowx-${lang}"
 	done

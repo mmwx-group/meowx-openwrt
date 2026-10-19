@@ -594,9 +594,14 @@ service_started() {
 			$FIREWALL_INCLUDE_SH
 		fi
 		if [ "$dns_mode" = "fake-ip" ] && [ -n "$fake_ip6_range" ]; then
-			ip link add "$dummy_device" type dummy
-			ip link set dev "$dummy_device" up
-			ip -6 route add "$fake_ip6_range" dev "$dummy_device"
+			# dummy 网卡只用来挂 IPv6 fake-ip 网段的路由。kmod-dummy 不再是硬依赖（部分第三方固件的软件源里没有它，装插件直接失败）：
+			# 内核自带或已装模块就照常建，建不出来只影响 IPv6 fake-ip，写日志提示、其余照常启动
+			if ip link add "$dummy_device" type dummy > /dev/null 2>&1; then
+				ip link set dev "$dummy_device" up
+				ip -6 route add "$fake_ip6_range" dev "$dummy_device"
+			else
+				log "Proxy" "Dummy device is unavailable (kmod-dummy is not installed), skip the route of the IPv6 fake-ip range."
+			fi
 		fi
 		# hijack
 		utpl -S "$HIJACK_UT" | nft -f -
