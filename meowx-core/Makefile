@@ -5,13 +5,13 @@ include $(TOPDIR)/rules.mk
 # patches/：001 让内核作为独立程序运行时自己起监听端口与 TUN（Bettbox 把这一步交给了 Flutter 外壳，单跑内核不开任何端口）。
 #           002 加 `meowx-core panel …` 子命令：主控账户（登录链接）、账户订阅、客户端 IP 白名单上报，加密信道同 iOS / Android 客户端。
 PKG_NAME:=meowx-core
-PKG_VERSION:=0.3.1
-PKG_RELEASE:=2
+PKG_VERSION:=0.3.9
+PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/mmwx-group/meowC.git
-PKG_SOURCE_VERSION:=0db577753dff3999d5105d7a2cbc2f456b1b7352
-PKG_MIRROR_HASH:=85831f24438270e0f46e39939367c4d680014395062ba59f85f0155506839eea
+PKG_SOURCE_VERSION:=1928f639aaa43dfe7fcedc85b6e06e406d86a22c
+PKG_MIRROR_HASH:=6221571f57a9530c18d668bfaa0d39971874e794fa6d631ad4559f53b801e485
 
 PKG_LICENSE:=GPL-3.0-or-later
 PKG_LICENSE_FILES:=LICENSE
