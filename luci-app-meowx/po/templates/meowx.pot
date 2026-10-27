@@ -1234,7 +1234,7 @@ msgstr ""
 msgid "po0 Whitelist"
 msgstr ""
 
-msgid "Report the router's public IP to po0 servers (registered on the panel and added by you), every 10 minutes and whenever WAN reconnects. Traffic to these po0 servers goes direct."
+msgid "Report the router's public IP to po0 whitelist servers (registered on the panel and added by you), every 10 minutes and whenever WAN reconnects. Traffic to these po0 servers goes direct."
 msgstr ""
 
 msgid "Registered on the panel (%d)"
@@ -1252,19 +1252,19 @@ msgstr ""
 msgid "\"po0 Whitelist\" is off, so these servers are not reported for now."
 msgstr ""
 
-msgid "Address: IP or domain, port optional"
+msgid "Whitelist server address: IP or domain, port optional"
 msgstr ""
 
 msgid "Token, starts with pgnfw_ (@slot optional)"
 msgstr ""
 
-msgid "Enter the po0 server address"
+msgid "Enter the po0 whitelist server address"
 msgstr ""
 
 msgid "The token should be the whole string starting with pgnfw_, @slot optional"
 msgstr ""
 
-msgid "Fill in the po0 server's IP or domain, port optional, e.g. 1.2.3.4 or fw.example.com:8443; copy the token from the po0 dashboard."
+msgid "Fill in the po0 whitelist server address (IP or domain, port optional, e.g. 1.2.3.4 or fw.example.com:8443); it is not necessarily the node address. Copy the token from the po0 dashboard."
 msgstr ""
 
 msgid "Operation failed"

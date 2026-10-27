@@ -664,7 +664,7 @@ return baseclass.extend({
                 E('div', { class: 'mx-po0__head' }, [
                     E('div', { class: 'mx-po0__title' }, [
                         E('span', { class: 'mx-subcard__label' }, _('po0 Whitelist')),
-                        E('div', { class: 'mx-account__hint' }, _('Report the router\'s public IP to po0 servers (registered on the panel and added by you), every 10 minutes and whenever WAN reconnects. Traffic to these po0 servers goes direct.'))
+                        E('div', { class: 'mx-account__hint' }, _('Report the router\'s public IP to po0 whitelist servers (registered on the panel and added by you), every 10 minutes and whenever WAN reconnects. Traffic to these po0 servers goes direct.'))
                     ]),
                     toggle
                 ])
@@ -706,7 +706,7 @@ return baseclass.extend({
                 children.push(E('div', { class: 'mx-po0__empty' }, _('"po0 Whitelist" is off, so these servers are not reported for now.')));
             }
 
-            const address = E('input', { type: 'text', class: 'mx-quickadd__input', placeholder: _('Address: IP or domain, port optional'), autocomplete: 'off', spellcheck: 'false' });
+            const address = E('input', { type: 'text', class: 'mx-quickadd__input', placeholder: _('Whitelist server address: IP or domain, port optional'), autocomplete: 'off', spellcheck: 'false' });
             const token = E('input', { type: 'password', class: 'mx-quickadd__input', placeholder: _('Token, starts with pgnfw_ (@slot optional)'), autocomplete: 'new-password' });
             const add = E('button', {
                 type: 'button',
@@ -716,7 +716,7 @@ return baseclass.extend({
                     address.classList.toggle('is-invalid', !a);
                     token.classList.toggle('is-invalid', !/^pgnfw_[A-Za-z0-9_-]{4,200}(@[0-9]{1,2})?$/.test(t));
                     if (!a || token.classList.contains('is-invalid')) {
-                        error.textContent = !a ? _('Enter the po0 server address') : _('The token should be the whole string starting with pgnfw_, @slot optional');
+                        error.textContent = !a ? _('Enter the po0 whitelist server address') : _('The token should be the whole string starting with pgnfw_, @slot optional');
                         error.hidden = false;
                         return;
                     }
@@ -726,7 +726,7 @@ return baseclass.extend({
             token.addEventListener('keydown', (ev) => { if (ev.key == 'Enter') add.click(); });
             children.push(E('div', { class: 'mx-quickadd mx-po0__add' }, [address, token, add]));
             children.push(error);
-            children.push(E('div', { class: 'mx-po0__note' }, _('Fill in the po0 server\'s IP or domain, port optional, e.g. 1.2.3.4 or fw.example.com:8443; copy the token from the po0 dashboard.')));
+            children.push(E('div', { class: 'mx-po0__note' }, _('Fill in the po0 whitelist server address (IP or domain, port optional, e.g. 1.2.3.4 or fw.example.com:8443); it is not necessarily the node address. Copy the token from the po0 dashboard.')));
             card.replaceChildren(...children);
         };
         draw(po0 ?? {});
