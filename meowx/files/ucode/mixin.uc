@@ -191,35 +191,10 @@ if (uci_bool(uci.get('meowx', 'mixin', 'rule'))) {
 	})
 }
 
-// 主控订阅域名直连（同客户端的 PanelDirect）：订阅地址形如主控的订阅接口时，那个主机一律直连、排在全部规则最前，
-// 否则代理开着时刷新订阅会按订阅规则走到连不上主控的节点上超时。别家机场的订阅不算。只在规则模式下生效。
-const panel_paths = [ '/api/clash/subscribe', '/api/user/package-subscribe', '/api/subscribe' ];
-const panel_rules = [];
-uci.foreach('meowx', 'subscription', (section) => {
-	const m = match(section.url ?? '', /^[A-Za-z][A-Za-z0-9+.-]*:\/\/(\[[^\]]+\]|[^\/:?#]+)(:[0-9]+)?([^?#]*)/);
-	if (!m) {
-		return;
-	}
-	const host = lc(trim(m[1], '[]'));
-	const path = m[3] || '/';
-	if (!(substr(path, 0, 3) == '/x/' || index(panel_paths, rtrim(path, '/')) >= 0)) {
-		return;
-	}
-	let rule;
-	if (match(host, /^[0-9.]+$/)) {
-		rule = `IP-CIDR,${host}/32,DIRECT,no-resolve`;
-	} else if (index(host, ':') >= 0) {
-		rule = `IP-CIDR6,${host}/128,DIRECT,no-resolve`;
-	} else {
-		rule = `DOMAIN,${host},DIRECT`;
-	}
-	if (index(panel_rules, rule) < 0) {
-		push(panel_rules, rule);
-	}
-});
 // po0 直连（同客户端 Po0DirectRules）：开着 po0 加白时每台 po0 直连——局域网里的设备访问 / 上报 po0 也得用本机出口 IP，
 // 按订阅规则经节点出去，po0 认的就成了节点的 IP。
 // 地址是 IP 时 IP-CIDR /32（v6 /128）、no-resolve，是域名（主控配的「加白地址」）时 DOMAIN；列表由 meowx-core panel 维护
+const po0_rules = [];
 const po0 = json(readfile('/etc/meowx/po0.json') ?? 'null');
 for (let u in (po0?.enabled ? po0.report_urls : null) ?? []) {
 	const m = match(u, /^https:\/\/(\[[^\]]+\]|[^\/:?#]+)/);
@@ -235,13 +210,13 @@ for (let u in (po0?.enabled ? po0.report_urls : null) ?? []) {
 	} else {
 		rule = `DOMAIN,${host},DIRECT`;
 	}
-	if (index(panel_rules, rule) < 0) {
-		push(panel_rules, rule);
+	if (index(po0_rules, rule) < 0) {
+		push(po0_rules, rule);
 	}
 }
 
-if (length(panel_rules) > 0) {
-	config['meowx-rules'] = [ ...panel_rules, ...(config['meowx-rules'] ?? []) ];
+if (length(po0_rules) > 0) {
+	config['meowx-rules'] = [ ...po0_rules, ...(config['meowx-rules'] ?? []) ];
 }
 
 // 阻止 QUIC（同客户端的「阻止 QUIC」）：发往 UDP 443 的一律拒绝，应用回落 TCP——有的线路 UDP 与 TCP 的落地出口不同，
