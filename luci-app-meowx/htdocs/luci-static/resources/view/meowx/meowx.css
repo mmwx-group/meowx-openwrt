@@ -1470,7 +1470,7 @@ body.mx-dark {
     letter-spacing: normal;
 }
 
-/* 「辅助功能」「关于」没有要保存的表单：页尾的「保存并应用 / 保存 / 复位」藏掉（main.js 按当前页签加 .mx-no-actions） */
+/* 「关于」没有要保存的表单：页尾的「保存并应用 / 保存 / 复位」藏掉（main.js 按当前页签加 .mx-no-actions） */
 #view#view.mx-no-actions .cbi-page-actions {
     display: none !important;
 }

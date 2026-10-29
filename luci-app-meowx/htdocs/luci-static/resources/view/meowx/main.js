@@ -12,7 +12,7 @@ const pages = [
     { id: 'proxy', title: _('Proxy Config'), module: 'view.meowx.proxy' },
     { id: 'editor', title: _('Editor'), module: 'view.meowx.editor' },
     { id: 'log', title: _('Log'), module: 'view.meowx.log' },
-    { id: 'extras', title: _('Extras'), module: 'view.meowx.extras', noActions: true },
+    { id: 'extras', title: _('Extras'), module: 'view.meowx.extras' },
     { id: 'about', title: _('About'), module: 'view.meowx.about', noActions: true }
 ];
 
@@ -63,7 +63,7 @@ return view.extend({
             item.setAttribute('aria-selected', active ? 'true' : 'false');
         });
         this.moveThumb(!!previous);
-        // 没有表单的页（辅助功能 / 关于）藏掉页尾的「保存并应用」那一排
+        // 没有表单的页（关于）藏掉页尾的「保存并应用」那一排
         document.getElementById('view')?.classList.toggle('mx-no-actions', !!pages.find((p) => p.id == id)?.noActions);
         return this.pane(id).then((pane) => {
             if (this.current != id) {
