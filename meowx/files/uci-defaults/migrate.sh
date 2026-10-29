@@ -249,6 +249,12 @@ section_ghproxy=$(uci -q get meowx.ghproxy); [ -z "$section_ghproxy" ] && {
 	uci set meowx.ghproxy.custom_type=auto
 }
 
+# GGY 加白：缺省关
+section_ggy=$(uci -q get meowx.ggy); [ -z "$section_ggy" ] && {
+	uci set meowx.ggy=ggy
+	uci set meowx.ggy.enabled=0
+}
+
 # commit
 uci commit meowx
 

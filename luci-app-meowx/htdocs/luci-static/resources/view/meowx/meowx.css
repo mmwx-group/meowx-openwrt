@@ -912,6 +912,23 @@ body.mx-dark {
     margin-top: 12px;
 }
 
+/* GGY 加白卡：沿用 po0 卡的样式，token 下面一行是上一次的结果 */
+#view#view .mx-ggy__result {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--mx-t2);
+    font-size: 12px;
+}
+
+#view#view .mx-ggy__result.is-ok {
+    color: var(--mx-good);
+}
+
+#view#view .mx-ggy__result.is-failed {
+    color: var(--mx-slow);
+}
+
 @media (max-width: 640px) {
     #view#view .mx-po0__add {
         flex-wrap: wrap;

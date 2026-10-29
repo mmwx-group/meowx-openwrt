@@ -1277,6 +1277,39 @@ msgstr "位址填 po0 的加白伺服器位址（IP 或網域，可帶連接埠�
 msgid "Operation failed"
 msgstr "操作失敗"
 
+msgid "GGY Whitelist"
+msgstr "GGY 加白"
+
+msgid "Report this device's public IP to the firewall whitelist of GGY (Guguyun) servers: fill in the token from the share link (or paste the whole link). It is whitelisted automatically every 10 minutes and whenever the network changes; reports go direct."
+msgstr "把本機出口 IP 上報到 GGY（咕咕雲）伺服器的防火牆白名單：填分享連結裡的 token（也可以直接貼上整條連結），每 10 分鐘及網路變化時自動加白；上報走直連。"
+
+msgid "Not reported yet"
+msgstr "還沒報過"
+
+msgid "Whitelisted"
+msgstr "成功"
+
+msgid "Failed: %s"
+msgstr "失敗：%s"
+
+msgid "Tokens (%d)"
+msgstr "token（%d）"
+
+msgid "A token is invalid or expired: generate a new share link on GGY, add it, and delete the old one."
+msgstr "有 token 無效或已失效：請到 GGY 重新產生分享連結，加上新的 token 後刪掉舊的。"
+
+msgid "\"GGY Whitelist\" is off, so these tokens are not reported for now."
+msgstr "「GGY 加白」開關關著，添加的 token 暫不上報。"
+
+msgid "Token, or paste the whole share link"
+msgstr "token，也可以貼上整條分享連結"
+
+msgid "Invalid token format"
+msgstr "token 格式不對"
+
+msgid "Please enter the token"
+msgstr "請填寫 token"
+
 msgid "Extras"
 msgstr "輔助功能"
 

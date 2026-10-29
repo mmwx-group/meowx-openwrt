@@ -439,6 +439,35 @@ const methods = {
 			return res;
 		}
 	},
+	// GGY 加白（同客户端「GGY 加白」）：action = status / enable / disable / add(token) / remove(index)。
+	// 打开开关、开着时添加，由 meowx-core 当场报一次（最多 10 秒）再回状态；改了之后重挂白名单上报的定时任务（删除不报）。
+	// 回给界面的 token 都是脱敏写法
+	ggy: {
+		args: { action: 'action', token: 'token', index: 0 },
+		call: function(req) {
+			const action = req.args?.action ?? 'status';
+			let args;
+			if (action == 'add') {
+				// 界面已从分享链接里取出 token；这里只放行合法 token（规格同 meowx-core）
+				const token = trim(req.args?.token ?? '');
+				if (!match(token, /^[A-Za-z0-9_-]{8,200}$/)) {
+					return { success: false, error: 'invalid token' };
+				}
+				args = `ggy add ${shell_quote(token)}`;
+			} else if (action == 'remove') {
+				args = `ggy remove ${int(req.args?.index ?? -1)}`;
+			} else if (index([ 'status', 'enable', 'disable' ], action) >= 0) {
+				args = `ggy ${action}`;
+			} else {
+				return { success: false, error: 'invalid action' };
+			}
+			const res = panel_cmd(args);
+			if (action != 'status' && res?.success) {
+				system('/etc/init.d/meowx panel_cron >/dev/null 2>&1');
+			}
+			return res;
+		}
+	},
 	// GitHub 加速：action = status（预设列表 + 上次测速结果）/ test（由路由器测一轮，约 5 秒）
 	ghproxy: {
 		args: { action: 'action' },

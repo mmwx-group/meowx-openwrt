@@ -5,8 +5,9 @@
 'require ui';
 'require tools.meowx as meowx';
 
-// 「辅助功能」页：不属于代理配置本身的小工具——po0 加白（卡片，点了就生效）与 GitHub 加速（表单，「保存并应用」后生效；
-// 2026-10 从「插件配置」挪过来）。由 main.js 在页内切换时加载；切回来时 onShow 重取 po0 状态（在「插件配置」里登录 / 退出会改主控登记的 po0）
+// 「辅助功能」页：不属于代理配置本身的小工具——po0 加白与 GGY 加白（卡片，点了就生效）与 GitHub 加速（表单，「保存并应用」后生效；
+// 2026-10 从「插件配置」挪过来）。由 main.js 在页内切换时加载；切回来时 onShow 重取两张卡的状态（在「插件配置」里登录 / 退出会改主控登记的 po0，
+// 定时上报会更新 GGY 每个 token 上一次的结果）
 
 function ghproxyTypeLabel(type) {
     return type == 'jsdelivr' ? 'jsDelivr' : (type == 'direct' ? _('Direct') : _('Prefix'));
@@ -122,8 +123,13 @@ function renderGhproxyTest(state, modeOption, sectionId) {
 function loadPo0() {
     return Promise.all([
         meowx.panelStatus(),
-        meowx.po0Status()
+        meowx.po0Status(),
+        meowx.ggyStatus()
     ]);
+}
+
+function renderCards(po0) {
+    return [meowx.renderPo0Card(po0[1], !!po0[0]?.logged_in), meowx.renderGgyCard(po0[2])];
 }
 
 return baseclass.extend({
@@ -137,7 +143,7 @@ return baseclass.extend({
     render: function (data) {
         const po0 = data[0];
         this.shown = JSON.stringify(po0);
-        this.cards = E('div', { class: 'mx-cards' }, meowx.renderPo0Card(po0[1], !!po0[0]?.logged_in));
+        this.cards = E('div', { class: 'mx-cards' }, renderCards(po0));
 
         let m, s, o;
 
@@ -191,7 +197,7 @@ return baseclass.extend({
             const key = JSON.stringify(po0);
             if (key != this.shown) {
                 this.shown = key;
-                this.cards.replaceChildren(meowx.renderPo0Card(po0[1], !!po0[0]?.logged_in));
+                this.cards.replaceChildren(...renderCards(po0));
             }
         });
     }

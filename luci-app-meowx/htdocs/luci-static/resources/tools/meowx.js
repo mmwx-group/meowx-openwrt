@@ -174,6 +174,13 @@ const callMeowXPo0 = rpc.declare({
     expect: { '': {} }
 });
 
+const callMeowXGgy = rpc.declare({
+    object: 'luci.meowx',
+    method: 'ggy',
+    params: ['action', 'token', 'index'],
+    expect: { '': {} }
+});
+
 const callMeowXGhproxy = rpc.declare({
     object: 'luci.meowx',
     method: 'ghproxy',
@@ -512,6 +519,25 @@ return baseclass.extend({
         return L.resolveDefault(callMeowXPo0('status', '', '', 0), { success: false, enabled: false, custom: [], panel: [] });
     },
 
+    ggy: function (action, token, index) {
+        return callMeowXGgy(action, token ?? '', index ?? 0);
+    },
+
+    ggyStatus: function () {
+        return L.resolveDefault(callMeowXGgy('status', '', 0), { success: false, enabled: false, tokens: [] });
+    },
+
+    // GGY 的输入框接受裸 token 或整条分享链接（带 ? 的当链接，取查询串里 token 的值）；合法 = 只含 A–Z a–z 0–9 _ -，8–200 位。
+    // 不合法返回 null（规格同 meowx-core 的 parseGGYToken）
+    parseGgyToken: function (input) {
+        let s = String(input ?? '').trim();
+        const q = s.indexOf('?');
+        if (q >= 0) {
+            s = (new URLSearchParams(s.slice(q + 1).split('#')[0]).get('token') ?? '').trim();
+        }
+        return /^[A-Za-z0-9_-]{8,200}$/.test(s) ? s : null;
+    },
+
     panelSubscriptions: function () {
         return L.resolveDefault(callMeowXPanelSubscriptions(), { success: false, subscriptions: [] });
     },
@@ -730,6 +756,108 @@ return baseclass.extend({
             card.replaceChildren(...children);
         };
         draw(po0 ?? {});
+        return card;
+    },
+
+    // GGY 加白卡（同客户端「GGY 加白」，紧跟 po0 加白卡）：开关 + token 列表（脱敏写法 + 上一次的结果）。
+    // 打开开关、开着时添加会当场报一次，回包里带着结果，用它原地重画；列表只显示脱敏写法，完整 token 只在输入框里出现
+    renderGgyCard: function (ggy) {
+        const card = E('div', { class: 'mx-account mx-po0 mx-ggy' });
+        const draw = (state) => {
+            const error = E('div', { class: 'mx-account__error', hidden: '' });
+            const fail = (res) => {
+                error.textContent = res?.error || _('Operation failed');
+                error.hidden = false;
+            };
+            const act = (button, action, token, index) => this.busy(button, () =>
+                this.ggy(action, token, index).then((res) => {
+                    if (!res?.success) {
+                        return fail(res);
+                    }
+                    draw(res);
+                }));
+
+            const toggle = E('input', { type: 'checkbox', 'aria-label': _('GGY Whitelist') });
+            toggle.checked = !!state.enabled;
+            toggle.addEventListener('change', () => {
+                toggle.disabled = true;
+                this.ggy(toggle.checked ? 'enable' : 'disable').then((res) => {
+                    if (!res?.success) {
+                        toggle.checked = !toggle.checked;
+                        toggle.disabled = false;
+                        return fail(res);
+                    }
+                    draw(res);
+                }, (err) => {
+                    toggle.checked = !toggle.checked;
+                    toggle.disabled = false;
+                    fail({ error: String(err?.message ?? err) });
+                });
+            });
+
+            const children = [
+                E('div', { class: 'mx-po0__head' }, [
+                    E('div', { class: 'mx-po0__title' }, [
+                        E('span', { class: 'mx-subcard__label' }, _('GGY Whitelist')),
+                        E('div', { class: 'mx-account__hint' }, _('Report this device\'s public IP to the firewall whitelist of GGY (Guguyun) servers: fill in the token from the share link (or paste the whole link). It is whitelisted automatically every 10 minutes and whenever the network changes; reports go direct.'))
+                    ]),
+                    toggle
+                ])
+            ];
+
+            // 上一次的结果：成功 / 失败原因 / 还没报过
+            const resultLine = (result) => {
+                if (!result) {
+                    return E('div', { class: 'mx-ggy__result' }, _('Not reported yet'));
+                }
+                const when = +result.at > 0 ? ' · ' + relativeTime(result.at) : '';
+                return result.ok
+                    ? E('div', { class: 'mx-ggy__result is-ok' }, _('Whitelisted') + when)
+                    : E('div', { class: 'mx-ggy__result is-failed', title: result.error || '' }, _('Failed: %s').format(result.error || _('Operation failed')) + when);
+            };
+            const tokens = state.tokens ?? [];
+            children.push(E('div', { class: 'mx-po0__group' }, _('Tokens (%d)').format(tokens.length)));
+            if (tokens.length > 0) {
+                children.push(E('div', { class: 'mx-po0__list' }, tokens.map((item, i) => E('div', { class: 'mx-po0__row' }, [
+                    E('div', { class: 'mx-po0__main' }, [
+                        E('div', { class: 'mx-po0__addr' }, item.token),
+                        resultLine(item.result)
+                    ]),
+                    E('button', {
+                        type: 'button',
+                        class: 'cbi-button cbi-button-negative',
+                        click: (ev) => act(ev.currentTarget, 'remove', '', i)
+                    }, _('Delete'))
+                ]))));
+            }
+            if (tokens.some((item) => item.result?.invalid)) {
+                children.push(E('div', { class: 'mx-po0__empty' }, _('A token is invalid or expired: generate a new share link on GGY, add it, and delete the old one.')));
+            }
+            if (!state.enabled && tokens.length > 0) {
+                children.push(E('div', { class: 'mx-po0__empty' }, _('"GGY Whitelist" is off, so these tokens are not reported for now.')));
+            }
+
+            const token = E('input', { type: 'password', class: 'mx-quickadd__input', placeholder: _('Token, or paste the whole share link'), autocomplete: 'new-password' });
+            const add = E('button', {
+                type: 'button',
+                class: 'cbi-button cbi-button-action',
+                click: (ev) => {
+                    const t = this.parseGgyToken(token.value);
+                    token.classList.toggle('is-invalid', !t);
+                    if (!t) {
+                        error.textContent = token.value.trim() ? _('Invalid token format') : _('Please enter the token');
+                        error.hidden = false;
+                        return;
+                    }
+                    return act(ev.currentTarget, 'add', t);
+                }
+            }, _('Add'));
+            token.addEventListener('keydown', (ev) => { if (ev.key == 'Enter') add.click(); });
+            children.push(E('div', { class: 'mx-quickadd mx-po0__add' }, [token, add]));
+            children.push(error);
+            card.replaceChildren(...children);
+        };
+        draw(ggy ?? {});
         return card;
     },
 

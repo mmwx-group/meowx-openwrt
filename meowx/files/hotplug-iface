@@ -1,10 +1,11 @@
 #!/bin/sh
-# WAN 重新拨号后出口 IP 可能变了：登录了主控账户或开着 po0 加白、服务在跑时补报一次客户端 IP 白名单
+# WAN 重新拨号后出口 IP 可能变了：登录了主控账户、开着 po0 加白或 GGY 加白，服务在跑时补报一次客户端 IP 白名单
 [ "$ACTION" = "ifup" ] || exit 0
 case "$INTERFACE" in
 	wan|wan6|wwan*) ;;
 	*) exit 0 ;;
 esac
-[ -f /etc/meowx/panel.json ] || grep -q '"report_urls"' /etc/meowx/po0.json 2>/dev/null || exit 0
+[ -f /etc/meowx/panel.json ] || grep -q '"report_urls"' /etc/meowx/po0.json 2>/dev/null || \
+	{ [ "$(uci -q get meowx.ggy.enabled)" = "1" ] && [ -n "$(uci -q get meowx.ggy.token)" ]; } || exit 0
 /etc/init.d/meowx running || exit 0
 (sleep 5; /etc/init.d/meowx panel_report >/dev/null 2>&1) &

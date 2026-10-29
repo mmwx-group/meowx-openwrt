@@ -1270,6 +1270,39 @@ msgstr ""
 msgid "Operation failed"
 msgstr ""
 
+msgid "GGY Whitelist"
+msgstr ""
+
+msgid "Report this device's public IP to the firewall whitelist of GGY (Guguyun) servers: fill in the token from the share link (or paste the whole link). It is whitelisted automatically every 10 minutes and whenever the network changes; reports go direct."
+msgstr ""
+
+msgid "Not reported yet"
+msgstr ""
+
+msgid "Whitelisted"
+msgstr ""
+
+msgid "Failed: %s"
+msgstr ""
+
+msgid "Tokens (%d)"
+msgstr ""
+
+msgid "A token is invalid or expired: generate a new share link on GGY, add it, and delete the old one."
+msgstr ""
+
+msgid "\"GGY Whitelist\" is off, so these tokens are not reported for now."
+msgstr ""
+
+msgid "Token, or paste the whole share link"
+msgstr ""
+
+msgid "Invalid token format"
+msgstr ""
+
+msgid "Please enter the token"
+msgstr ""
+
 msgid "Extras"
 msgstr ""
 

@@ -13,8 +13,733 @@
  	// Defensive programming: panic when code mistakenly calls net.DefaultResolver
  	net.DefaultResolver.PreferGo = true
 --- /dev/null
++++ b/core/Clash.Meta/meowx_ggy.go
+@@ -0,0 +1,493 @@
++package main
++
++// GGY 加白（同客户端「GGY 加白」）：GGY（咕咕云）「腾讯云 ECS 防火墙」插件的白名单分享链接——谁打开它，就把发起请求的
++// 公网 IP 加进那台服务器的防火墙白名单。节点在 GGY 的服务器上时，路由器要定期用自己的直连出口 IP 打开它（与 po0 加白同一类）。
++//
++//	meowx-core panel ggy status | enable | disable | add <token 或整条分享链接> | remove <序号> | report
++//
++// 开关与 token 列表存 uci（meowx.ggy：option enabled、list token），本机偏好：退出登录不清、没登录也报。上一次的结果只放
++// 内存盘（/var/run/meowx/ggy.json，按 token 的哈希记），重启后显示「还没报过」，免得每 10 分钟写一次闪存。
++// 回给界面（rpcd）与写进日志的 token 一律是脱敏写法。
++
++import (
++	"context"
++	"crypto/sha256"
++	"crypto/tls"
++	"encoding/hex"
++	"encoding/json"
++	"errors"
++	"fmt"
++	"io"
++	"net"
++	"net/http"
++	"net/url"
++	"os"
++	"os/exec"
++	"path/filepath"
++	"regexp"
++	"strconv"
++	"strings"
++	"sync"
++	"time"
++	"unicode/utf8"
++)
++
++const ggyMaxTokens = 20
++
++var (
++	ggyReportBase = "https://www.guguyun.com/cany_tencentecs/firewall/whitelist?token="
++	ggyResultPath = "/var/run/meowx/ggy.json"
++	ggyAppLogPath = "/var/log/meowx/app.log"
++	// 只给测试用（信任测试服务器的自签证书）；正式运行为 nil = 照常按系统根证书校验（与 po0 不同，GGY 的证书是正规的）
++	ggyTLSConfig *tls.Config
++)
++
++// 合法的 token：去掉首尾空白后只含 A–Z a–z 0–9 _ -，8–200 位；不强制前缀（现在的都是 ctecsfw_ 开头，以后可能有别的）
++var ggyTokenPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{8,200}$`)
++
++// 输入框接受裸 token 或整条分享链接：带 ? 的当链接，取查询串里 token 的值
++func parseGGYToken(input string) (string, bool) {
++	s := strings.TrimSpace(input)
++	if i := strings.Index(s, "?"); i >= 0 {
++		query := s[i+1:]
++		if j := strings.Index(query, "#"); j >= 0 {
++			query = query[:j]
++		}
++		values, _ := url.ParseQuery(query) // 个别参数写坏了不要紧，能解出 token 就行
++		s = strings.TrimSpace(values.Get("token"))
++	}
++	if !ggyTokenPattern.MatchString(s) {
++		return "", false
++	}
++	return s, true
++}
++
++func ggyReportURL(token string) string { return ggyReportBase + token } // token 只含安全字符，不必再编码
++
++// 脱敏：含 _ 时 <第一个 _ 及之前>••••<后 4 位>（如 ctecsfw_••••AAAA），否则 ••••<后 4 位>
++func maskGGYToken(token string) string {
++	tail := token
++	if len(tail) > 4 {
++		tail = tail[len(tail)-4:]
++	}
++	if i := strings.Index(token, "_"); i >= 0 {
++		return token[:i+1] + "••••" + tail
++	}
++	return "••••" + tail
++}
++
++// ---------- 应答判断 ----------
++
++type ggyOutcome struct {
++	OK      bool
++	Invalid bool   // token 无效或已失效：界面提示到 GGY 重新生成分享链接
++	Reason  string // 失败原因；成功时是应答里的 msg（可能为空）
++	Head    string // 应答没有 status 字段 / 解析不出时的应答开头 160 字节，只进日志（以后好对照）
++}
++
++// 无效 token 实测是 HTTP 200 + {"status":400,"msg":"白名单分享链接无效或已失效","data":[]}：不能按 HTTP 状态码判断，要看 status。
++// 不是 JSON 对象（HTML、空、数组）算失败「应答无法解析」；成功时的应答没实测过（不能拿真 token 试），没有 status 字段当作成功
++func judgeGGYResponse(httpStatus int, body []byte) ggyOutcome {
++	if httpStatus != http.StatusOK {
++		return ggyOutcome{Reason: fmt.Sprintf("HTTP %d", httpStatus)}
++	}
++	var obj map[string]any
++	if err := json.Unmarshal(body, &obj); err != nil || obj == nil {
++		return ggyOutcome{Reason: "应答无法解析", Head: ggySnippet(body)}
++	}
++	msg := ""
++	if v, ok := obj["msg"]; ok && v != nil {
++		msg = strings.TrimSpace(fmt.Sprint(v))
++	}
++	status, has := obj["status"]
++	if !has {
++		return ggyOutcome{OK: true, Reason: msg, Head: ggySnippet(body)}
++	}
++	if ggyStatusIs(status, 200) {
++		return ggyOutcome{OK: true, Reason: msg}
++	}
++	out := ggyOutcome{Reason: msg}
++	if out.Reason == "" {
++		out.Reason = "status " + ggyStatusText(status)
++	}
++	out.Invalid = ggyStatusIs(status, 400) && (strings.Contains(msg, "无效") || strings.Contains(msg, "失效"))
++	return out
++}
++
++// 日志一行：GGY 加白 <脱敏 token>：成功[（msg；应答没有 status：<应答开头>）] / GGY 加白 <脱敏 token>：失败（原因[：应答开头]）
++func ggyLogLine(masked string, o ggyOutcome) string {
++	if o.OK {
++		var extra []string
++		if o.Reason != "" {
++			extra = append(extra, o.Reason)
++		}
++		if o.Head != "" {
++			extra = append(extra, "应答没有 status："+o.Head)
++		}
++		line := "GGY 加白 " + masked + "：成功"
++		if len(extra) > 0 {
++			line += "（" + strings.Join(extra, "；") + "）"
++		}
++		return line
++	}
++	reason := o.Reason
++	if o.Head != "" {
++		reason += "：" + o.Head
++	}
++	return "GGY 加白 " + masked + "：失败（" + reason + "）"
++}
++
++// status 可能是数字也可能是字符串（200 / 200.0 / "200" / " 200 " 一样看待）
++func ggyStatusIs(status any, code int) bool {
++	switch v := status.(type) {
++	case float64:
++		return v == float64(code)
++	case string:
++		return strings.TrimSpace(v) == strconv.Itoa(code)
++	}
++	return false
++}
++
++func ggyStatusText(status any) string {
++	switch v := status.(type) {
++	case float64:
++		return strconv.FormatFloat(v, 'f', -1, 64)
++	case string:
++		return strings.TrimSpace(v)
++	case nil:
++		return "null"
++	}
++	b, _ := json.Marshal(status)
++	return string(b)
++}
++
++// 应答开头 160 字节（不切断 UTF-8 字符，换行换成空格）
++func ggySnippet(body []byte) string {
++	if len(body) > 160 {
++		body = body[:160]
++		for len(body) > 0 && !utf8.Valid(body) {
++			body = body[:len(body)-1]
++		}
++	}
++	return strings.Join(strings.Fields(string(body)), " ")
++}
++
++// ---------- 上报 ----------
++
++// 必须直连（GGY 按来源 IP 加白，走代理会把节点的 IP 加进去）：与 po0 同一套——panelMain 一开始已把进程挪进 meowx 服务的
++// cgroup（透明代理放行），panelDial 直接问公共 DNS。只走 IPv4：www.guguyun.com 只有 A 记录，节点也基本按 IPv4 连，
++// 以后它加了 AAAA 也别让路由器的 IPv6 出口顶替 IPv4 去加白。GET、不带 body，头只要 Host / Accept / Connection: close，10 秒超时
++func reportGGY(token string) ggyOutcome {
++	client := &http.Client{
++		Timeout: 10 * time.Second,
++		Transport: &http.Transport{
++			Proxy: nil,
++			DialContext: func(ctx context.Context, _, addr string) (net.Conn, error) {
++				return panelDial(ctx, "tcp4", addr)
++			},
++			TLSClientConfig:     ggyTLSConfig,
++			TLSHandshakeTimeout: 10 * time.Second,
++			DisableKeepAlives:   true,
++			DisableCompression:  true, // 不加 Accept-Encoding
++		},
++	}
++	req, err := http.NewRequest(http.MethodGet, ggyReportURL(token), nil)
++	if err != nil {
++		return ggyOutcome{Reason: ggyRedact(err.Error(), token)}
++	}
++	req.Header.Set("Accept", "application/json")
++	req.Header.Set("User-Agent", "") // 空值 = 不发 User-Agent
++	req.Close = true                 // Connection: close
++	resp, err := client.Do(req)
++	if err != nil {
++		// url.Error 的文字里带整条地址（含 token），只留底下的原因
++		var uerr *url.Error
++		if errors.As(err, &uerr) {
++			err = uerr.Err
++		}
++		if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
++			return ggyOutcome{Reason: "连不上：超时"}
++		}
++		return ggyOutcome{Reason: "连不上：" + ggyRedact(err.Error(), token)}
++	}
++	defer resp.Body.Close()
++	body, err := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
++	if err != nil && resp.StatusCode == http.StatusOK {
++		return ggyOutcome{Reason: "读应答失败：" + ggyRedact(err.Error(), token)}
++	}
++	out := judgeGGYResponse(resp.StatusCode, body)
++	out.Reason = ggyRedact(out.Reason, token)
++	out.Head = ggyRedact(out.Head, token)
++	return out
++}
++
++// 任何要显示 / 写日志的文字里都不留完整 token
++func ggyRedact(text, token string) string {
++	return strings.ReplaceAll(text, token, maskGGYToken(token))
++}
++
++type ggyResult struct {
++	OK      bool   `json:"ok"`
++	Invalid bool   `json:"invalid,omitempty"`
++	Error   string `json:"error,omitempty"`
++	At      int64  `json:"at"`
++}
++
++// 每个 token 各报一次（并发：开关打开 / 添加时由界面同步等结果，最多 10 秒），结果记进内存盘、每个一行写进插件日志
++func ggyReport(tokens []string) []map[string]any {
++	outcomes := make([]ggyOutcome, len(tokens))
++	var wg sync.WaitGroup
++	for i, token := range tokens {
++		wg.Add(1)
++		go func(i int, token string) {
++			defer wg.Done()
++			outcomes[i] = reportGGY(token)
++		}(i, token)
++	}
++	wg.Wait()
++
++	now := time.Now().Unix()
++	saved := loadGGYResults()
++	lines := make([]string, 0, len(tokens))
++	out := make([]map[string]any, 0, len(tokens))
++	for i, token := range tokens {
++		o := outcomes[i]
++		masked := maskGGYToken(token)
++		res := map[string]any{"kind": "ggy", "token": masked, "ok": o.OK}
++		if o.OK {
++			saved[ggyKey(token)] = ggyResult{OK: true, At: now}
++		} else {
++			saved[ggyKey(token)] = ggyResult{Invalid: o.Invalid, Error: o.Reason, At: now}
++			res["error"] = o.Reason
++			if o.Invalid {
++				res["invalid"] = true
++			}
++		}
++		lines = append(lines, ggyLogLine(masked, o))
++		out = append(out, res)
++	}
++	saveGGYResults(saved, loadGGYConfig().Tokens)
++	ggyLog(lines)
++	return out
++}
++
++// 写进插件日志（/var/log/meowx/app.log，格式同 init 的 log）。时间取 date 的输出：Go 不认 OpenWrt 的 /etc/TZ，
++// 自己取会是 UTC，和前后几行对不上
++func ggyLog(lines []string) {
++	if len(lines) == 0 {
++		return
++	}
++	ts := time.Now().Format("2006-01-02 15:04:05")
++	if out, err := exec.Command("date", "+%Y-%m-%d %H:%M:%S").Output(); err == nil && len(strings.TrimSpace(string(out))) > 0 {
++		ts = strings.TrimSpace(string(out))
++	}
++	_ = os.MkdirAll(filepath.Dir(ggyAppLogPath), 0o755)
++	f, err := os.OpenFile(ggyAppLogPath, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0o644)
++	if err != nil {
++		return
++	}
++	defer f.Close()
++	for _, line := range lines {
++		_, _ = fmt.Fprintf(f, "[%s] [Whitelist] %s\n", ts, line)
++	}
++}
++
++// ---------- 存储 ----------
++
++type ggyConfig struct {
++	Enabled bool
++	Tokens  []string
++}
++
++func ggyUCI(args ...string) (string, error) {
++	out, err := exec.Command("uci", append([]string{"-q"}, args...)...).Output()
++	return strings.TrimSpace(string(out)), err
++}
++
++func loadGGYConfig() ggyConfig {
++	var cfg ggyConfig
++	switch v, _ := ggyUCI("get", "meowx.ggy.enabled"); v {
++	case "1", "true", "yes", "on":
++		cfg.Enabled = true
++	}
++	// list 由 uci get 以空格连成一行；token 里没有空白。手改坏了的条目跳过
++	if v, err := ggyUCI("get", "meowx.ggy.token"); err == nil {
++		for _, t := range strings.Fields(v) {
++			if ggyTokenPattern.MatchString(t) && !ggyContains(cfg.Tokens, t) {
++				cfg.Tokens = append(cfg.Tokens, t)
++			}
++		}
++	}
++	return cfg
++}
++
++func (cfg ggyConfig) save() error {
++	enabled := "0"
++	if cfg.Enabled {
++		enabled = "1"
++	}
++	run := func(args ...string) error {
++		if _, err := ggyUCI(args...); err != nil {
++			_, _ = ggyUCI("revert", "meowx.ggy")
++			return fmt.Errorf("保存设置失败（uci %s）", args[0])
++		}
++		return nil
++	}
++	if err := run("set", "meowx.ggy=ggy"); err != nil {
++		return err
++	}
++	if err := run("set", "meowx.ggy.enabled="+enabled); err != nil {
++		return err
++	}
++	_, _ = ggyUCI("delete", "meowx.ggy.token") // 整个列表重写；没有这一项时报错，不要紧
++	for _, t := range cfg.Tokens {
++		if err := run("add_list", "meowx.ggy.token="+t); err != nil {
++			return err
++		}
++	}
++	return run("commit", "meowx")
++}
++
++// 加进列表（不落盘）：解析 / 校验输入，去重按规范化后的 token，最多 20 个
++func (cfg *ggyConfig) add(input string) (string, error) {
++	if strings.TrimSpace(input) == "" {
++		return "", errors.New("请填写 token")
++	}
++	token, ok := parseGGYToken(input)
++	if !ok {
++		return "", errors.New("token 格式不对")
++	}
++	if ggyContains(cfg.Tokens, token) {
++		return "", errors.New("这个 token 已经添加过")
++	}
++	if len(cfg.Tokens) >= ggyMaxTokens {
++		return "", fmt.Errorf("最多添加 %d 个 token", ggyMaxTokens)
++	}
++	cfg.Tokens = append(cfg.Tokens, token)
++	return token, nil
++}
++
++func ggyContains(list []string, s string) bool {
++	for _, x := range list {
++		if x == s {
++			return true
++		}
++	}
++	return false
++}
++
++func ggyKey(token string) string {
++	sum := sha256.Sum256([]byte(token))
++	return hex.EncodeToString(sum[:8])
++}
++
++func loadGGYResults() map[string]ggyResult {
++	m := map[string]ggyResult{}
++	if data, err := os.ReadFile(ggyResultPath); err == nil {
++		_ = json.Unmarshal(data, &m)
++	}
++	return m
++}
++
++// 只留还在列表里的 token 的结果
++func saveGGYResults(m map[string]ggyResult, tokens []string) {
++	keep := map[string]ggyResult{}
++	for _, t := range tokens {
++		if r, ok := m[ggyKey(t)]; ok {
++			keep[ggyKey(t)] = r
++		}
++	}
++	data, err := json.Marshal(keep)
++	if err != nil {
++		return
++	}
++	_ = os.MkdirAll(filepath.Dir(ggyResultPath), 0o755)
++	tmp := ggyResultPath + ".tmp"
++	if err := os.WriteFile(tmp, data, 0o600); err == nil {
++		_ = os.Rename(tmp, ggyResultPath)
++	}
++}
++
++// ---------- 子命令 ----------
++
++func ggyMain(args []string) (any, error) {
++	cfg := loadGGYConfig()
++	cmd := "status"
++	if len(args) > 0 {
++		cmd = args[0]
++	}
++	var reportNow []string
++	switch cmd {
++	case "status":
++	case "enable":
++		// 从关到开立刻报一次
++		if !cfg.Enabled {
++			reportNow = cfg.Tokens
++		}
++		cfg.Enabled = true
++		if err := cfg.save(); err != nil {
++			return nil, err
++		}
++	case "disable":
++		cfg.Enabled = false
++		if err := cfg.save(); err != nil {
++			return nil, err
++		}
++	case "add":
++		if len(args) < 2 {
++			return nil, errors.New("用法：ggy add <token 或分享链接>")
++		}
++		token, err := cfg.add(args[1])
++		if err != nil {
++			return nil, err
++		}
++		if err := cfg.save(); err != nil {
++			return nil, err
++		}
++		// 开着时新加的立刻报一次
++		if cfg.Enabled {
++			reportNow = []string{token}
++		}
++	case "remove":
++		if len(args) < 2 {
++			return nil, errors.New("用法：ggy remove <序号>")
++		}
++		i, err := strconv.Atoi(args[1])
++		if err != nil || i < 0 || i >= len(cfg.Tokens) {
++			return nil, errors.New("没有这一项")
++		}
++		cfg.Tokens = append(cfg.Tokens[:i], cfg.Tokens[i+1:]...)
++		if err := cfg.save(); err != nil {
++			return nil, err
++		}
++		saveGGYResults(loadGGYResults(), cfg.Tokens)
++	case "report":
++		if cfg.Enabled {
++			reportNow = cfg.Tokens
++		}
++	default:
++		return nil, fmt.Errorf("unknown ggy command %q", cmd)
++	}
++	var results []map[string]any
++	if len(reportNow) > 0 {
++		results = ggyReport(reportNow)
++	}
++	return ggyStatus(cfg, results), nil
++}
++
++func ggyStatus(cfg ggyConfig, results []map[string]any) map[string]any {
++	saved := loadGGYResults()
++	tokens := make([]map[string]any, 0, len(cfg.Tokens))
++	for _, t := range cfg.Tokens {
++		entry := map[string]any{"token": maskGGYToken(t)}
++		if r, ok := saved[ggyKey(t)]; ok {
++			entry["result"] = r
++		}
++		tokens = append(tokens, entry)
++	}
++	out := map[string]any{"success": true, "enabled": cfg.Enabled, "tokens": tokens, "max": ggyMaxTokens}
++	if results != nil {
++		out["results"] = results
++	}
++	return out
++}
+--- /dev/null
++++ b/core/Clash.Meta/meowx_ggy_test.go
+@@ -0,0 +1,226 @@
++package main
++
++// GGY 加白的单元测试（只用假 token，不连真实的 GGY）。main.go 的 init 里就 flag.Parse，go test 带的 -test.* 参数过不去：
++// 先编出测试程序再不带参数跑——go test -c -tags with_gvisor -o meowx.test . && ./meowx.test
++
++import (
++	"crypto/tls"
++	"crypto/x509"
++	"net/http"
++	"net/http/httptest"
++	"strings"
++	"testing"
++)
++
++const ggyTestToken = "ctecsfw_TESTtoken0000000000AAAA"
++
++func TestGGYParseToken(t *testing.T) {
++	cases := []struct {
++		in   string
++		want string // "" = 不合法
++	}{
++		{ggyTestToken, ggyTestToken},
++		{"  " + ggyTestToken + "\n", ggyTestToken},
++		{"https://www.guguyun.com/cany_tencentecs/firewall/whitelist?token=" + ggyTestToken, ggyTestToken},
++		{" https://www.guguyun.com/cany_tencentecs/firewall/whitelist?a=1&token=" + ggyTestToken + "&b=2#x ", ggyTestToken},
++		{"www.guguyun.com/cany_tencentecs/firewall/whitelist?token=" + ggyTestToken, ggyTestToken},
++		{"https://www.guguyun.com/cany_tencentecs/firewall/whitelist?token=", ""},
++		{"https://www.guguyun.com/cany_tencentecs/firewall/whitelist", ""},
++		{"https://www.guguyun.com/x?id=" + ggyTestToken, ""},
++		{"abc-DEF_1", "abc-DEF_1"}, // 不强制前缀
++		{"abcdefgh", "abcdefgh"},   // 8 位
++		{"abcdefg", ""},            // 太短
++		{strings.Repeat("a", 200), strings.Repeat("a", 200)},
++		{strings.Repeat("a", 201), ""}, // 太长
++		{"ctecsfw_TEST token", ""},     // 中间有空白
++		{"ctecsfw_TEST.token0", ""},    // 非法字符
++		{"ctecsfw_TEST'token0", ""},
++		{"ctecsfw_测试token0000", ""},
++		{"", ""},
++	}
++	for _, c := range cases {
++		got, ok := parseGGYToken(c.in)
++		if c.want == "" {
++			if ok {
++				t.Errorf("parseGGYToken(%q) = %q, want invalid", c.in, got)
++			}
++			continue
++		}
++		if !ok || got != c.want {
++			t.Errorf("parseGGYToken(%q) = %q, %v, want %q", c.in, got, ok, c.want)
++		}
++	}
++}
++
++func TestGGYAddDedupAndLimit(t *testing.T) {
++	var cfg ggyConfig
++	if _, err := cfg.add(ggyTestToken); err != nil {
++		t.Fatal(err)
++	}
++	// 整条链接与裸 token 规范化后相同 = 重复
++	if _, err := cfg.add("https://www.guguyun.com/cany_tencentecs/firewall/whitelist?token=" + ggyTestToken); err == nil {
++		t.Error("duplicate token accepted")
++	}
++	if _, err := cfg.add(" " + ggyTestToken + " "); err == nil {
++		t.Error("duplicate token with spaces accepted")
++	}
++	if _, err := cfg.add("short"); err == nil || err.Error() != "token 格式不对" {
++		t.Errorf("invalid token error = %v", err)
++	}
++	if _, err := cfg.add("  "); err == nil || err.Error() != "请填写 token" {
++		t.Errorf("empty token error = %v", err)
++	}
++	if _, err := cfg.add(ggyTestToken); err == nil || err.Error() != "这个 token 已经添加过" {
++		t.Errorf("duplicate token error = %v", err)
++	}
++	for i := 1; len(cfg.Tokens) < ggyMaxTokens; i++ {
++		if _, err := cfg.add("ctecsfw_TESTtoken" + strings.Repeat("0", 10) + string(rune('A'+i))); err != nil {
++			t.Fatal(err)
++		}
++	}
++	if _, err := cfg.add("ctecsfw_TESTtoken0000000000ZZZZ"); err == nil || err.Error() != "最多添加 20 个 token" {
++		t.Errorf("more than 20 tokens: %v", err)
++	}
++	if len(cfg.Tokens) != ggyMaxTokens {
++		t.Errorf("len = %d", len(cfg.Tokens))
++	}
++}
++
++func TestGGYMask(t *testing.T) {
++	cases := map[string]string{
++		ggyTestToken:          "ctecsfw_••••AAAA",
++		"ctecsfw_abcdefgBBBB": "ctecsfw_••••BBBB",
++		"abcdefgh1234":        "••••1234",
++		"ab_cd_ef_gh":         "ab_••••f_gh",
++		"abc-DEF-ghi-JKL":     "••••-JKL",
++		"_leading12345":       "_••••2345",
++	}
++	for in, want := range cases {
++		if got := maskGGYToken(in); got != want {
++			t.Errorf("maskGGYToken(%q) = %q, want %q", in, got, want)
++		}
++	}
++}
++
++func TestGGYReportURL(t *testing.T) {
++	want := "https://www.guguyun.com/cany_tencentecs/firewall/whitelist?token=" + ggyTestToken
++	if got := ggyReportURL(ggyTestToken); got != want {
++		t.Errorf("ggyReportURL = %q, want %q", got, want)
++	}
++}
++
++func TestGGYJudge(t *testing.T) {
++	invalidBody := `{"status":400,"msg":"白名单分享链接无效或已失效","data":[]}`
++	cases := []struct {
++		name    string
++		code    int
++		body    string
++		ok      bool
++		invalid bool
++		reason  string
++		head    string
++	}{
++		{"status 200 number", 200, `{"status":200,"msg":"加白成功","data":[]}`, true, false, "加白成功", ""},
++		{"status 200.0", 200, `{"status":200.0}`, true, false, "", ""},
++		{"status 200 string", 200, `{"status":"200","msg":""}`, true, false, "", ""},
++		{"status 200 string spaces", 200, `{"status":" 200 ","msg":" ok "}`, true, false, "ok", ""},
++		{"status 400 invalid", 200, invalidBody, false, true, "白名单分享链接无效或已失效", ""},
++		{"status 400 string expired", 200, `{"status":"400","msg":"链接已失效"}`, false, true, "链接已失效", ""},
++		{"status 400 other msg", 200, `{"status":400,"msg":"操作太频繁"}`, false, false, "操作太频繁", ""},
++		{"status 500 invalid msg", 200, `{"status":500,"msg":"链接无效"}`, false, false, "链接无效", ""},
++		{"status 500 no msg", 200, `{"status":500}`, false, false, "status 500", ""},
++		{"status string no msg", 200, `{"status":" fail ","msg":""}`, false, false, "status fail", ""},
++		{"status null", 200, `{"status":null}`, false, false, "status null", ""},
++		{"no status", 200, `{"code":0,"message":"ok"}`, true, false, "", `{"code":0,"message":"ok"}`},
++		{"no status with msg", 200, `{"msg":"已加白"}`, true, false, "已加白", `{"msg":"已加白"}`},
++		{"not json", 200, "<html>\n<body>hello</body></html>", false, false, "应答无法解析", "<html> <body>hello</body></html>"},
++		{"json array", 200, `[1,2]`, false, false, "应答无法解析", "[1,2]"},
++		{"empty body", 200, "", false, false, "应答无法解析", ""},
++		{"http 404", 404, invalidBody, false, false, "HTTP 404", ""},
++		{"http 502", 502, "", false, false, "HTTP 502", ""},
++	}
++	for _, c := range cases {
++		got := judgeGGYResponse(c.code, []byte(c.body))
++		if got.OK != c.ok || got.Invalid != c.invalid || got.Reason != c.reason || got.Head != c.head {
++			t.Errorf("%s: got %+v, want ok=%v invalid=%v reason=%q head=%q", c.name, got, c.ok, c.invalid, c.reason, c.head)
++		}
++	}
++}
++
++func TestGGYLogLine(t *testing.T) {
++	m := maskGGYToken(ggyTestToken)
++	cases := []struct {
++		o    ggyOutcome
++		want string
++	}{
++		{ggyOutcome{OK: true}, "GGY 加白 ctecsfw_••••AAAA：成功"},
++		{ggyOutcome{OK: true, Reason: "加白成功"}, "GGY 加白 ctecsfw_••••AAAA：成功（加白成功）"},
++		{ggyOutcome{OK: true, Head: `{"code":0}`}, `GGY 加白 ctecsfw_••••AAAA：成功（应答没有 status：{"code":0}）`},
++		{ggyOutcome{OK: true, Reason: "ok", Head: `{"msg":"ok"}`}, `GGY 加白 ctecsfw_••••AAAA：成功（ok；应答没有 status：{"msg":"ok"}）`},
++		{ggyOutcome{Invalid: true, Reason: "白名单分享链接无效或已失效"}, "GGY 加白 ctecsfw_••••AAAA：失败（白名单分享链接无效或已失效）"},
++		{ggyOutcome{Reason: "应答无法解析", Head: "<html>"}, "GGY 加白 ctecsfw_••••AAAA：失败（应答无法解析：<html>）"},
++		{ggyOutcome{Reason: "HTTP 502"}, "GGY 加白 ctecsfw_••••AAAA：失败（HTTP 502）"},
++	}
++	for _, c := range cases {
++		if got := ggyLogLine(m, c.o); got != c.want {
++			t.Errorf("ggyLogLine(%+v) = %q, want %q", c.o, got, c.want)
++		}
++	}
++}
++
++func TestGGYSnippet(t *testing.T) {
++	long := `{"data":"` + strings.Repeat("咕", 100) + `"}`
++	got := ggySnippet([]byte(long))
++	if len(got) > 160 || !strings.HasPrefix(got, `{"data":"咕`) || strings.ContainsRune(got, '�') {
++		t.Errorf("snippet = %q (%d bytes)", got, len(got))
++	}
++}
++
++// 对本机 TLS 测试服务器跑一遍完整的上报：请求的形状、证书照常校验、错误文字里不带完整 token
++func TestGGYReportRequest(t *testing.T) {
++	var gotMethod, gotQuery, gotAccept, gotUA, gotEncoding string
++	var gotClose bool
++	var gotUAPresent bool
++	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		gotMethod, gotQuery = r.Method, r.URL.Query().Get("token")
++		gotAccept, gotEncoding = r.Header.Get("Accept"), r.Header.Get("Accept-Encoding")
++		_, gotUAPresent = r.Header["User-Agent"]
++		gotUA = r.UserAgent()
++		gotClose = r.Close
++		w.Header().Set("Content-Type", "application/json")
++		_, _ = w.Write([]byte(`{"status":400,"msg":"白名单分享链接无效或已失效","data":[]}`))
++	}))
++	defer server.Close()
++
++	oldBase, oldTLS := ggyReportBase, ggyTLSConfig
++	defer func() { ggyReportBase, ggyTLSConfig = oldBase, oldTLS }()
++	ggyReportBase = server.URL + "/cany_tencentecs/firewall/whitelist?token="
++
++	// 自签证书：照常校验时必须失败
++	ggyTLSConfig = nil
++	out := reportGGY(ggyTestToken)
++	if out.OK || !strings.HasPrefix(out.Reason, "连不上：") || strings.Contains(out.Reason, ggyTestToken) {
++		t.Fatalf("self-signed server: %+v", out)
++	}
++
++	pool := x509.NewCertPool()
++	pool.AddCert(server.Certificate())
++	ggyTLSConfig = &tls.Config{RootCAs: pool}
++	out = reportGGY(ggyTestToken)
++	if out.OK || !out.Invalid || out.Reason != "白名单分享链接无效或已失效" {
++		t.Errorf("outcome = %+v", out)
++	}
++	if gotMethod != http.MethodGet || gotQuery != ggyTestToken || gotAccept != "application/json" {
++		t.Errorf("request: method=%q token=%q accept=%q", gotMethod, gotQuery, gotAccept)
++	}
++	if gotUAPresent || gotUA != "" || gotEncoding != "" || !gotClose {
++		t.Errorf("headers: ua=%v %q accept-encoding=%q close=%v", gotUAPresent, gotUA, gotEncoding, gotClose)
++	}
++}
++
++func TestGGYRedact(t *testing.T) {
++	got := ggyRedact(`Get "https://x/?token=`+ggyTestToken+`": timeout`, ggyTestToken)
++	if strings.Contains(got, ggyTestToken) || !strings.Contains(got, "ctecsfw_••••AAAA") {
++		t.Errorf("redact = %q", got)
++	}
++}
+--- /dev/null
 +++ b/core/Clash.Meta/meowx_panel.go
-@@ -0,0 +1,965 @@
+@@ -0,0 +1,978 @@
 +package main
 +
 +// MeowX OpenWrt 版的主控账户：用主控网页「扫码登录」弹窗里复制的登录链接登录（路由器没有扫码环境、也装不了客户端，
@@ -23,6 +748,7 @@
 +//	meowx-core panel login 'miaomiaowu://login?host=…&code=…'
 +//	meowx-core panel status | profile | subscriptions | firewall | report | logout
 +//	meowx-core panel po0 status | enable | disable | fetch | add <地址> <token> | remove <序号>
++//	meowx-core panel ggy status | enable | disable | add <token 或分享链接> | remove <序号> | report（meowx_ggy.go）
 +//
 +// 加密信道与 iOS / Android 客户端同一套（主控 /api/secure/cert + /api/secure/rpc）：许可证服务用 Ed25519 签发的主控证书
 +// → 每次请求一把临时 X25519 密钥 + HKDF-SHA256 派生收发两把 key → ChaCha20-Poly1305。
@@ -152,9 +878,15 @@
 +	if v := os.Getenv("MEOWX_PO0_STATE"); v != "" {
 +		po0StatePath = v
 +	}
++	if v := os.Getenv("MEOWX_GGY_RESULTS"); v != "" {
++		ggyResultPath = v
++	}
++	if v := os.Getenv("MEOWX_APP_LOG"); v != "" {
++		ggyAppLogPath = v
++	}
 +	panelBypassProxy()
 +	if len(args) == 0 {
-+		fmt.Fprintln(os.Stderr, "usage: meowx-core panel login <link> | status | profile | subscriptions | firewall | report | logout | po0 …")
++		fmt.Fprintln(os.Stderr, "usage: meowx-core panel login <link> | status | profile | subscriptions | firewall | report | logout | po0 … | ggy …")
 +		return 2
 +	}
 +	var out any
@@ -178,6 +910,8 @@
 +		out, err = panelReport()
 +	case "po0":
 +		out, err = po0Main(args[1:])
++	case "ggy":
++		out, err = ggyMain(args[1:])
 +	case "logout":
 +		err = os.Remove(panelStatePath)
 +		if errors.Is(err, os.ErrNotExist) {
@@ -404,6 +1138,7 @@
 +// 上报客户端 IP 白名单：主控 report_url（登录了才有）+ 开着 po0 时的各台 po0（主控下发的 + 自己添加的）。
 +// IPv4 / IPv6 各报一次（同客户端：白名单一开，没列进名单的 v6 源同样被拦；只有 v4 的网络里 v6 那发失败不算错）。
 +// po0 用自签证书，只对它跳过证书校验，且要带 Content-Type: application/json；403 = token 无效。
++// 最后是开着 GGY 加白时的各个 token（与主控账户无关、没登录也报；只走 IPv4、照常校验证书，见 meowx_ggy.go）。
 +func panelReport() (any, error) {
 +	var results []map[string]any
 +	st, _ := loadPanelState()
@@ -418,6 +1153,9 @@
 +		for _, u := range po.reportURLs() {
 +			results = append(results, reportTarget("po0", u, true)...)
 +		}
++	}
++	if ggy := loadGGYConfig(); ggy.Enabled && len(ggy.Tokens) > 0 {
++		results = append(results, ggyReport(ggy.Tokens)...)
 +	}
 +	ok := false
 +	for _, r := range results {

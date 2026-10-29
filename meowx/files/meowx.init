@@ -12,7 +12,7 @@ extra_command 'update_subscription' 'Update subscription by section id'
 extra_command 'refresh_subscription' 'Update subscription by section id, reload if it is the active profile'
 extra_command 'switch_profile' 'Switch to profile (file:<name> / subscription:<section>) and reload'
 extra_command 'auto_update' 'Refresh the active subscription if it is older than the auto update interval'
-extra_command 'panel_cron' 'Set the firewall whitelist report cron (panel account / po0)'
+extra_command 'panel_cron' 'Set the firewall whitelist report cron (panel account / po0 / GGY)'
 extra_command 'panel_report' 'Report the firewall whitelist now, reload if the po0 list changed'
 extra_command 'clear_logs' 'Clear logs if size exceeds the limit'
 extra_command 'ghproxy_cron' 'Re-test GitHub mirrors (auto mode), reload if the selected one became unreachable'
@@ -158,7 +158,7 @@ start_service() {
 		log "App" "Set subscription auto update cron."
 		echo "17 * * * * /etc/init.d/meowx auto_update #meowx subscription auto update" >> "/etc/crontabs/root"
 	fi
-	## 客户端 IP 白名单（主控账户 + po0）上报的定时任务，启动时先报一次
+	## 客户端 IP 白名单（主控账户 + po0 + GGY）上报的定时任务，启动时先报一次
 	set_panel_cron
 	(/etc/init.d/meowx panel_report >/dev/null 2>&1 &)
 	## GitHub 加速选「自动选最快」时每天重测一次（启动时缓存还新就不测）
@@ -1000,12 +1000,17 @@ po0_report_urls() {
 	[ -f "/etc/meowx/po0.json" ] && jsonfilter -i "/etc/meowx/po0.json" -e '@.report_urls[*]' 2>/dev/null
 }
 
-# 白名单上报间隔同客户端 FirewallReporter：有 po0 时每 10 分钟（一台 po0 只有 5 个名额、全体用户共用，按最久没报的先挤掉），
-# 只有主控账户时每小时；两样都没有就不上报。只在服务跑着时挂（服务停了，路由器也就不经节点出去）
+# GGY 加白开着且至少有一个 token（与主控账户无关，没登录也报）
+ggy_active() {
+	[ "$(uci -q get meowx.ggy.enabled)" = "1" ] && [ -n "$(uci -q get meowx.ggy.token)" ]
+}
+
+# 白名单上报间隔同客户端 FirewallReporter：有 po0 或 GGY 加白时每 10 分钟（一台 po0 只有 5 个名额、全体用户共用，按最久没报的先挤掉），
+# 只有主控账户时每小时；都没有就不上报。只在服务跑着时挂（服务停了，路由器也就不经节点出去）
 set_panel_cron() {
 	sed -i "/#meowx panel report/d" "/etc/crontabs/root" > /dev/null 2>&1
 	local schedule
-	if [ -n "$(po0_report_urls)" ]; then
+	if [ -n "$(po0_report_urls)" ] || ggy_active; then
 		schedule="*/10 * * * *"
 	elif [ -f "/etc/meowx/panel.json" ]; then
 		schedule="23 * * * *"
@@ -1016,7 +1021,7 @@ set_panel_cron() {
 	echo "$schedule /etc/init.d/meowx panel_report >/dev/null 2>&1 #meowx panel report" >> "/etc/crontabs/root"
 }
 
-# 登录 / 退出 / 改 po0 后由 LuCI 调：服务跑着才挂定时任务
+# 登录 / 退出 / 改 po0 / 改 GGY 加白后由 LuCI 调：服务跑着才挂定时任务
 panel_cron() {
 	if /etc/init.d/meowx running; then
 		set_panel_cron
