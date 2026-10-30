@@ -18,8 +18,7 @@ on:
 jobs:
   release:
     name: ${{ matrix.arch }}-${{ matrix.branch }} release
-    # 自建 runner（LAX，标签 lax）：3 个并发实例串着跑全部架构。feed 作业仍留 GitHub 托管。
-    runs-on: [self-hosted, lax]
+    runs-on: ubuntu-latest
     continue-on-error: true
     # 建 GitHub Release 要写权限（组织缺省给工作流的令牌是只读）
     permissions:
@@ -106,15 +105,6 @@ jobs:
           files: |
             meowx_${{ matrix.arch }}-${{ matrix.branch }}.tar.gz
           prerelease: ${{ contains(github.ref_name, '-') }}
-
-      # 自建 runner 的工作区与 docker 不自动清，63 个架构轮着跑会把盘撑爆：
-      # 删掉本次产物、清掉本作业用完的 docker 镜像（并发中的其它作业镜像在用、不会被清）。
-      - name: cleanup
-        if: always()
-        run: |
-          rm -rf bin build_dir dl 2>/dev/null || true
-          docker image prune -af 2>/dev/null || true
-          docker builder prune -af 2>/dev/null || true
 
   # 推到 CDN：软件源同步到 R2 的 meowx/openwrt/（不带 --delete：某个架构这次没编过时保留线上上一版），
   # 再把 openwrt 条目登记进 meowx/latest.json（文档站下载页读它）。正式 tag 自动推；手动触发在 main 上且勾了 publish 才推。
