@@ -6,7 +6,7 @@ include $(TOPDIR)/rules.mk
 #           002 加 `meowx-core panel …` 子命令：主控账户（登录链接）、账户订阅、客户端 IP 白名单上报，加密信道同 iOS / Android 客户端。
 PKG_NAME:=meowx-core
 PKG_VERSION:=0.3.9
-PKG_RELEASE:=1
+PKG_RELEASE:=2
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/mmwx-group/meowC.git
