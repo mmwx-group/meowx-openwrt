@@ -109,7 +109,7 @@ if (uci_bool(uci.get('meowx', 'mixin', 'dns_nameserver'))) {
 if (uci_bool(uci.get('meowx', 'mixin', 'dns_proxy_server_nameserver_policy'))) {
 	config['dns']['proxy-server-nameserver-policy'] = {};
 	uci.foreach('meowx', 'proxy_server_nameserver_policy', (section) => {
-		if (!uci_bool(section.enabled)) {
+		if (!uci_bool(section.enabled) || !length(section.matcher)) {
 			return;
 		}
 		config['dns']['proxy-server-nameserver-policy'][section.matcher] = uci_array(section.nameserver);
@@ -119,7 +119,7 @@ config['dns']['direct-nameserver-follow-policy'] = uci_bool(uci.get('meowx', 'mi
 if (uci_bool(uci.get('meowx', 'mixin', 'dns_nameserver_policy'))) {
 	config['dns']['nameserver-policy'] = {};
 	uci.foreach('meowx', 'nameserver_policy', (section) => {
-		if (!uci_bool(section.enabled)) {
+		if (!uci_bool(section.enabled) || !length(section.matcher)) {
 			return;
 		}
 		config['dns']['nameserver-policy'][section.matcher] = uci_array(section.nameserver);

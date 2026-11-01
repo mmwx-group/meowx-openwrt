@@ -21,6 +21,21 @@ return baseclass.extend({
 
         let m, s, o, so;
 
+        // LuCI 的 form.SectionValue.parse 不检查 depends：开关关掉（整段隐藏）后，
+        // 保存时里面 TableSection 的每一行仍会被校验。本页多处用必填字段（如 DNS 策略的
+        // Matcher），隐藏段里残留的空值行会卡住保存、且用户看不到那一行、无从修改。
+        // 包一层：depends 未满足时跳过解析——retain=true 会原样保留已有 UCI 数据，
+        // ucode 生成端本来也只在对应开关打开时才读这些段，跳过无副作用。
+        const guardHidden = function (opt) {
+            const base = opt.parse;
+            opt.parse = function (section_id) {
+                if (!this.checkDepends(section_id))
+                    return Promise.resolve();
+                return base.call(this, section_id);
+            };
+            return opt;
+        };
+
         m = new form.Map('meowx');
 
         s = m.section(form.NamedSection, 'mixin', 'mixin', _('Mixin Option'));
@@ -176,6 +191,7 @@ return baseclass.extend({
         o = s.taboption('inbound', form.SectionValue, '_authentications', form.TableSection, 'authentication', _('Edit Authentications'));
         o.retain = true;
         o.depends('authentication', '1');
+        guardHidden(o);
 
         o.subsection.addremove = true;
         o.subsection.anonymous = true;
@@ -325,6 +341,7 @@ return baseclass.extend({
         o = s.taboption('dns', form.SectionValue, '_hosts', form.TableSection, 'hosts', _('Edit Hosts'));
         o.retain = true;
         o.depends('hosts', '1');
+        guardHidden(o);
 
         o.subsection.addremove = true;
         o.subsection.anonymous = true;
@@ -344,6 +361,7 @@ return baseclass.extend({
         o = s.taboption('dns', form.SectionValue, '_dns_nameservers', form.TableSection, 'nameserver', _('Edit Nameservers'));
         o.retain = true;
         o.depends('dns_nameserver', '1');
+        guardHidden(o);
 
         o.subsection.addremove = true;
         o.subsection.anonymous = true;
@@ -367,6 +385,7 @@ return baseclass.extend({
         o = s.taboption('dns', form.SectionValue, '_dns_proxy_server_nameserver_policies', form.TableSection, 'proxy_server_nameserver_policy', _('Edit Proxy Server Nameserver Policies'));
         o.retain = true;
         o.depends('dns_proxy_server_nameserver_policy', '1');
+        guardHidden(o);
 
         o.subsection.addremove = true;
         o.subsection.anonymous = true;
@@ -392,6 +411,7 @@ return baseclass.extend({
         o = s.taboption('dns', form.SectionValue, '_dns_nameserver_policies', form.TableSection, 'nameserver_policy', _('Edit Nameserver Policies'));
         o.retain = true;
         o.depends('dns_nameserver_policy', '1');
+        guardHidden(o);
 
         o.subsection.addremove = true;
         o.subsection.anonymous = true;
@@ -445,6 +465,7 @@ return baseclass.extend({
         o = s.taboption('sniffer', form.SectionValue, '_sniffer_sniffs', form.TableSection, 'sniff', _('Sniff By Protocol'));
         o.retain = true;
         o.depends('sniffer_sniff', '1');
+        guardHidden(o);
 
         o.subsection.anonymous = true;
         o.subsection.addremove = false;
@@ -472,6 +493,7 @@ return baseclass.extend({
         o = s.taboption('rule', form.SectionValue, '_rule_providers', form.GridSection, 'rule_provider', _('Edit Rule Providers'));
         o.retain = true;
         o.depends('rule_provider', '1');
+        guardHidden(o);
 
         o.subsection.anonymous = true;
         o.subsection.addremove = true;
@@ -541,6 +563,7 @@ return baseclass.extend({
         o = s.taboption('rule', form.SectionValue, '_rules', form.TableSection, 'rule', _('Edit Rules'));
         o.retain = true;
         o.depends('rule', '1');
+        guardHidden(o);
 
         o.subsection.anonymous = true;
         o.subsection.addremove = true;
