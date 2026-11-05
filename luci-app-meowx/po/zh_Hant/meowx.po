@@ -1538,3 +1538,99 @@ msgstr "加速位址"
 
 msgid "Latency"
 msgstr "延遲"
+
+msgid "Applying…"
+msgstr "正在套用…"
+
+msgid "Off"
+msgstr "已關閉"
+
+msgid "Connected"
+msgstr "已連線"
+
+msgid "Not joined"
+msgstr "未入網"
+
+msgid "Connecting…"
+msgstr "正在連線…"
+
+msgid "Not connected"
+msgstr "未連線"
+
+msgid "Other subnets, comma separated, e.g. 192.168.2.0/24"
+msgstr "其他網段，用逗號分隔，例如 192.168.2.0/24"
+
+msgid "Mesh Network"
+msgstr "大內網"
+
+msgid "Join the panel's mesh network (Tailscale protocol) and expose this router's LAN to your other devices signed in with the same admin account, e.g. reach a NAS at home from your Mac outside. Admin accounts only."
+msgstr "加入主控的大內網（Tailscale 協定），把這台路由器下的區域網路開放給同一管理員帳號的其他裝置，例如在外面用 Mac 存取家裡的 NAS。只對管理員帳號開放。"
+
+msgid "Log in to the panel account on the App Config page first (an admin account of a panel with the mesh network turned on)."
+msgstr "請先在「應用程式設定」頁登入主控帳號（主控要開著大內網，帳號要是管理員）。"
+
+msgid "Installing tailscale…"
+msgstr "正在安裝 tailscale…"
+
+msgid "This router needs the official tailscale program (about %d MB of storage, %d MB free)."
+msgstr "需要在路由器上安裝官方 tailscale 程式（約占 %d MB 儲存空間，目前剩餘 %d MB）。"
+
+msgid "Install tailscale"
+msgstr "安裝 tailscale"
+
+msgid "Not enough storage. Free up space or use a router with more flash."
+msgstr "儲存空間不夠：先清出空間，或換一台快閃記憶體更大的路由器。"
+
+msgid "Relay %s"
+msgstr "中繼 %s"
+
+msgid "Exposed subnets (%d)"
+msgstr "開放的網段（%d）"
+
+msgid "Mapped from %s (the subnet is already used in the mesh network; host part unchanged)"
+msgstr "由 %s 映射而來（這個網段在大內網裡已有人用，主機號不變）"
+
+msgid "As is"
+msgstr "原樣開放"
+
+msgid "Mapped"
+msgstr "已映射"
+
+msgid "LAN subnets to expose"
+msgstr "要開放的區域網路網段"
+
+msgid "Always map (use a block from the panel's mapping pool even without conflicts)"
+msgstr "總是映射（沒有衝突也用主控映射池裡的網段）"
+
+msgid "Allow mesh devices to access this router itself (LuCI, SSH…)"
+msgstr "允許大內網裡的裝置存取路由器本身（LuCI、SSH…）"
+
+msgid "Device name"
+msgstr "裝置名稱"
+
+msgid "Other devices (%d)"
+msgstr "其他裝置（%d）"
+
+msgid "No other devices yet. Turn on \"Mesh network\" in MeowX signed in with the same admin account."
+msgstr "還沒有其他裝置：在用同一管理員帳號登入的 MeowX 裡打開「大內網」即可。"
+
+msgid "Via relay %s"
+msgstr "經中繼 %s"
+
+msgid "Offline"
+msgstr "離線"
+
+msgid "Leave the mesh network?"
+msgstr "退出大內網？"
+
+msgid "This router is removed from the mesh network on the panel and its exposed subnets are withdrawn. Turn the switch on again to rejoin."
+msgstr "這台路由器會從主控的大內網裡刪除，開放的網段一併撤銷。重新打開開關即可再次入網。"
+
+msgid "Leave"
+msgstr "退出"
+
+msgid "Leave mesh network"
+msgstr "退出大內網"
+
+msgid "Devices reach the exposed subnets through the mesh network; when a subnet is already used by another router it is mapped to a block from the panel's mapping pool. Direct connections need UDP; when both ends are behind strict NAT, traffic goes through the relay chosen on the panel (end-to-end encrypted)."
+msgstr "其他裝置經大內網存取開放的網段；網段已被別的路由器占用時會映射到主控映射池裡的一段。直連要用 UDP，兩端都在嚴格 NAT 後面時經主控選定的中繼轉發（端對端加密）。"

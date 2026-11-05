@@ -485,6 +485,38 @@ const methods = {
 			return json(trim(output) || 'null') ?? { error: 'bad output' };
 		}
 	},
+	// 大内网：action = status / save（settings 是设置对象，存完在后台应用）/ apply / leave（后台跑，页面轮询 status）
+	// / install（mesh_cli 自己转后台）
+	mesh: {
+		args: { action: 'action', settings: {} },
+		call: function(req) {
+			const action = req.args?.action ?? 'status';
+			if (index([ 'status', 'save', 'apply', 'install', 'leave' ], action) < 0) {
+				return { success: false, error: 'invalid action' };
+			}
+			const cli = '/etc/meowx/ucode/mesh_cli.uc';
+			if (action == 'apply' || action == 'leave') {
+				system(`(ucode -S ${cli} ${action} >/dev/null 2>&1 &)`);
+				return { success: true, started: true };
+			}
+			let command = `ucode -S ${cli} ${action}`;
+			if (action == 'save') {
+				command += ' ' + shell_quote(sprintf('%J', req.args?.settings ?? {}));
+			}
+			const process = popen(command + ' 2>/dev/null');
+			if (!process) {
+				return { success: false, error: 'ucode not found' };
+			}
+			const output = process.read('all');
+			process.close();
+			const res = json(trim(output) || 'null') ?? { success: false, error: 'bad output' };
+			if (action == 'save' && res.success) {
+				system(`(ucode -S ${cli} apply >/dev/null 2>&1 &)`);
+				res.started = true;
+			}
+			return res;
+		}
+	},
 	api: {
 		args: { method: 'method', path: 'path', query: 'query', body: 'body' },
 		call: function(req) {

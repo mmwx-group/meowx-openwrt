@@ -255,6 +255,14 @@ section_ggy=$(uci -q get meowx.ggy); [ -z "$section_ggy" ] && {
 	uci set meowx.ggy.enabled=0
 }
 
+# 大内网：缺省关，不允许大内网里的设备访问路由器本身
+section_mesh=$(uci -q get meowx.mesh); [ -z "$section_mesh" ] && {
+	uci set meowx.mesh=mesh
+	uci set meowx.mesh.enabled=0
+	uci set meowx.mesh.force_map=0
+	uci set meowx.mesh.router_access=0
+}
+
 # commit
 uci commit meowx
 
