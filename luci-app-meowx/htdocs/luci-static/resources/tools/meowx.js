@@ -181,6 +181,13 @@ const callMeowXGgy = rpc.declare({
     expect: { '': {} }
 });
 
+const callMeowXMesh = rpc.declare({
+    object: 'luci.meowx',
+    method: 'mesh',
+    params: ['action', 'settings'],
+    expect: { '': {} }
+});
+
 const callMeowXGhproxy = rpc.declare({
     object: 'luci.meowx',
     method: 'ghproxy',
@@ -246,6 +253,11 @@ return baseclass.extend({
     // 服务上次启动 / 重载 / 切换没成功的原因：{ error, time }，没有失败时 error 为空
     lastError: function () {
         return L.resolveDefault(callMeowXLastError(), {});
+    },
+
+    // 大内网：status / save(settings) / apply / install / leave（后三个在路由器后台跑，页面轮询 status）
+    mesh: function (action, settings) {
+        return callMeowXMesh(action, settings ?? {});
     },
 
     // GitHub 加速：预设列表 + 上次测速结果（不测速）

@@ -1531,3 +1531,99 @@ msgstr ""
 
 msgid "Latency"
 msgstr ""
+
+msgid "Applying…"
+msgstr ""
+
+msgid "Off"
+msgstr ""
+
+msgid "Connected"
+msgstr ""
+
+msgid "Not joined"
+msgstr ""
+
+msgid "Connecting…"
+msgstr ""
+
+msgid "Not connected"
+msgstr ""
+
+msgid "Other subnets, comma separated, e.g. 192.168.2.0/24"
+msgstr ""
+
+msgid "Mesh Network"
+msgstr ""
+
+msgid "Join the panel's mesh network (Tailscale protocol) and expose this router's LAN to your other devices signed in with the same admin account, e.g. reach a NAS at home from your Mac outside. Admin accounts only."
+msgstr ""
+
+msgid "Log in to the panel account on the App Config page first (an admin account of a panel with the mesh network turned on)."
+msgstr ""
+
+msgid "Installing tailscale…"
+msgstr ""
+
+msgid "This router needs the official tailscale program (about %d MB of storage, %d MB free)."
+msgstr ""
+
+msgid "Install tailscale"
+msgstr ""
+
+msgid "Not enough storage. Free up space or use a router with more flash."
+msgstr ""
+
+msgid "Relay %s"
+msgstr ""
+
+msgid "Exposed subnets (%d)"
+msgstr ""
+
+msgid "Mapped from %s (the subnet is already used in the mesh network; host part unchanged)"
+msgstr ""
+
+msgid "As is"
+msgstr ""
+
+msgid "Mapped"
+msgstr ""
+
+msgid "LAN subnets to expose"
+msgstr ""
+
+msgid "Always map (use a block from the panel's mapping pool even without conflicts)"
+msgstr ""
+
+msgid "Allow mesh devices to access this router itself (LuCI, SSH…)"
+msgstr ""
+
+msgid "Device name"
+msgstr ""
+
+msgid "Other devices (%d)"
+msgstr ""
+
+msgid "No other devices yet. Turn on \"Mesh network\" in MeowX signed in with the same admin account."
+msgstr ""
+
+msgid "Via relay %s"
+msgstr ""
+
+msgid "Offline"
+msgstr ""
+
+msgid "Leave the mesh network?"
+msgstr ""
+
+msgid "This router is removed from the mesh network on the panel and its exposed subnets are withdrawn. Turn the switch on again to rejoin."
+msgstr ""
+
+msgid "Leave"
+msgstr ""
+
+msgid "Leave mesh network"
+msgstr ""
+
+msgid "Devices reach the exposed subnets through the mesh network; when a subnet is already used by another router it is mapped to a block from the panel's mapping pool. Direct connections need UDP; when both ends are behind strict NAT, traffic goes through the relay chosen on the panel (end-to-end encrypted)."
+msgstr ""

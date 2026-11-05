@@ -5,3 +5,7 @@
 /etc/meowx/run/providers/proxy/
 /etc/meowx/panel.json
 /etc/meowx/run/cache.db
+/etc/meowx/mesh.json
+/etc/meowx/mesh-snat.nft
+/etc/meowx/mesh-dnat.nft
+/etc/tailscale/

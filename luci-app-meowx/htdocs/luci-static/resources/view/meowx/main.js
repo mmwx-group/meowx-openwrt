@@ -13,6 +13,7 @@ const pages = [
     { id: 'editor', title: _('Editor'), module: 'view.meowx.editor' },
     { id: 'log', title: _('Log'), module: 'view.meowx.log' },
     { id: 'extras', title: _('Extras'), module: 'view.meowx.extras' },
+    { id: 'mesh', title: _('Mesh Network'), module: 'view.meowx.mesh', noActions: true },
     { id: 'about', title: _('About'), module: 'view.meowx.about', noActions: true }
 ];
 

@@ -1697,3 +1697,50 @@ body.mx-dark {
         min-width: 0;
     }
 }
+
+/* 大内网页：网段勾选、对端在线点、安装失败的日志 */
+#view#view .mx-mesh__checks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 18px;
+    margin: 4px 0 8px;
+}
+
+#view#view .mx-mesh__check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 6px 0;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+#view#view .mx-mesh__check input[type="checkbox"] {
+    flex: none;
+    margin: 0;
+}
+
+#view#view .mx-mesh__dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--mx-t2);
+    vertical-align: middle;
+}
+
+#view#view .mx-mesh__dot.is-online {
+    background: var(--mx-good);
+}
+
+#view#view .mx-mesh__log {
+    max-height: 180px;
+    overflow: auto;
+    margin: 8px 0 0;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: var(--mx-soft);
+    font-size: 12px;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
