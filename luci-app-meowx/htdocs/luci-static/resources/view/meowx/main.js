@@ -1,5 +1,6 @@
 'use strict';
 'require view';
+'require dom';
 'require tools.meowx as meowx';
 
 // MeowX 只有这一个视图：顶部胶囊页签在页内切换八个页面（同系统页的选项卡），不跳页面、不闪。
@@ -150,6 +151,15 @@ return view.extend({
         if (this.tabs.scrollWidth > this.tabs.clientWidth) {
             this.tabs.scrollTo({ left: active.offsetLeft - (this.tabs.clientWidth - active.offsetWidth) / 2, behavior: animate ? 'smooth' : 'auto' });
         }
+    },
+
+    // 依次保存每份 form.Map。页面点开过就留在页里，「插件配置」「代理配置」等几页各有一份同一配置（meowx）的 Map；
+    // LuCI 缺省的 handleSave 用 Promise.all 同时调各份的 save()，而每份都会把共用 uci 状态里全部待提交的改动发一遍：
+    // 删掉的选项发两次 uci/delete，第二次回「未找到资源」（用户实报：局域网访问控制里删掉一个 IP 后保存报错，IP 其实已删），
+    // 待新增的段也会 uci/add 两次。依次保存时前一份存完已重新加载、待提交的改动清空，后一份只发自己的
+    handleSave: function (ev) {
+        const maps = document.getElementById('maincontent').querySelectorAll('.cbi-map');
+        return Array.from(maps).reduce((chain, map) => chain.then(() => dom.callClassMethod(map, 'save')), Promise.resolve());
     },
 
     handleSaveApply: function (ev, mode) {
