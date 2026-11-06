@@ -485,7 +485,7 @@ const methods = {
 			return json(trim(output) || 'null') ?? { error: 'bad output' };
 		}
 	},
-	// 大内网：action = status / save（settings 是设置对象，存完在后台应用）/ apply / leave（后台跑，页面轮询 status）
+	// 喵窝：action = status / save（settings 是设置对象，存完在后台应用）/ apply / leave（后台跑，页面轮询 status）
 	// / install（mesh_cli 自己转后台）
 	mesh: {
 		args: { action: 'action', settings: {} },

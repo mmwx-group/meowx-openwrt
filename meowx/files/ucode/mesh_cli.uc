@@ -1,11 +1,11 @@
 #!/usr/bin/ucode
 
-// 大内网（主控内置的组网，Tailscale 协议）的命令行入口，LuCI 后端调用，输出一行 JSON：
-//   status   设置、tailscale 安装与运行情况、本机在大内网里的地址、对端、局域网候选网段、上次应用的结果
+// 喵窝（主控内置的组网，Tailscale 协议）的命令行入口，LuCI 后端调用，输出一行 JSON：
+//   status   设置、tailscale 安装与运行情况、本机在喵窝里的地址、对端、局域网候选网段、上次应用的结果
 //   save     <JSON> 保存设置（enabled / networks / force_map / hostname / router_access），不应用
 //   apply    按设置入网或退出：tailscale up / down、防火墙区域、网段映射（入网要先在「插件配置」里登录主控账户）
 //   install  装 tailscale（opkg / apk，后台跑，status 里看进度）
-//   leave    把这台路由器从大内网里删掉（主控里删设备、撤掉申报的网段、tailscale logout），并关掉开关
+//   leave    把这台路由器从喵窝里删掉（主控里删设备、撤掉申报的网段、tailscale logout），并关掉开关
 //
 // 路由器用官方 tailscale 程序（局域网要靠它的子网路由开放出去，内核里的 tailscale 只能当出站）。
 // 入网 key 由 meowx-core panel mesh enroll 向主控要（一次性、10 分钟有效），不用用户填。
@@ -37,7 +37,7 @@ function log(msg) {
 	const t = localtime();
 	const fd = open(APP_LOG_PATH, 'a');
 	if (fd) {
-		fd.write(sprintf('[%04d-%02d-%02d %02d:%02d:%02d] [大内网] %s\n', t.year, t.mon, t.mday, t.hour, t.min, t.sec, msg));
+		fd.write(sprintf('[%04d-%02d-%02d %02d:%02d:%02d] [喵窝] %s\n', t.year, t.mon, t.mday, t.hour, t.min, t.sec, msg));
 		fd.close();
 	}
 }
@@ -243,7 +243,7 @@ function lan_networks() {
 
 // ---------- 防火墙 ----------
 
-// 大内网进来的流量：转发到 lan、访问路由器本身按设置；进 lan 时做源地址转换（局域网设备的回包回到路由器，
+// 喵窝进来的流量：转发到 lan、访问路由器本身按设置；进 lan 时做源地址转换（局域网设备的回包回到路由器，
 // 不用知道 100.x 的路由）；映射段 1:1 改回原网段。tailscale 的 UDP 端口在 wan 上放行，打洞直连更容易成。
 function firewall_apply(s, sites) {
 	const fw = cursor();
@@ -444,7 +444,7 @@ function apply_up() {
 		return fail(st, ps.json?.error ?? ('连不上主控：' + ps.out));
 	}
 	if (!ps.json.available) {
-		return fail(st, ps.json.message || '主控没有开放大内网');
+		return fail(st, ps.json.message || '主控没有开放喵窝');
 	}
 	const control = rtrim(ps.json.control_url ?? '', '/');
 	if (!control) {
@@ -465,7 +465,7 @@ function apply_up() {
 	save_state(st);
 	sync_proxy(hosts_before, hosts_phase1);
 
-	// 申报这台路由器要开放的网段（整份），拿到每个网段在大内网里用的地址
+	// 申报这台路由器要开放的网段（整份），拿到每个网段在喵窝里用的地址
 	const id = router_id();
 	let cmd = `/usr/bin/meowx-core panel mesh sites --router ${shell_quote(id)}`;
 	if (s.force_map) {
@@ -620,7 +620,7 @@ function leave() {
 	st.sites = [];
 	st.advertised = [];
 	save_state(st);
-	log(`已退出大内网（${s.hostname || hostname(s)}）`);
+	log(`已退出喵窝（${s.hostname || hostname(s)}）`);
 	return res;
 }
 

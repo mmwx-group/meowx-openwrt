@@ -3,7 +3,7 @@
 'require ui';
 'require tools.meowx as meowx';
 
-// 「大内网」页：路由器用官方 tailscale 程序加入主控的大内网（Tailscale 协议），把局域网开放给同一管理员账号的其它设备。
+// 「喵窝」页：路由器用官方 tailscale 程序加入主控的喵窝（Tailscale 协议），把局域网开放给同一管理员账号的其它设备。
 // 点了就生效（同 po0 卡片）：开关 / 「保存并应用」把设置交给路由器后台入网，页面每 2 秒问一次状态直到应用完。
 // 入网 key 由路由器向主控要（要先在「插件配置」里登录主控账户），防火墙、网段映射由 mesh_cli.uc 写进 fw4。
 
@@ -121,7 +121,7 @@ function renderCard(initial) {
                 poll(before, false);
             }, (err) => fail({ error: String(err?.message ?? err) })));
 
-        const toggle = E('input', { type: 'checkbox', 'aria-label': _('Mesh Network') });
+        const toggle = E('input', { type: 'checkbox', 'aria-label': _('MeowNest') });
         toggle.checked = !!s.enabled;
         toggle.disabled = !ready || !!st.applying;
         toggle.addEventListener('change', () => save(toggle, toggle.checked));   // busy() 会先禁用它
@@ -130,8 +130,8 @@ function renderCard(initial) {
         const children = [
             E('div', { class: 'mx-po0__head' }, [
                 E('div', { class: 'mx-po0__title' }, [
-                    E('span', { class: 'mx-subcard__label' }, _('Mesh Network')),
-                    E('div', { class: 'mx-account__hint' }, _('Join the panel\'s mesh network (Tailscale protocol) and expose this router\'s LAN to your other devices signed in with the same admin account, e.g. reach a NAS at home from your Mac outside. Admin accounts only.')),
+                    E('span', { class: 'mx-subcard__label' }, _('MeowNest')),
+                    E('div', { class: 'mx-account__hint' }, _('Join the panel\'s MeowNest (Tailscale protocol) and expose this router\'s LAN to your other devices signed in with the same admin account, e.g. reach a NAS at home from your Mac outside. Admin accounts only.')),
                     ready ? E('div', { class: 'mx-status ' + cls }, [E('span', { class: 'mx-status__dot' }), E('span', {}, label)]) : ''
                 ]),
                 toggle
@@ -139,7 +139,7 @@ function renderCard(initial) {
         ];
 
         if (!st.panel_logged_in) {
-            children.push(E('div', { class: 'mx-po0__empty' }, _('Log in to the panel account on the App Config page first (an admin account of a panel with the mesh network turned on).')));
+            children.push(E('div', { class: 'mx-po0__empty' }, _('Log in to the panel account on the App Config page first (an admin account of a panel with MeowNest turned on).')));
         } else if (!st.installed) {
             if (st.installing) {
                 children.push(E('div', { class: 'mx-po0__group' }, [E('span', { class: 'spinning' }, _('Installing tailscale…'))]));
@@ -170,7 +170,7 @@ function renderCard(initial) {
                 children.push(E('pre', { class: 'mx-mesh__log' }, st.install_log));
             }
         } else {
-            // 本机在大内网里
+            // 本机在喵窝里
             if (st.self?.ip && s.enabled) {
                 children.push(E('div', { class: 'mx-po0__list' }, [
                     row(st.self.ip, [st.self.dns_name, st.self.relay ? _('Relay %s').format(st.self.relay) : ''].filter((x) => x).join(' · '),
@@ -187,7 +187,7 @@ function renderCard(initial) {
                 children.push(E('div', { class: 'mx-po0__group' }, _('Exposed subnets (%d)').format(sites.length)));
                 children.push(E('div', { class: 'mx-po0__list' }, sites.map((x) => row(
                     x.mapped ? x.advertised : x.original,
-                    x.mapped ? _('Mapped from %s (the subnet is already used in the mesh network; host part unchanged)').format(x.original) : _('As is'),
+                    x.mapped ? _('Mapped from %s (the subnet is already used in MeowNest; host part unchanged)').format(x.original) : _('As is'),
                     x.mapped ? E('span', { class: 'mx-badge' }, _('Mapped')) : ''
                 ))));
             }
@@ -214,7 +214,7 @@ function renderCard(initial) {
             if (s.enabled && st.backend == 'Running') {
                 children.push(E('div', { class: 'mx-po0__group' }, _('Other devices (%d)').format(peers.length)));
                 if (peers.length == 0) {
-                    children.push(E('div', { class: 'mx-po0__empty' }, _('No other devices yet. Turn on "Mesh network" in MeowX signed in with the same admin account.')));
+                    children.push(E('div', { class: 'mx-po0__empty' }, _('No other devices yet. Turn on "MeowNest" in MeowX signed in with the same admin account.')));
                 } else {
                     children.push(E('div', { class: 'mx-po0__list' }, peers.map((p) => row(
                         [E('span', { class: 'mx-mesh__dot' + (p.online ? ' is-online' : '') }), ' ', p.name || p.dns_name],
@@ -228,8 +228,8 @@ function renderCard(initial) {
                     E('button', {
                         type: 'button',
                         class: 'cbi-button cbi-button-negative',
-                        click: () => ui.showModal(_('Leave the mesh network?'), [
-                            E('p', {}, _('This router is removed from the mesh network on the panel and its exposed subnets are withdrawn. Turn the switch on again to rejoin.')),
+                        click: () => ui.showModal(_('Leave MeowNest?'), [
+                            E('p', {}, _('This router is removed from MeowNest on the panel and its exposed subnets are withdrawn. Turn the switch on again to rejoin.')),
                             E('div', { class: 'right' }, [
                                 E('button', { type: 'button', class: 'cbi-button', click: ui.hideModal }, _('Cancel')),
                                 ' ',
@@ -245,14 +245,14 @@ function renderCard(initial) {
                                 }, _('Leave'))
                             ])
                         ])
-                    }, _('Leave mesh network'))
+                    }, _('Leave MeowNest'))
                 ]));
             }
         }
         if (!children.includes(error)) {
             children.push(error);
         }
-        children.push(E('div', { class: 'mx-po0__note' }, _('Devices reach the exposed subnets through the mesh network; when a subnet is already used by another router it is mapped to a block from the panel\'s mapping pool. Direct connections need UDP; when both ends are behind strict NAT, traffic goes through the relay chosen on the panel (end-to-end encrypted).')));
+        children.push(E('div', { class: 'mx-po0__note' }, _('Devices reach the exposed subnets through MeowNest; when a subnet is already used by another router it is mapped to a block from the panel\'s mapping pool. Direct connections need UDP; when both ends are behind strict NAT, traffic goes through the relay chosen on the panel (end-to-end encrypted).')));
         card.replaceChildren(...children);
         // 打开页面时路由器正在应用（别的标签页点的、或刚开开关）：接着等它跑完
         if (st.applying && !polling) {

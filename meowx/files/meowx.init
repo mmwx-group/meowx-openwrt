@@ -355,7 +355,7 @@ mixin_profile() {
 	mesh_apply "$profile_path"
 }
 
-# 大内网（辅助功能 → 大内网）：主控与中继的域名加进 fake-ip-filter——透明代理（fake-ip）下路由器自己查这些
+# 喵窝（辅助功能 → 喵窝）：主控与中继的域名加进 fake-ip-filter——透明代理（fake-ip）下路由器自己查这些
 # 域名会拿到假地址，tailscaled 的连接又按 fwmark 绕过代理（hijack.ut），拿着假地址就连不上。
 # 列表由 mesh_cli.uc 维护在 /etc/meowx/mesh.json；白名单模式下名单里的才给假地址，不往里加。「仅核心」开着时同样生效
 mesh_apply() {

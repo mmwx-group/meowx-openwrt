@@ -1553,13 +1553,13 @@ msgstr ""
 msgid "Other subnets, comma separated, e.g. 192.168.2.0/24"
 msgstr ""
 
-msgid "Mesh Network"
+msgid "MeowNest"
 msgstr ""
 
-msgid "Join the panel's mesh network (Tailscale protocol) and expose this router's LAN to your other devices signed in with the same admin account, e.g. reach a NAS at home from your Mac outside. Admin accounts only."
+msgid "Join the panel's MeowNest (Tailscale protocol) and expose this router's LAN to your other devices signed in with the same admin account, e.g. reach a NAS at home from your Mac outside. Admin accounts only."
 msgstr ""
 
-msgid "Log in to the panel account on the App Config page first (an admin account of a panel with the mesh network turned on)."
+msgid "Log in to the panel account on the App Config page first (an admin account of a panel with MeowNest turned on)."
 msgstr ""
 
 msgid "Installing tailscale…"
@@ -1580,7 +1580,7 @@ msgstr ""
 msgid "Exposed subnets (%d)"
 msgstr ""
 
-msgid "Mapped from %s (the subnet is already used in the mesh network; host part unchanged)"
+msgid "Mapped from %s (the subnet is already used in MeowNest; host part unchanged)"
 msgstr ""
 
 msgid "As is"
@@ -1604,7 +1604,7 @@ msgstr ""
 msgid "Other devices (%d)"
 msgstr ""
 
-msgid "No other devices yet. Turn on \"Mesh network\" in MeowX signed in with the same admin account."
+msgid "No other devices yet. Turn on \"MeowNest\" in MeowX signed in with the same admin account."
 msgstr ""
 
 msgid "Via relay %s"
@@ -1613,17 +1613,17 @@ msgstr ""
 msgid "Offline"
 msgstr ""
 
-msgid "Leave the mesh network?"
+msgid "Leave MeowNest?"
 msgstr ""
 
-msgid "This router is removed from the mesh network on the panel and its exposed subnets are withdrawn. Turn the switch on again to rejoin."
+msgid "This router is removed from MeowNest on the panel and its exposed subnets are withdrawn. Turn the switch on again to rejoin."
 msgstr ""
 
 msgid "Leave"
 msgstr ""
 
-msgid "Leave mesh network"
+msgid "Leave MeowNest"
 msgstr ""
 
-msgid "Devices reach the exposed subnets through the mesh network; when a subnet is already used by another router it is mapped to a block from the panel's mapping pool. Direct connections need UDP; when both ends are behind strict NAT, traffic goes through the relay chosen on the panel (end-to-end encrypted)."
+msgid "Devices reach the exposed subnets through MeowNest; when a subnet is already used by another router it is mapped to a block from the panel's mapping pool. Direct connections need UDP; when both ends are behind strict NAT, traffic goes through the relay chosen on the panel (end-to-end encrypted)."
 msgstr ""

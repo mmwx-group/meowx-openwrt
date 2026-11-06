@@ -1698,7 +1698,7 @@ body.mx-dark {
     }
 }
 
-/* 大内网页：网段勾选、对端在线点、安装失败的日志 */
+/* 喵窝页：网段勾选、对端在线点、安装失败的日志 */
 #view#view .mx-mesh__checks {
     display: flex;
     flex-wrap: wrap;

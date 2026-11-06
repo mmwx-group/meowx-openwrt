@@ -255,7 +255,7 @@ return baseclass.extend({
         return L.resolveDefault(callMeowXLastError(), {});
     },
 
-    // 大内网：status / save(settings) / apply / install / leave（后三个在路由器后台跑，页面轮询 status）
+    // 喵窝：status / save(settings) / apply / install / leave（后三个在路由器后台跑，页面轮询 status）
     mesh: function (action, settings) {
         return callMeowXMesh(action, settings ?? {});
     },

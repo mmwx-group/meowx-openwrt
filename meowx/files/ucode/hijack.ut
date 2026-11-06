@@ -129,7 +129,7 @@
 		}
 		push(bypass_fwmark, { mark: mark, mask: mask });
 	}
-	// 大内网开着：tailscaled 自己的连接（控制面、中继、打洞的 UDP）都打 0x80000/0xff0000（tailscale 的 bypass mark），直连不进代理
+	// 喵窝开着：tailscaled 自己的连接（控制面、中继、打洞的 UDP）都打 0x80000/0xff0000（tailscale 的 bypass mark），直连不进代理
 	if (uci_bool(uci.get('meowx', 'mesh', 'enabled'))) {
 		push(bypass_fwmark, { mark: '0x80000', mask: '0xff0000' });
 	}

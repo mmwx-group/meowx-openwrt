@@ -255,7 +255,7 @@ section_ggy=$(uci -q get meowx.ggy); [ -z "$section_ggy" ] && {
 	uci set meowx.ggy.enabled=0
 }
 
-# 大内网：缺省关，不允许大内网里的设备访问路由器本身
+# 喵窝：缺省关，不允许喵窝里的设备访问路由器本身
 section_mesh=$(uci -q get meowx.mesh); [ -z "$section_mesh" ] && {
 	uci set meowx.mesh=mesh
 	uci set meowx.mesh.enabled=0

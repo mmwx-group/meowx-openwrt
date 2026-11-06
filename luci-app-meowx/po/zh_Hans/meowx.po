@@ -1560,14 +1560,14 @@ msgstr "未连接"
 msgid "Other subnets, comma separated, e.g. 192.168.2.0/24"
 msgstr "其它网段，用逗号分隔，例如 192.168.2.0/24"
 
-msgid "Mesh Network"
-msgstr "大内网"
+msgid "MeowNest"
+msgstr "喵窝"
 
-msgid "Join the panel's mesh network (Tailscale protocol) and expose this router's LAN to your other devices signed in with the same admin account, e.g. reach a NAS at home from your Mac outside. Admin accounts only."
-msgstr "加入主控的大内网（Tailscale 协议），把这台路由器下的局域网开放给同一管理员账号的其它设备，例如在外面用 Mac 访问家里的 NAS。只对管理员账号开放。"
+msgid "Join the panel's MeowNest (Tailscale protocol) and expose this router's LAN to your other devices signed in with the same admin account, e.g. reach a NAS at home from your Mac outside. Admin accounts only."
+msgstr "加入主控的喵窝（Tailscale 协议），把这台路由器下的局域网开放给同一管理员账号的其它设备，例如在外面用 Mac 访问家里的 NAS。只对管理员账号开放。"
 
-msgid "Log in to the panel account on the App Config page first (an admin account of a panel with the mesh network turned on)."
-msgstr "请先在「插件配置」页登录主控账户（主控要开着大内网，账号要是管理员）。"
+msgid "Log in to the panel account on the App Config page first (an admin account of a panel with MeowNest turned on)."
+msgstr "请先在「插件配置」页登录主控账户（主控要开着喵窝，账号要是管理员）。"
 
 msgid "Installing tailscale…"
 msgstr "正在安装 tailscale…"
@@ -1587,8 +1587,8 @@ msgstr "中继 %s"
 msgid "Exposed subnets (%d)"
 msgstr "开放的网段（%d）"
 
-msgid "Mapped from %s (the subnet is already used in the mesh network; host part unchanged)"
-msgstr "由 %s 映射而来（这个网段在大内网里已有人用，主机号不变）"
+msgid "Mapped from %s (the subnet is already used in MeowNest; host part unchanged)"
+msgstr "由 %s 映射而来（这个网段在喵窝里已有人用，主机号不变）"
 
 msgid "As is"
 msgstr "原样开放"
@@ -1603,7 +1603,7 @@ msgid "Always map (use a block from the panel's mapping pool even without confli
 msgstr "总是映射（没有冲突也用主控映射池里的网段）"
 
 msgid "Allow mesh devices to access this router itself (LuCI, SSH…)"
-msgstr "允许大内网里的设备访问路由器本身（LuCI、SSH…）"
+msgstr "允许喵窝里的设备访问路由器本身（LuCI、SSH…）"
 
 msgid "Device name"
 msgstr "设备名"
@@ -1611,8 +1611,8 @@ msgstr "设备名"
 msgid "Other devices (%d)"
 msgstr "其它设备（%d）"
 
-msgid "No other devices yet. Turn on \"Mesh network\" in MeowX signed in with the same admin account."
-msgstr "还没有其它设备：在用同一管理员账号登录的 MeowX 里打开「大内网」即可。"
+msgid "No other devices yet. Turn on \"MeowNest\" in MeowX signed in with the same admin account."
+msgstr "还没有其它设备：在用同一管理员账号登录的 MeowX 里打开「喵窝」即可。"
 
 msgid "Via relay %s"
 msgstr "经中继 %s"
@@ -1620,17 +1620,17 @@ msgstr "经中继 %s"
 msgid "Offline"
 msgstr "离线"
 
-msgid "Leave the mesh network?"
-msgstr "退出大内网？"
+msgid "Leave MeowNest?"
+msgstr "退出喵窝？"
 
-msgid "This router is removed from the mesh network on the panel and its exposed subnets are withdrawn. Turn the switch on again to rejoin."
-msgstr "这台路由器会从主控的大内网里删掉，开放的网段一并撤销。重新打开开关即可再次入网。"
+msgid "This router is removed from MeowNest on the panel and its exposed subnets are withdrawn. Turn the switch on again to rejoin."
+msgstr "这台路由器会从主控的喵窝里删掉，开放的网段一并撤销。重新打开开关即可再次入网。"
 
 msgid "Leave"
 msgstr "退出"
 
-msgid "Leave mesh network"
-msgstr "退出大内网"
+msgid "Leave MeowNest"
+msgstr "退出喵窝"
 
-msgid "Devices reach the exposed subnets through the mesh network; when a subnet is already used by another router it is mapped to a block from the panel's mapping pool. Direct connections need UDP; when both ends are behind strict NAT, traffic goes through the relay chosen on the panel (end-to-end encrypted)."
-msgstr "其它设备经大内网访问开放的网段；网段已被别的路由器占用时会映射到主控映射池里的一段。直连要用 UDP，两端都在严格 NAT 后面时经主控选定的中继转发（端到端加密）。"
+msgid "Devices reach the exposed subnets through MeowNest; when a subnet is already used by another router it is mapped to a block from the panel's mapping pool. Direct connections need UDP; when both ends are behind strict NAT, traffic goes through the relay chosen on the panel (end-to-end encrypted)."
+msgstr "其它设备经喵窝访问开放的网段；网段已被别的路由器占用时会映射到主控映射池里的一段。直连要用 UDP，两端都在严格 NAT 后面时经主控选定的中继转发（端到端加密）。"
