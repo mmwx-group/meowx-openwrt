@@ -1,16 +1,16 @@
 include $(TOPDIR)/rules.mk
 
-# MeowX 内核：meowC（Android / Windows 客户端）里的 mihomo fork，比官方 mihomo 多 Miu、AnyTLS + REALITY、Snell v6 等。
-# 源码在 meowC 仓库的 core/Clash.Meta，按 meowC 的发版提交固定。
-# patches/：001 让内核作为独立程序运行时自己起监听端口与 TUN（Bettbox 把这一步交给了 Flutter 外壳，单跑内核不开任何端口）。
-#           002 加 `meowx-core panel …` 子命令：主控账户（登录链接）、账户订阅、客户端 IP 白名单上报，加密信道同 iOS / Android 客户端。
+# MeowX 内核：MeowX 各端共用的 mihomo fork（meowx-core 仓库，meowC 的 Android / Windows / Linux 客户端也用它），
+# 比官方 mihomo 多 Miu、AnyTLS + REALITY、Snell v6 等。按 meowx-core 的 tag 固定（PKG_VERSION = tag 去掉 v）。
+# 以前从 meowC 的 core/Clash.Meta 编、自带 001 / 002 / 003 三个补丁；独立程序自己起监听端口与 TUN、`meowx-core panel …`
+# 子命令（主控账户、账户订阅、白名单上报、喵窝入网）现在都在 meowx-core 里，这里不再打补丁。
 PKG_NAME:=meowx-core
-PKG_VERSION:=0.4.6
+PKG_VERSION:=0.4.8
 PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
-PKG_SOURCE_URL:=https://github.com/mmwx-group/meowC.git
-PKG_SOURCE_VERSION:=110eacb2080abc963bbfe90210a0263a4d8c0a28
+PKG_SOURCE_URL:=https://github.com/mmwx-group/meowx-core.git
+PKG_SOURCE_VERSION:=dd4f794568396d20d0eaa98de3e3e2bc7a855923
 PKG_MIRROR_HASH:=e43381798d461a22a722e31a2ca82dc6132690a15d4d97fabf83e1b87530389e
 
 PKG_LICENSE:=GPL-3.0-or-later
@@ -37,7 +37,7 @@ define Package/meowx-core
   SECTION:=net
   CATEGORY:=Network
   TITLE:=MeowX core (mihomo fork)
-  URL:=https://github.com/mmwx-group/meowC
+  URL:=https://github.com/mmwx-group/meowx-core
   DEPENDS:=$(GO_ARCH_DEPENDS) +ca-bundle +ip-full +kmod-inet-diag +kmod-tun
 endef
 
@@ -45,12 +45,8 @@ define Package/meowx-core/description
   MeowX proxy core, a fork of mihomo with Miu, AnyTLS + REALITY and Snell v6.
 endef
 
-# 仓库根是 Flutter 客户端，内核在 core/Clash.Meta：解包后换成那个子目录
 define Build/Prepare
 	$(Build/Prepare/Default)
-	mv $(PKG_BUILD_DIR) $(PKG_BUILD_DIR).repo
-	mv $(PKG_BUILD_DIR).repo/core/Clash.Meta $(PKG_BUILD_DIR)
-	rm -rf $(PKG_BUILD_DIR).repo
 	$(RM) -r $(PKG_BUILD_DIR)/rules/logic_test
 endef
 

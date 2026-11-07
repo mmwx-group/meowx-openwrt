@@ -87,7 +87,7 @@ wget -O - https://dl.miaomiaowux.com/meowx/openwrt/uninstall.sh | ash
 
 | 包 | 内容 |
 |---|---|
-| `meowx-core` | 内核 `/usr/bin/meowx-core`：[meowC](https://github.com/mmwx-group/meowC) 里的 mihomo 分支（`core/Clash.Meta`），按 meowC 发版提交编译，补丁在 `meowx-core/patches/` |
+| `meowx-core` | 内核 `/usr/bin/meowx-core`：MeowX 各端共用的 mihomo 分支 [meowx-core](https://github.com/mmwx-group/meowx-core)，按它的 tag 编译 |
 | `meowx` | 服务：订阅下载、配置混入、nftables 与路由、procd、主控账户与白名单上报 |
 | `luci-app-meowx` | LuCI 界面 |
 
@@ -113,4 +113,4 @@ GitHub Actions：
 
 ## 许可
 
-GPL-3.0，见 [LICENSE](LICENSE)。内核源码见 [meowC](https://github.com/mmwx-group/meowC)。
+GPL-3.0，见 [LICENSE](LICENSE)。内核源码见 [meowx-core](https://github.com/mmwx-group/meowx-core)。

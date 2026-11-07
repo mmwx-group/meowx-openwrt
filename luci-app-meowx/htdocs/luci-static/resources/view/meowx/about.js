@@ -6,7 +6,7 @@
 // 「关于」页：版本、开源地址、致谢。纯展示，没有要保存的东西
 const repoURL = 'https://github.com/mmwx-group/meowx-openwrt';
 const nikkiURL = 'https://github.com/nikkinikki-org/OpenWrt-nikki';
-const coreURL = 'https://github.com/mmwx-group/meowC';
+const coreURL = 'https://github.com/mmwx-group/meowx-core';
 const mihomoURL = 'https://github.com/MetaCubeX/mihomo';
 
 function link(url, text) {
@@ -48,7 +48,7 @@ return baseclass.extend({
                 [link(nikkiURL, 'OpenWrt-nikki')])),
             E('p', { class: 'mx-about__text' }, sentence(
                 _('The core is the MeowX fork of %s (source in %s), adding protocols such as Miu that upstream mihomo does not have.'),
-                [link(mihomoURL, 'mihomo'), link(coreURL, 'meowC')]))
+                [link(mihomoURL, 'mihomo'), link(coreURL, 'meowx-core')]))
         ]);
         const map = E('div', { id: 'cbi-meowx', class: 'cbi-map' });
         return meowx.decorate(map, { hero: [E('div', { class: 'mx-cards' }, [E('div', { class: 'mx-account' }, [head, update]), open, thanks])] });
