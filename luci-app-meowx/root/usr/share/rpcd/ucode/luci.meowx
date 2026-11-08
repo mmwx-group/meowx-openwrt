@@ -61,6 +61,22 @@ function service_running() {
 	return system('/etc/init.d/meowx running >/dev/null 2>&1') == 0;
 }
 
+// 「从订阅添加节点」读哪份配置：服务在跑就是运行配置（内核实际在用的），没在跑就是选中的配置文件 / 订阅缓存（下次启动用的），都没有退回运行配置
+function akile_profile_path() {
+	const run = '/etc/meowx/run/config.yaml';
+	if (service_running() && access(run, 'r')) {
+		return run;
+	}
+	const profile = cursor().get('meowx', 'config', 'profile') ?? '';
+	let path = null;
+	if (match(profile, /^file:[^\/]+$/)) {
+		path = '/etc/meowx/profiles/' + substr(profile, 5);
+	} else if (match(profile, /^subscription:[A-Za-z0-9_]+$/)) {
+		path = '/etc/meowx/subscriptions/' + substr(profile, 13) + '.yaml';
+	}
+	return path && access(path, 'r') ? path : run;
+}
+
 // 这个订阅正在更新：init 在下载 → 校验 → 替换缓存期间拿着这把锁
 function subscription_busy(section_id) {
 	const lock = `/var/run/meowx/subscription.${section_id}.lock`;
@@ -463,6 +479,52 @@ const methods = {
 			}
 			const res = panel_cmd(args);
 			if (action != 'status' && res?.success) {
+				system('/etc/init.d/meowx panel_cron >/dev/null 2>&1');
+			}
+			return res;
+		}
+	},
+	// AkileCDN 白名单（同客户端「AkileCDN 白名单」）：action = status / enable / disable / setkey(key) / clearkey / nodes /
+	// rules(port) / add(rule_id, port, name, label) / remove(index)。打开开关、换 Key、开着时添加，由 meowx-core 当场查出口 IP 并写一次
+	// 再回状态；改了之后重挂白名单上报的定时任务（删除、关掉不报）。完整 Key 只留在路由器上，回给界面的都是脱敏写法
+	akile: {
+		args: { action: 'action', key: 'key', port: 0, rule_id: 'rule_id', name: 'name', label: 'label', index: 0 },
+		call: function(req) {
+			const action = req.args?.action ?? 'status';
+			let args;
+			if (action == 'setkey') {
+				// 只放行 Key 与可能连着复制进来的「X-API-Key:」/「Bearer 」前缀里的字符（校验在 meowx-core 里做）
+				const key = trim(req.args?.key ?? '');
+				if (!match(key, /^[A-Za-z0-9_: -]{1,240}$/)) {
+					return { success: false, error: 'API Key 应以 ak_ 开头' };
+				}
+				args = `akile setkey ${shell_quote(key)}`;
+			} else if (action == 'rules') {
+				const port = int(req.args?.port ?? 0);
+				if (port < 1 || port > 65535) {
+					return { success: false, error: 'invalid port' };
+				}
+				args = `akile rules ${port}`;
+			} else if (action == 'add') {
+				const rule_id = trim(`${req.args?.rule_id ?? ''}`);
+				const port = int(req.args?.port ?? 0);
+				const name = trim(req.args?.name ?? '');
+				const label = trim(req.args?.label ?? '');
+				if (!match(rule_id, /^[1-9][0-9]{0,17}$/) || port < 1 || port > 65535 || name == '' || length(name) > 1024 || length(label) > 1024) {
+					return { success: false, error: 'invalid node' };
+				}
+				args = `akile add ${rule_id} ${port} ${shell_quote(name)} ${shell_quote(label)}`;
+			} else if (action == 'remove') {
+				args = `akile remove ${int(req.args?.index ?? -1)}`;
+			} else if (action == 'nodes') {
+				args = `akile nodes ${shell_quote(akile_profile_path())}`;
+			} else if (index([ 'status', 'enable', 'disable', 'clearkey' ], action) >= 0) {
+				args = `akile ${action}`;
+			} else {
+				return { success: false, error: 'invalid action' };
+			}
+			const res = panel_cmd(args);
+			if (index([ 'status', 'nodes', 'rules' ], action) < 0 && res?.success) {
 				system('/etc/init.d/meowx panel_cron >/dev/null 2>&1');
 			}
 			return res;

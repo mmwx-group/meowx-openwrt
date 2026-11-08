@@ -10,7 +10,9 @@ PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/mmwx-group/meowx-core.git
-PKG_SOURCE_VERSION:=dd4f794568396d20d0eaa98de3e3e2bc7a855923
+# 临时指向 meowx-core feat/akile-whitelist 分支上的提交（AkileCDN 白名单子命令）。发版前要先把它合并进 meowx-core、打 tag，
+# 再把这里换成 tag 对应的提交，并按 CI 日志里的「Hash mismatch … got」更新 PKG_MIRROR_HASH（下面还是 0.4.8 那份的哈希）
+PKG_SOURCE_VERSION:=497b3406d3bc5749f9f0d03ed1f8ccbfcfbc615b
 PKG_MIRROR_HASH:=55261f07fc617fe4848db4d9aa99788c2da39e3181e196bb4337b7993b63adea
 
 PKG_LICENSE:=GPL-3.0-or-later

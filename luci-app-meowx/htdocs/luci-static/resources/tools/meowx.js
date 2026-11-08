@@ -181,6 +181,13 @@ const callMeowXGgy = rpc.declare({
     expect: { '': {} }
 });
 
+const callMeowXAkile = rpc.declare({
+    object: 'luci.meowx',
+    method: 'akile',
+    params: ['action', 'key', 'port', 'rule_id', 'name', 'label', 'index'],
+    expect: { '': {} }
+});
+
 const callMeowXMesh = rpc.declare({
     object: 'luci.meowx',
     method: 'mesh',
@@ -550,6 +557,45 @@ return baseclass.extend({
         return /^[A-Za-z0-9_-]{8,200}$/.test(s) ? s : null;
     },
 
+    // AkileCDN 白名单：opts = { key, port, rule_id, name, label, index }，用到哪个给哪个
+    akile: function (action, opts) {
+        opts = opts ?? {};
+        return callMeowXAkile(action, opts.key ?? '', opts.port ?? 0, String(opts.rule_id ?? ''), opts.name ?? '', opts.label ?? '', opts.index ?? 0);
+    },
+
+    akileStatus: function () {
+        return L.resolveDefault(callMeowXAkile('status', '', 0, '', '', '', 0), { success: false, enabled: false, has_key: false, nodes: [] });
+    },
+
+    // API Key：去掉首尾空白与开头的「X-API-Key:」/「Bearer 」（不分大小写）；合法 = ak_ 开头、后面 8–200 位 A–Z a–z 0–9 _ -，
+    // 不合法返回 null（规格同 meowx-core 的 parseAkileKey）
+    parseAkileKey: function (input) {
+        let s = String(input ?? '').trim();
+        if (/^x-api-key:/i.test(s)) {
+            s = s.slice(10).trim();
+        } else if (/^bearer /i.test(s)) {
+            s = s.slice(7).trim();
+        }
+        return /^ak_[A-Za-z0-9_-]{8,200}$/.test(s) ? s : null;
+    },
+
+    // meowx-core 回的固定文字（中文）换成界面语言；服务端自己给的文字、「连不上：…」原样显示
+    akileText: function (text) {
+        const known = {
+            'API Key 无效或已删除': _('API Key is invalid or has been deleted'),
+            '规则不存在（已删除，或不属于这个 API Key 的账号）': _('Rule not found (deleted, or not owned by the account of this API Key)'),
+            '请求太频繁，稍后自动重试': _('Too many requests, retrying automatically later'),
+            '应答无法解析': _('Unparseable response'),
+            '查不到本机直连出口 IPv4': _('Could not get this device\'s direct public IPv4'),
+            '先填写 API Key': _('Enter the API Key first'),
+            'API Key 应以 ak_ 开头': _('The API Key should start with ak_'),
+            '这条规则已经添加过': _('This rule has already been added'),
+            '最多 20 个节点': _('20 nodes at most'),
+            '当前订阅里没有可选的节点': _('No nodes to choose from in the current subscription')
+        };
+        return known[text] ?? text;
+    },
+
     panelSubscriptions: function () {
         return L.resolveDefault(callMeowXPanelSubscriptions(), { success: false, subscriptions: [] });
     },
@@ -871,6 +917,299 @@ return baseclass.extend({
         };
         draw(ggy ?? {});
         return card;
+    },
+
+    // AkileCDN 白名单卡（同客户端「辅助功能 → AkileCDN 白名单」+「AkileCDN 节点」子页）：开关、API Key（只显示脱敏写法，完整值只在输入框里）、
+    // 节点列表与每个节点上一次的结果、「从订阅添加节点」（订阅里的代理节点 → 按节点端口查 Akile 的规则 → 一条直接加、多条让用户选）。
+    // 打开开关、换 Key、开着时添加由路由器当场查出口 IP 并写一次，回包里带着结果，用它原地重画；页面开着、开关开着时每 3 秒刷新一次结果
+    renderAkileCard: function (akile) {
+        const card = E('div', { class: 'mx-account mx-po0 mx-akile' });
+        let state = akile ?? {};
+        let picker = null;        // null / { step: 'nodes', nodes } / { step: 'rules', node, rules }
+        let changingKey = false;
+        let working = false;
+        const text = (s) => this.akileText(s);
+
+        const draw = () => {
+            const error = E('div', { class: 'mx-account__error', hidden: '' });
+            const fail = (res) => {
+                error.textContent = text(res?.error) || _('Operation failed');
+                error.hidden = false;
+            };
+            // 写操作：成功后用回包重画（收起选择器、Key 输入框）
+            const act = (button, call) => this.busy(button, () => {
+                working = true;
+                return call().then((res) => {
+                    if (!res?.success) {
+                        return fail(res);
+                    }
+                    state = res;
+                    picker = null;
+                    changingKey = false;
+                    draw();
+                }, (err) => fail({ error: String(err?.message ?? err) })).finally(() => { working = false; });
+            });
+
+            const toggle = E('input', { type: 'checkbox', 'aria-label': _('AkileCDN Whitelist') });
+            toggle.checked = !!state.enabled;
+            toggle.addEventListener('change', () => {
+                toggle.disabled = true;
+                working = true;
+                this.akile(toggle.checked ? 'enable' : 'disable').then((res) => {
+                    if (!res?.success) {
+                        toggle.checked = !toggle.checked;
+                        toggle.disabled = false;
+                        return fail(res);
+                    }
+                    state = res;
+                    draw();
+                }, (err) => {
+                    toggle.checked = !toggle.checked;
+                    toggle.disabled = false;
+                    fail({ error: String(err?.message ?? err) });
+                }).finally(() => { working = false; });
+            });
+
+            const children = [
+                E('div', { class: 'mx-po0__head' }, [
+                    E('div', { class: 'mx-po0__title' }, [
+                        E('span', { class: 'mx-subcard__label' }, _('AkileCDN Whitelist')),
+                        E('div', { class: 'mx-account__hint' }, _('Write this device\'s direct public IPv4 into the entry whitelist of the selected AkileCDN rules. It is updated right away when the network changes or the app comes back to the foreground, and the public IP is checked every 10 minutes and only written when it changed. A rule holds only one IP, so devices that all turn this on overwrite each other.'))
+                    ]),
+                    toggle
+                ])
+            ];
+
+            // API Key：有了显示脱敏写法 +「更换」/「删除」，没有（或正在更换）时是密码输入框 +「保存」
+            children.push(E('div', { class: 'mx-po0__group' }, _('API Key')));
+            if (state.has_key && !changingKey) {
+                children.push(E('div', { class: 'mx-po0__list' }, E('div', { class: 'mx-po0__row' }, [
+                    E('div', { class: 'mx-po0__main' }, E('div', { class: 'mx-po0__addr' }, state.key)),
+                    E('button', { type: 'button', class: 'cbi-button', click: () => { changingKey = true; draw(); } }, _('Change')),
+                    E('button', {
+                        type: 'button',
+                        class: 'cbi-button cbi-button-negative',
+                        click: (ev) => act(ev.currentTarget, () => this.akile('clearkey'))
+                    }, _('Delete'))
+                ])));
+            } else {
+                const input = E('input', { type: 'password', class: 'mx-quickadd__input', placeholder: _('API Key, starts with ak_'), autocomplete: 'new-password' });
+                const save = E('button', {
+                    type: 'button',
+                    class: 'cbi-button cbi-button-action',
+                    click: (ev) => {
+                        const key = this.parseAkileKey(input.value);
+                        input.classList.toggle('is-invalid', !key);
+                        if (!key) {
+                            error.textContent = input.value.trim() ? _('The API Key should start with ak_') : _('Enter the API Key first');
+                            error.hidden = false;
+                            return;
+                        }
+                        return act(ev.currentTarget, () => this.akile('setkey', { key: key }));
+                    }
+                }, _('Save'));
+                input.addEventListener('keydown', (ev) => { if (ev.key == 'Enter') save.click(); });
+                const row = [input, save];
+                if (changingKey) {
+                    row.push(E('button', { type: 'button', class: 'cbi-button', click: () => { changingKey = false; draw(); } }, _('Cancel')));
+                }
+                children.push(E('div', { class: 'mx-quickadd mx-po0__add mx-akile__key' }, row));
+                children.push(E('div', { class: 'mx-po0__note' }, _('Create an API Key (starting with ak_) under "Open API" in the AkileCDN dashboard. The key has the same permissions as the account and is only stored on this device.')));
+            }
+
+            // 节点列表：节点名 +「规则 #id · 说明 · 端口」+ 上一次的结果
+            const resultLine = (r) => {
+                if (!r) {
+                    return E('div', { class: 'mx-ggy__result' }, _('Not updated yet'));
+                }
+                const when = +r.at > 0 ? ' · ' + relativeTime(r.at) : '';
+                if (r.ok) {
+                    return E('div', { class: 'mx-ggy__result is-ok' }, (r.kind == 'updated' ? _('Updated to %s') : _('Already %s')).format(r.ip) + when);
+                }
+                const reason = text(r.error) || _('Operation failed');
+                return E('div', { class: 'mx-ggy__result is-failed', title: reason }, reason + when);
+            };
+            const nodes = state.nodes ?? [];
+            const max = +state.max || 20;
+            children.push(E('div', { class: 'mx-po0__group' }, _('AkileCDN Nodes (%d)').format(nodes.length)));
+            if (nodes.length > 0) {
+                children.push(E('div', { class: 'mx-po0__list' }, nodes.map((n, i) => E('div', { class: 'mx-po0__row' }, [
+                    E('div', { class: 'mx-po0__main' }, [
+                        E('div', { class: 'mx-akile__name' }, n.name),
+                        E('div', { class: 'mx-po0__token' }, [_('Rule #%s').format(n.rule_id)].concat(n.label ? [n.label] : [], [_('Port %d').format(n.port)]).join(' · ')),
+                        resultLine(n.result)
+                    ]),
+                    E('button', {
+                        type: 'button',
+                        class: 'cbi-button cbi-button-negative',
+                        click: (ev) => act(ev.currentTarget, () => this.akile('remove', { index: i }))
+                    }, _('Delete'))
+                ]))));
+            }
+            if (!state.enabled && nodes.length > 0) {
+                children.push(E('div', { class: 'mx-po0__empty' }, _('"AkileCDN Whitelist" is off, so the added nodes are not updated for now.')));
+            }
+
+            if (picker) {
+                children.push(this.renderAkilePicker(picker, state, {
+                    cancel: () => { picker = null; draw(); },
+                    back: () => { picker = { step: 'nodes', nodes: picker.nodes }; draw(); },
+                    fail: fail,
+                    // 点了一个节点：按它的端口查规则，0 条报原因、1 条直接加、多条让用户选
+                    pickNode: (button, node) => this.busy(button, () => {
+                        working = true;
+                        error.hidden = true;
+                        return this.akile('rules', { port: node.port }).then((res) => {
+                            if (!res?.success) {
+                                return fail(res);
+                            }
+                            const rules = res.rules ?? [];
+                            if (rules.length == 0) {
+                                return fail({ error: _('No rule listens on port %d: make sure this node is an AkileCDN forward and the API Key belongs to the account of this rule.').format(node.port) });
+                            }
+                            if (rules.length == 1) {
+                                return this.akile('add', { rule_id: rules[0].id, port: node.port, name: node.name, label: rules[0].summary ?? '' }).then((added) => {
+                                    if (!added?.success) {
+                                        return fail(added);
+                                    }
+                                    state = added;
+                                    picker = null;
+                                    draw();
+                                });
+                            }
+                            picker = { step: 'rules', node: node, rules: rules, nodes: picker.nodes };
+                            draw();
+                        }, (err) => fail({ error: String(err?.message ?? err) })).finally(() => { working = false; });
+                    }),
+                    pickRule: (button, node, rule) => act(button, () => this.akile('add', { rule_id: rule.id, port: node.port, name: node.name, label: rule.summary ?? '' }))
+                }));
+            } else {
+                const add = E('button', {
+                    type: 'button',
+                    class: 'cbi-button cbi-button-action',
+                    click: (ev) => this.busy(ev.currentTarget, () => {
+                        error.hidden = true;
+                        return this.akile('nodes').then((res) => {
+                            if (!res?.success) {
+                                return fail(res);
+                            }
+                            picker = { step: 'nodes', nodes: res.nodes ?? [] };
+                            draw();
+                        }, (err) => fail({ error: String(err?.message ?? err) }));
+                    })
+                }, _('Add Node from Subscription'));
+                const blocked = !state.has_key ? _('Enter the API Key first') : (nodes.length >= max ? _('20 nodes at most') : '');
+                if (blocked) {
+                    add.disabled = true;
+                }
+                children.push(E('div', { class: 'mx-akile__actions' }, [add, blocked ? E('span', { class: 'mx-po0__empty' }, blocked) : '']));
+            }
+            children.push(error);
+            card.replaceChildren(...children);
+        };
+        draw();
+
+        // 页面开着、开关开着时每 3 秒刷新一次结果（定时 / 换网报过之后跟上）；正在操作、选节点、改 Key 时不打断
+        let seen = false;
+        const timer = setInterval(() => {
+            if (!card.isConnected) {
+                if (seen) {
+                    clearInterval(timer);
+                }
+                return;
+            }
+            seen = true;
+            if (document.hidden || card.offsetParent === null || !state.enabled || working || picker || changingKey || !(state.nodes ?? []).length) {
+                return;
+            }
+            this.akileStatus().then((res) => {
+                if (res?.success && !working && !picker && !changingKey && JSON.stringify([res.enabled, res.key, res.nodes]) != JSON.stringify([state.enabled, state.key, state.nodes])) {
+                    state = res;
+                    draw();
+                }
+            });
+        }, 3000);
+        return card;
+    },
+
+    // 「从订阅添加节点」的两步：选节点（带搜索）→ 同一端口有多条规则时选规则（「选择要加白的规则」）
+    renderAkilePicker: function (picker, state, handlers) {
+        const box = E('div', { class: 'mx-akile__picker' });
+        const cancel = E('button', { type: 'button', class: 'cbi-button', click: handlers.cancel }, _('Cancel'));
+        const added = {};
+        for (const n of state.nodes ?? []) {
+            added[String(n.rule_id)] = true;
+        }
+        if (picker.step == 'rules') {
+            const node = picker.node;
+            box.appendChild(E('div', { class: 'mx-akile__pickhead' }, [
+                E('div', { class: 'mx-akile__picktitle' }, [
+                    E('div', {}, _('Choose the rule to whitelist')),
+                    E('div', { class: 'mx-po0__token' }, `${node.name} · ${node.server}:${node.port}`)
+                ]),
+                E('button', { type: 'button', class: 'cbi-button', click: handlers.back }, _('Back')),
+                cancel
+            ]));
+            box.appendChild(E('div', { class: 'mx-akile__options' }, picker.rules.map((rule) => {
+                const parts = [_('Rule #%s').format(rule.id)];
+                if (rule.summary) {
+                    parts.push(rule.summary);
+                }
+                if (rule.node_id) {
+                    parts.push(_('Node %s').format(rule.node_id));
+                }
+                parts.push(_('Current whitelist %s').format(rule.entry_whitelist || _('Not set')));
+                const done = added[String(rule.id)];
+                const option = E('button', {
+                    type: 'button',
+                    class: 'mx-akile__option',
+                    click: (ev) => handlers.pickRule(ev.currentTarget, node, rule)
+                }, [
+                    E('div', { class: 'mx-akile__optname' }, parts.join(' · ')),
+                    done ? E('div', { class: 'mx-po0__token' }, _('This rule has already been added')) : ''
+                ]);
+                if (done) {
+                    option.disabled = true;
+                }
+                return option;
+            })));
+            return box;
+        }
+
+        const nodes = picker.nodes ?? [];
+        const search = E('input', { type: 'search', class: 'mx-quickadd__input', placeholder: _('Search nodes'), autocomplete: 'off', spellcheck: 'false' });
+        const list = E('div', { class: 'mx-akile__options' });
+        const fill = () => {
+            const q = search.value.trim().toLowerCase();
+            const shown = nodes.filter((n) => !q || String(n.name).toLowerCase().includes(q) || `${n.server}:${n.port}`.toLowerCase().includes(q));
+            if (nodes.length == 0) {
+                list.replaceChildren(E('div', { class: 'mx-po0__empty' }, _('No nodes to choose from in the current subscription')));
+                return;
+            }
+            if (shown.length == 0) {
+                list.replaceChildren(E('div', { class: 'mx-po0__empty' }, _('No matching nodes')));
+                return;
+            }
+            list.replaceChildren(...shown.map((n) => E('button', {
+                type: 'button',
+                class: 'mx-akile__option',
+                click: (ev) => handlers.pickNode(ev.currentTarget, n)
+            }, [
+                E('div', { class: 'mx-akile__optname' }, n.name),
+                E('div', { class: 'mx-po0__token' }, `${n.server}:${n.port}` + (n.type ? ` · ${n.type}` : ''))
+            ])));
+        };
+        search.addEventListener('input', fill);
+        fill();
+        box.appendChild(E('div', { class: 'mx-akile__pickhead' }, [
+            E('div', { class: 'mx-akile__picktitle' }, _('Choose a node in the current subscription')),
+            cancel
+        ]));
+        if (nodes.length > 0) {
+            box.appendChild(E('div', { class: 'mx-quickadd' }, search));
+        }
+        box.appendChild(list);
+        return box;
     },
 
     // 订阅显示名：没名字时用链接的主机名（同客户端 SubProfile 的缺省名）
