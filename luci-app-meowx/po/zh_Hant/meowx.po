@@ -1605,6 +1605,18 @@ msgstr "總是映射（沒有衝突也用主控映射池裡的網段）"
 msgid "Allow mesh devices to access this router itself (LuCI, SSH…)"
 msgstr "允許喵窩裡的裝置存取路由器本身（LuCI、SSH…）"
 
+msgid "Let LAN devices reach other sites (subnets exposed by your other routers)"
+msgstr "讓區域網路裝置存取其它站點（你其它路由器開放的網段）"
+
+msgid "Turn this on at both sites for two-way access between their LANs. If this router is not the LAN gateway (side router), add static routes on the main router sending the other sites' subnets to this router."
+msgstr "兩邊站點都打開，兩邊的區域網路就能互相存取。這台路由器不是區域網路閘道（旁路由）時，要在主路由上加靜態路由，把其它站點的網段指向這台路由器。"
+
+msgid "tailscale0 has lost its MeowNest address or routes; restarting tailscaled to fix it…"
+msgstr "tailscale0 遺失了喵窩位址或路由，正在重新啟動 tailscaled 修復…"
+
+msgid "tailscale0 has lost its MeowNest address or routes."
+msgstr "tailscale0 遺失了喵窩位址或路由。"
+
 msgid "Device name"
 msgstr "裝置名稱"
 

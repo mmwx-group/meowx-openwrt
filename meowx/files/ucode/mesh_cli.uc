@@ -2,14 +2,18 @@
 
 // 喵窝（主控内置的组网，Tailscale 协议）的命令行入口，LuCI 后端调用，输出一行 JSON：
 //   status   设置、tailscale 安装与运行情况、本机在喵窝里的地址、对端、局域网候选网段、上次应用的结果
-//   save     <JSON> 保存设置（enabled / networks / force_map / hostname / router_access），不应用
+//   save     <JSON> 保存设置（enabled / networks / force_map / hostname / router_access / lan_access），不应用
 //   apply    按设置入网或退出：tailscale up / down、防火墙区域、网段映射（入网要先在「插件配置」里登录主控账户）
 //   install  装 tailscale（opkg / apk，后台跑，status 里看进度）
 //   leave    把这台路由器从喵窝里删掉（主控里删设备、撤掉申报的网段、tailscale logout），并关掉开关
+//   heal     tailscale0 的喵窝地址 / 路由丢了时重启 tailscaled 重新配置（status 发现时在后台调）
 //
 // 路由器用官方 tailscale 程序（局域网要靠它的子网路由开放出去，内核里的 tailscale 只能当出站）。
 // 入网 key 由 meowx-core panel mesh enroll 向主控要（一次性、10 分钟有效），不用用户填。
 // tailscaled 不改防火墙（--netfilter-mode=off）：转发、源地址转换、网段映射由这里写进 fw4，免得和透明代理的规则互相覆盖。
+// 站点互通（lan_access）：收别的站点申报的网段（--accept-routes），局域网可以进喵窝，出喵窝的源地址换成本机的喵窝地址
+// （主控按设备的 100.x 地址放行，对端也不必收我们的网段）；本机各网卡的网段加一条先于表 52 的策略路由，别的站点申报了
+// 重叠的网段也不会把本地流量抢走。
 
 'use strict';
 
@@ -27,6 +31,11 @@ const APPLY_FLAG = '/var/run/meowx-mesh-apply.running';
 const TAILSCALE = '/usr/sbin/tailscale';
 const TAILSCALED = '/usr/sbin/tailscaled';
 const DEVICE = 'tailscale0';
+const SELF = '/etc/meowx/ucode/mesh_cli.uc';
+// 本地网段优先的策略路由优先级：在 tailscale 的 5210–5270 之前、透明代理的 1024 / 1025 之后
+const LOCAL_RULE_PREF = 5190;
+// 自动修复（重启 tailscaled）至少隔这么久一次
+const HEAL_INTERVAL = 600;
 // tailscale 装好后约 22MB，留一点余量
 const NEED_SPACE_KB = 24 * 1024;
 
@@ -85,7 +94,8 @@ function settings() {
 		networks: uci_list(uci.get('meowx', 'mesh', 'network')),
 		force_map: uci_bool(uci.get('meowx', 'mesh', 'force_map')),
 		hostname: uci.get('meowx', 'mesh', 'hostname') ?? '',
-		router_access: uci_bool(uci.get('meowx', 'mesh', 'router_access'))
+		router_access: uci_bool(uci.get('meowx', 'mesh', 'router_access')),
+		lan_access: uci_bool(uci.get('meowx', 'mesh', 'lan_access'))
 	};
 }
 
@@ -186,6 +196,67 @@ function wait_daemon(seconds) {
 	return false;
 }
 
+// tailscale0 有没有本机的喵窝地址、路由表 52 有没有路由。tailscaled 入网时配好，之后被清掉（例如别的程序、
+// 或已在运行时又跑了一次 /etc/init.d/tailscale start——它会先跑 tailscaled --cleanup）它不会自己补。
+// 没有对端时表 52 本来就可能是空的，只在有对端时要求有路由。
+function tun_health(st) {
+	st ??= ts_status();
+	if (st?.BackendState != 'Running') {
+		return null;
+	}
+	const ip4 = filter(st.Self?.TailscaleIPs ?? [], (x) => index(x, ':') < 0)[0];
+	const addrs = run(`ip -4 addr show dev ${DEVICE}`).out;
+	const has_addr = !!ip4 && index(addrs, `inet ${ip4}/`) >= 0;
+	const has_peers = length(keys(st.Peer ?? {})) > 0;
+	const has_routes = length(trim(run('ip route show table 52').out)) > 0;
+	return { ok: has_addr && (!has_peers || has_routes), has_addr: has_addr, has_routes: has_routes, ip: ip4, checked_at: time() };
+}
+
+// 等到 tailscaled 回到 Running（最多 seconds 秒）
+function wait_running(seconds) {
+	for (let i = 0; i < seconds; i++) {
+		if (ts_status()?.BackendState == 'Running') {
+			return true;
+		}
+		system('sleep 1');
+	}
+	return false;
+}
+
+// 重启 tailscaled：重新起来后按存着的设置入网、重新配 tailscale0 的地址与路由
+function restart_daemon() {
+	system('/etc/init.d/tailscale restart >/dev/null 2>&1');
+	wait_daemon(20);
+	return wait_running(30);
+}
+
+// 本机各网卡的 IPv4 网段（主路由表里内核生成的直连路由，不含 tailscale0）
+function local_networks() {
+	const out = [];
+	for (let line in split(run('ip -4 route show table main proto kernel scope link').out, '\n')) {
+		const m = match(line, /^([0-9.]+\/[0-9]+) dev ([^ ]+)/);
+		if (m && m[2] != DEVICE && index(out, m[1]) < 0) {
+			push(out, m[1]);
+		}
+	}
+	return out;
+}
+
+// 站点互通开着时：本机各网卡的网段先查主路由表（优先级 LOCAL_RULE_PREF，在 tailscale 的表 52 之前）；关着时撤掉
+function local_rules_sync(enable) {
+	for (let i = 0; i < 64; i++) {
+		if (system(`ip -4 rule del pref ${LOCAL_RULE_PREF} >/dev/null 2>&1`) != 0) {
+			break;
+		}
+	}
+	if (!enable) {
+		return;
+	}
+	for (let net in local_networks()) {
+		system(`ip -4 rule add pref ${LOCAL_RULE_PREF} to ${shell_quote(net)} lookup main >/dev/null 2>&1`);
+	}
+}
+
 function host_of(url) {
 	const m = match(url ?? '', /^[a-z]+:\/\/(\[[^\]]+\]|[^\/:]+)/);
 	return m ? m[1] : null;
@@ -259,6 +330,15 @@ function firewall_apply(s, sites) {
 	fw.set('firewall', 'meowx_mesh_lan', 'src', 'meshnet');
 	fw.set('firewall', 'meowx_mesh_lan', 'dest', 'lan');
 
+	// 站点互通：局域网可以进喵窝
+	if (s.lan_access) {
+		fw.set('firewall', 'meowx_lan_mesh', 'forwarding');
+		fw.set('firewall', 'meowx_lan_mesh', 'src', 'lan');
+		fw.set('firewall', 'meowx_lan_mesh', 'dest', 'meshnet');
+	} else {
+		fw.delete('firewall', 'meowx_lan_mesh');
+	}
+
 	const ts = cursor();
 	ts.load('tailscale');
 	const port = ts.get('tailscale', 'settings', 'port') ?? '41641';
@@ -269,7 +349,12 @@ function firewall_apply(s, sites) {
 	fw.set('firewall', 'meowx_mesh_wg', 'dest_port', `${port}`);
 	fw.set('firewall', 'meowx_mesh_wg', 'target', 'ACCEPT');
 
-	writefile(SNAT_PATH, `iifname "${DEVICE}" oifname != "${DEVICE}" counter masquerade comment "!meowx-mesh"\n`);
+	let snat = `iifname "${DEVICE}" oifname != "${DEVICE}" counter masquerade comment "!meowx-mesh"\n`;
+	// 站点互通：局域网设备发进喵窝的包，源地址换成本机的喵窝地址（主控按 100.x 放行；对端没收我们的网段也能回包）
+	if (s.lan_access) {
+		snat += `oifname "${DEVICE}" ip saddr != 100.64.0.0/10 counter masquerade comment "!meowx-mesh-out"\n`;
+	}
+	writefile(SNAT_PATH, snat);
 	fw.set('firewall', 'meowx_mesh_snat', 'include');
 	fw.set('firewall', 'meowx_mesh_snat', 'type', 'nftables');
 	fw.set('firewall', 'meowx_mesh_snat', 'path', SNAT_PATH);
@@ -302,7 +387,7 @@ function firewall_remove() {
 	const fw = cursor();
 	fw.load('firewall');
 	let changed = false;
-	for (let name in [ 'meowx_mesh', 'meowx_mesh_lan', 'meowx_mesh_wg', 'meowx_mesh_snat', 'meowx_mesh_dnat' ]) {
+	for (let name in [ 'meowx_mesh', 'meowx_mesh_lan', 'meowx_lan_mesh', 'meowx_mesh_wg', 'meowx_mesh_snat', 'meowx_mesh_dnat' ]) {
 		if (fw.get('firewall', name) != null) {
 			fw.delete('firewall', name);
 			changed = true;
@@ -410,6 +495,12 @@ function status() {
 			const prefs = ts_prefs();
 			out.control_url = prefs?.ControlURL;
 			out.advertised = prefs?.AdvertiseRoutes ?? [];
+			// 自检：地址 / 路由丢了就在后台重启 tailscaled（至多 HEAL_INTERVAL 一次，应用中不动）
+			out.tun = s.enabled ? tun_health(st) : null;
+			if (out.tun && !out.tun.ok && !out.applying && time() - (out.state.healed_at ?? 0) > HEAL_INTERVAL) {
+				system(`(${SELF} heal >/dev/null 2>&1 &)`);
+				out.healing = true;
+			}
 		}
 	}
 	return out;
@@ -434,7 +525,11 @@ function apply_up() {
 		return fail(st, '还没有登录主控账户（在「插件配置」里用主控的登录链接登录）');
 	}
 	system('/etc/init.d/tailscale enable >/dev/null 2>&1');
-	system('/etc/init.d/tailscale start >/dev/null 2>&1');
+	// /etc/init.d/tailscale start 每次先跑 tailscaled --cleanup：已在运行时再 start 会清掉 tailscale0 的地址与路由、
+	// 服务却不重启，之后一直没有地址（#1722，tailscale 1.104）。只在没跑时才 start
+	if (system('/etc/init.d/tailscale running >/dev/null 2>&1') != 0 && !ts_status()?.BackendState) {
+		system('/etc/init.d/tailscale start >/dev/null 2>&1');
+	}
 	if (!wait_daemon(15)) {
 		return fail(st, 'tailscaled 没有启动');
 	}
@@ -489,7 +584,7 @@ function apply_up() {
 	const other_control = prefs.ControlURL && rtrim(prefs.ControlURL, '/') != control;
 	const need_login = ts.BackendState == 'NeedsLogin' || ts.BackendState == 'NoState' || ts.BackendState == 'NeedsMachineAuth' || other_control;
 	let up = `${TAILSCALE} up --reset --timeout=60s --login-server=${shell_quote(control)} --hostname=${shell_quote(name)}` +
-		` --advertise-routes=${shell_quote(join(',', advertised))} --accept-dns=false --accept-routes=false --netfilter-mode=off`;
+		` --advertise-routes=${shell_quote(join(',', advertised))} --accept-dns=false --accept-routes=${s.lan_access ? 'true' : 'false'} --netfilter-mode=off`;
 	if (need_login) {
 		const prev = match(ts.Self?.ID ?? '', /^[0-9]+$/) ? ts.Self.ID : '';
 		const er = run_json(`/usr/bin/meowx-core panel mesh enroll ${shell_quote(name)} ${shell_quote(prev)}`);
@@ -511,6 +606,20 @@ function apply_up() {
 	if (!firewall_apply(s, st.sites)) {
 		log('防火墙重载失败');
 	}
+	local_rules_sync(s.lan_access);
+
+	// 自检：tailscale0 要有本机的喵窝地址、有对端时表 52 要有路由；不对就重启 tailscaled 重新配一次
+	system('sleep 2');
+	let health = tun_health();
+	if (health && !health.ok) {
+		log(`tailscale0 ${health.has_addr ? '路由表为空' : '没有喵窝地址'}，重启 tailscaled 重新配置`);
+		st.healed_at = time();
+		restart_daemon();
+		local_rules_sync(s.lan_access);
+		health = tun_health();
+	}
+	st.tun = health;
+	st.warning = health && !health.ok ? 'tailscale0 没有喵窝地址或路由（重启 tailscaled 也没恢复）：看看有没有别的程序在改 tailscale0，或 network 里绑定了 tailscale0 的接口' : null;
 
 	// 入网后按现在的主控 + 中继重算（换过的中继域名不留着）
 	const hosts = [ ...control_hosts ];
@@ -540,7 +649,10 @@ function apply_down() {
 		system('/etc/init.d/tailscale disable >/dev/null 2>&1');
 	}
 	firewall_remove();
+	local_rules_sync(false);
 	st.hosts = [];
+	st.tun = null;
+	st.warning = null;
 	st.error = null;
 	st.applied_at = time();
 	save_state(st);
@@ -624,6 +736,31 @@ function leave() {
 	return res;
 }
 
+// tailscale0 的喵窝地址 / 路由丢了：重启 tailscaled 重新配置（status 发现时在后台调，至多 HEAL_INTERVAL 一次）
+function heal() {
+	const s = settings();
+	if (!s.enabled || !installed() || applying()) {
+		return { success: true, skipped: true };
+	}
+	writefile(APPLY_FLAG, `${time()}\n`);
+	const st = load_state();
+	st.healed_at = time();
+	save_state(st);
+	let health = tun_health();
+	if (health && !health.ok) {
+		log(`tailscale0 ${health.has_addr ? '路由表为空' : '没有喵窝地址'}，重启 tailscaled 重新配置`);
+		restart_daemon();
+		local_rules_sync(s.lan_access);
+		health = tun_health();
+		log(health?.ok ? 'tailscale0 已恢复' : 'tailscale0 重启后仍没有恢复');
+	}
+	st.tun = health;
+	st.warning = health && !health.ok ? 'tailscale0 没有喵窝地址或路由（重启 tailscaled 也没恢复）：看看有没有别的程序在改 tailscale0，或 network 里绑定了 tailscale0 的接口' : null;
+	save_state(st);
+	unlink(APPLY_FLAG);
+	return { success: true, tun: health };
+}
+
 // 网段写法：a.b.c.d/n，存成网络地址（192.168.1.1/24 → 192.168.1.0/24）
 function normalize_cidr(value) {
 	const m = match(trim(`${value ?? ''}`), /^([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})\/([0-9]{1,2})$/);
@@ -664,6 +801,7 @@ function save(raw) {
 	uci.set('meowx', 'mesh', 'enabled', s.enabled ? '1' : '0');
 	uci.set('meowx', 'mesh', 'force_map', s.force_map ? '1' : '0');
 	uci.set('meowx', 'mesh', 'router_access', s.router_access ? '1' : '0');
+	uci.set('meowx', 'mesh', 'lan_access', s.lan_access ? '1' : '0');
 	if (length(networks) > 0) {
 		uci.set('meowx', 'mesh', 'network', networks);
 	} else {
@@ -691,7 +829,9 @@ if (action == 'status') {
 	result = install();
 } else if (action == 'leave') {
 	result = leave();
+} else if (action == 'heal') {
+	result = heal();
 } else {
-	result = { success: false, error: 'usage: mesh_cli.uc status | save <JSON> | apply | install | leave' };
+	result = { success: false, error: 'usage: mesh_cli.uc status | save <JSON> | apply | install | leave | heal' };
 }
 print(sprintf('%J\n', result));

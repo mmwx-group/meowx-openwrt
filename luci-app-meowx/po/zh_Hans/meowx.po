@@ -1605,6 +1605,18 @@ msgstr "总是映射（没有冲突也用主控映射池里的网段）"
 msgid "Allow mesh devices to access this router itself (LuCI, SSH…)"
 msgstr "允许喵窝里的设备访问路由器本身（LuCI、SSH…）"
 
+msgid "Let LAN devices reach other sites (subnets exposed by your other routers)"
+msgstr "让局域网设备访问其它站点（你别的路由器开放的网段）"
+
+msgid "Turn this on at both sites for two-way access between their LANs. If this router is not the LAN gateway (side router), add static routes on the main router sending the other sites' subnets to this router."
+msgstr "两边站点都打开，两边的局域网就能互相访问。这台路由器不是局域网网关（旁路由）时，要在主路由上加静态路由，把其它站点的网段指向这台路由器。"
+
+msgid "tailscale0 has lost its MeowNest address or routes; restarting tailscaled to fix it…"
+msgstr "tailscale0 丢失了喵窝地址或路由，正在重启 tailscaled 修复…"
+
+msgid "tailscale0 has lost its MeowNest address or routes."
+msgstr "tailscale0 丢失了喵窝地址或路由。"
+
 msgid "Device name"
 msgstr "设备名"
 
