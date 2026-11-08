@@ -1659,8 +1659,8 @@ msgstr "把路由器的直连出口 IP 告诉节点那一端的防火墙：po0�
 msgid "AkileCDN Whitelist"
 msgstr "AkileCDN 白名单"
 
-msgid "Write this device's direct public IPv4 into the entry whitelist of the selected AkileCDN rules. It is updated right away when the network changes or the app comes back to the foreground, and the public IP is checked every 10 minutes and only written when it changed. A rule holds only one IP, so devices that all turn this on overwrite each other."
-msgstr "把本机直连出口 IPv4 写进所选 AkileCDN 规则的入口白名单。网络变化、回到前台时立刻更新，每 10 分钟检查一次出口 IP、变了才更新。一条规则只能放一个 IP，多台设备都开会互相覆盖。"
+msgid "Write the router's direct public IPv4 into the entry whitelist of the selected AkileCDN rules. It is updated right away when the service starts or the network changes, and the public IP is checked every 10 minutes and only written when it changed. A rule holds only one IP, so devices that all turn this on overwrite each other."
+msgstr "把路由器的直连出口 IPv4 写进所选 AkileCDN 规则的入口白名单。服务启动、网络变化时立刻更新，每 10 分钟检查一次出口 IP、变了才更新。一条规则只能放一个 IP，多台设备都开会互相覆盖。"
 
 msgid "API Key"
 msgstr "API Key"

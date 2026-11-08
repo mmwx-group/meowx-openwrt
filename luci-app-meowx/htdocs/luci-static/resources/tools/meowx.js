@@ -974,7 +974,7 @@ return baseclass.extend({
                 E('div', { class: 'mx-po0__head' }, [
                     E('div', { class: 'mx-po0__title' }, [
                         E('span', { class: 'mx-subcard__label' }, _('AkileCDN Whitelist')),
-                        E('div', { class: 'mx-account__hint' }, _('Write this device\'s direct public IPv4 into the entry whitelist of the selected AkileCDN rules. It is updated right away when the network changes or the app comes back to the foreground, and the public IP is checked every 10 minutes and only written when it changed. A rule holds only one IP, so devices that all turn this on overwrite each other.'))
+                        E('div', { class: 'mx-account__hint' }, _('Write the router\'s direct public IPv4 into the entry whitelist of the selected AkileCDN rules. It is updated right away when the service starts or the network changes, and the public IP is checked every 10 minutes and only written when it changed. A rule holds only one IP, so devices that all turn this on overwrite each other.'))
                     ]),
                     toggle
                 ])
