@@ -255,6 +255,12 @@ section_ggy=$(uci -q get meowx.ggy); [ -z "$section_ggy" ] && {
 	uci set meowx.ggy.enabled=0
 }
 
+# AkileCDN 白名单：缺省关
+section_akile=$(uci -q get meowx.akile); [ -z "$section_akile" ] && {
+	uci set meowx.akile=akile
+	uci set meowx.akile.enabled=0
+}
+
 # 喵窝：缺省关，不允许喵窝里的设备访问路由器本身
 section_mesh=$(uci -q get meowx.mesh); [ -z "$section_mesh" ] && {
 	uci set meowx.mesh=mesh

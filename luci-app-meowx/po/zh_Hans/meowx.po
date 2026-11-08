@@ -1646,3 +1646,111 @@ msgstr "退出喵窝"
 
 msgid "Devices reach the exposed subnets through MeowNest; when a subnet is already used by another router it is mapped to a block from the panel's mapping pool. Direct connections need UDP; when both ends are behind strict NAT, traffic goes through the relay chosen on the panel (end-to-end encrypted)."
 msgstr "其它设备经喵窝访问开放的网段；网段已被别的路由器占用时会映射到主控映射池里的一段。直连要用 UDP，两端都在严格 NAT 后面时经主控选定的中继转发（端到端加密）。"
+
+msgid "Whitelisting"
+msgstr "加白"
+
+msgid "About whitelisting"
+msgstr "关于加白"
+
+msgid "Tell firewalls on the node side your router's direct public IP: po0 and GGY servers whitelist the IP the request comes from, AkileCDN writes it into the entry whitelist of a rule. Reports go out when the service starts and whenever WAN reconnects, then every 10 minutes; they always go direct, never through a proxy."
+msgstr "把路由器的直连出口 IP 告诉节点那一端的防火墙：po0、GGY 服务器把发起请求的 IP 加白，AkileCDN 把它写进规则的入口白名单。服务启动、WAN 重新拨号时立刻上报，之后每 10 分钟一次；上报一律直连，不经代理。"
+
+msgid "AkileCDN Whitelist"
+msgstr "AkileCDN 白名单"
+
+msgid "Write this device's direct public IPv4 into the entry whitelist of the selected AkileCDN rules. It is updated right away when the network changes or the app comes back to the foreground, and the public IP is checked every 10 minutes and only written when it changed. A rule holds only one IP, so devices that all turn this on overwrite each other."
+msgstr "把本机直连出口 IPv4 写进所选 AkileCDN 规则的入口白名单。网络变化、回到前台时立刻更新，每 10 分钟检查一次出口 IP、变了才更新。一条规则只能放一个 IP，多台设备都开会互相覆盖。"
+
+msgid "API Key"
+msgstr "API Key"
+
+msgid "Change"
+msgstr "更换"
+
+msgid "Back"
+msgstr "返回"
+
+msgid "API Key, starts with ak_"
+msgstr "API Key，ak_ 开头"
+
+msgid "Create an API Key (starting with ak_) under \"Open API\" in the AkileCDN dashboard. The key has the same permissions as the account and is only stored on this device."
+msgstr "在 AkileCDN 后台「开放接口」里创建 API Key（ak_ 开头）。Key 等同账号权限，只保存在本机。"
+
+msgid "The API Key should start with ak_"
+msgstr "API Key 应以 ak_ 开头"
+
+msgid "Enter the API Key first"
+msgstr "先填写 API Key"
+
+msgid "AkileCDN Nodes (%d)"
+msgstr "AkileCDN 节点（%d）"
+
+msgid "Rule #%s"
+msgstr "规则 #%s"
+
+msgid "Port %d"
+msgstr "端口 %d"
+
+msgid "Not updated yet"
+msgstr "还没更新过"
+
+msgid "Updated to %s"
+msgstr "已更新为 %s"
+
+msgid "Already %s"
+msgstr "已是 %s"
+
+msgid "\"AkileCDN Whitelist\" is off, so the added nodes are not updated for now."
+msgstr "「AkileCDN 白名单」开关关着，添加的节点暂不更新。"
+
+msgid "Add Node from Subscription"
+msgstr "从订阅添加节点"
+
+msgid "20 nodes at most"
+msgstr "最多 20 个节点"
+
+msgid "Choose a node in the current subscription"
+msgstr "从当前订阅里选择节点"
+
+msgid "Search nodes"
+msgstr "搜索节点"
+
+msgid "No nodes to choose from in the current subscription"
+msgstr "当前订阅里没有可选的节点"
+
+msgid "No matching nodes"
+msgstr "没有匹配的节点"
+
+msgid "No rule listens on port %d: make sure this node is an AkileCDN forward and the API Key belongs to the account of this rule."
+msgstr "没有监听端口 %d 的规则：确认这个节点是 AkileCDN 的转发、API Key 属于这条规则的账号"
+
+msgid "Choose the rule to whitelist"
+msgstr "选择要加白的规则"
+
+msgid "Node %s"
+msgstr "节点 %s"
+
+msgid "Current whitelist %s"
+msgstr "当前白名单 %s"
+
+msgid "Not set"
+msgstr "未设置"
+
+msgid "This rule has already been added"
+msgstr "这条规则已经添加过"
+
+msgid "API Key is invalid or has been deleted"
+msgstr "API Key 无效或已删除"
+
+msgid "Rule not found (deleted, or not owned by the account of this API Key)"
+msgstr "规则不存在（已删除，或不属于这个 API Key 的账号）"
+
+msgid "Too many requests, retrying automatically later"
+msgstr "请求太频繁，稍后自动重试"
+
+msgid "Unparseable response"
+msgstr "应答无法解析"
+
+msgid "Could not get this device's direct public IPv4"
+msgstr "查不到本机直连出口 IPv4"

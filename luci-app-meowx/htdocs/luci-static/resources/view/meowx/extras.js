@@ -5,9 +5,9 @@
 'require ui';
 'require tools.meowx as meowx';
 
-// 「辅助功能」页：不属于代理配置本身的小工具——po0 加白与 GGY 加白（卡片，点了就生效）与 GitHub 加速（表单，「保存并应用」后生效；
-// 2026-10 从「插件配置」挪过来）。由 main.js 在页内切换时加载；切回来时 onShow 重取两张卡的状态（在「插件配置」里登录 / 退出会改主控登记的 po0，
-// 定时上报会更新 GGY 每个 token 上一次的结果）
+// 「辅助功能」页：不属于代理配置本身的小工具——「加白」一组（po0 加白、GGY 加白、AkileCDN 白名单，卡片，点了就生效）与 GitHub 加速
+// （表单，「保存并应用」后生效；2026-10 从「插件配置」挪过来）。由 main.js 在页内切换时加载；切回来时 onShow 重取三张卡的状态（在「插件配置」里
+// 登录 / 退出会改主控登记的 po0，定时上报会更新 GGY 每个 token、AkileCDN 每个节点上一次的结果）
 
 function ghproxyTypeLabel(type) {
     return type == 'jsdelivr' ? 'jsDelivr' : (type == 'direct' ? _('Direct') : _('Prefix'));
@@ -124,12 +124,37 @@ function loadPo0() {
     return Promise.all([
         meowx.panelStatus(),
         meowx.po0Status(),
-        meowx.ggyStatus()
+        meowx.ggyStatus(),
+        meowx.akileStatus()
+    ]);
+}
+
+// 「加白」组标题：说明收进标题旁的 ⓘ（点开 / 收起），卡片里只留开关与列表
+function renderWhitelistTitle() {
+    const tip = E('div', { class: 'mx-group__tip', hidden: '' }, _('Tell firewalls on the node side your router\'s direct public IP: po0 and GGY servers whitelist the IP the request comes from, AkileCDN writes it into the entry whitelist of a rule. Reports go out when the service starts and whenever WAN reconnects, then every 10 minutes; they always go direct, never through a proxy.'));
+    const button = E('button', {
+        type: 'button',
+        class: 'mx-group__info',
+        'aria-label': _('About whitelisting'),
+        'aria-expanded': 'false',
+        click: () => {
+            tip.hidden = !tip.hidden;
+            button.setAttribute('aria-expanded', tip.hidden ? 'false' : 'true');
+        }
+    }, 'ⓘ');
+    return E('div', { class: 'mx-group' }, [
+        E('div', { class: 'mx-group__head' }, [E('span', { class: 'mx-group__title' }, _('Whitelisting')), button]),
+        tip
     ]);
 }
 
 function renderCards(po0) {
-    return [meowx.renderPo0Card(po0[1], !!po0[0]?.logged_in), meowx.renderGgyCard(po0[2])];
+    return [
+        renderWhitelistTitle(),
+        meowx.renderPo0Card(po0[1], !!po0[0]?.logged_in),
+        meowx.renderGgyCard(po0[2]),
+        meowx.renderAkileCard(po0[3])
+    ];
 }
 
 return baseclass.extend({

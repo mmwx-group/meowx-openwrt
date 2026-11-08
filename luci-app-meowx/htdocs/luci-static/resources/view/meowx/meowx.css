@@ -929,6 +929,144 @@ body.mx-dark {
     color: var(--mx-slow);
 }
 
+
+/* 「加白」组标题（辅助功能页）：说明收在 ⓘ 里 */
+#view#view .mx-group {
+    margin: 4px 2px 10px;
+}
+
+#view#view .mx-group__head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+#view#view .mx-group__title {
+    font-size: 17px;
+    font-weight: 750;
+    color: var(--mx-t1);
+}
+
+#view#view .mx-group__info {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--mx-t2);
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+#view#view .mx-group__info:hover,
+#view#view .mx-group__info[aria-expanded="true"] {
+    background: var(--mx-elev2);
+    color: var(--mx-t1);
+}
+
+#view#view .mx-group__tip {
+    margin-top: 6px;
+    padding: 10px 12px;
+    border-radius: var(--mx-r-cell);
+    background: var(--mx-elev2);
+    color: var(--mx-t2);
+    font-size: 13px;
+}
+
+#view#view .mx-group__tip[hidden] {
+    display: none;
+}
+
+/* AkileCDN 白名单卡：沿用 po0 / GGY 卡的行，节点名下面两行是「规则 · 端口」与上一次的结果 */
+#view#view .mx-akile__name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 14px;
+    font-weight: 650;
+}
+
+#view#view .mx-akile__actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+#view#view .mx-akile__picker {
+    margin-top: 12px;
+    padding: 12px;
+    border-radius: var(--mx-r-cell);
+    border: 1px solid var(--mx-stroke);
+}
+
+#view#view .mx-akile__pickhead {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+#view#view .mx-akile__picktitle {
+    flex: 1;
+    min-width: 0;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+#view#view .mx-akile__options {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 320px;
+    margin-top: 10px;
+    overflow-y: auto;
+}
+
+/* 压过「.mx button」的胶囊按钮样式（多一个类） */
+#view#view .mx .mx-akile__option {
+    display: block;
+    width: 100%;
+    min-height: 0;
+    line-height: 1.45;
+    font-weight: 400;
+    padding: 10px 12px;
+    border: 1px solid transparent;
+    border-radius: var(--mx-r-cell);
+    background: var(--mx-elev2);
+    color: var(--mx-t1);
+    text-align: left;
+    cursor: pointer;
+    transition: border-color var(--mx-content) ease-out, background-color var(--mx-content) ease-out;
+}
+
+#view#view .mx .mx-akile__option:hover:not(:disabled) {
+    border-color: var(--mx-rose);
+    background: var(--mx-soft);
+}
+
+#view#view .mx .mx-akile__option:disabled {
+    opacity: .55;
+    cursor: default;
+}
+
+#view#view .mx .mx-akile__option.spinning {
+    opacity: .7;
+}
+
+#view#view .mx-akile__optname {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 14px;
+    font-weight: 600;
+}
+
 @media (max-width: 640px) {
     #view#view .mx-po0__add {
         flex-wrap: wrap;

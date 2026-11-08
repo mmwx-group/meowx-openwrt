@@ -1233,3 +1233,111 @@ msgstr ""
 
 msgid "Devices reach the exposed subnets through MeowNest; when a subnet is already used by another router it is mapped to a block from the panel's mapping pool. Direct connections need UDP; when both ends are behind strict NAT, traffic goes through the relay chosen on the panel (end-to-end encrypted)."
 msgstr ""
+
+msgid "Whitelisting"
+msgstr "Белые списки"
+
+msgid "About whitelisting"
+msgstr "О белых списках"
+
+msgid "Tell firewalls on the node side your router's direct public IP: po0 and GGY servers whitelist the IP the request comes from, AkileCDN writes it into the entry whitelist of a rule. Reports go out when the service starts and whenever WAN reconnects, then every 10 minutes; they always go direct, never through a proxy."
+msgstr "Сообщает внешний IP роутера (при прямом подключении) межсетевым экранам на стороне узлов: серверы po0 и GGY добавляют в белый список IP, с которого пришёл запрос, AkileCDN записывает его в белый список входа правила. Отправляется при запуске службы и при переподключении WAN, затем каждые 10 минут; всегда напрямую, не через прокси."
+
+msgid "AkileCDN Whitelist"
+msgstr "Белый список AkileCDN"
+
+msgid "Write this device's direct public IPv4 into the entry whitelist of the selected AkileCDN rules. It is updated right away when the network changes or the app comes back to the foreground, and the public IP is checked every 10 minutes and only written when it changed. A rule holds only one IP, so devices that all turn this on overwrite each other."
+msgstr "Записывает внешний IPv4 этого устройства (при прямом подключении) в белый список входа выбранных правил AkileCDN. Обновляется сразу при смене сети или возврате на передний план; внешний IP проверяется каждые 10 минут и записывается только при изменении. В правиле может быть только один IP, поэтому устройства с этой функцией перезаписывают друг друга."
+
+msgid "API Key"
+msgstr "API-ключ"
+
+msgid "Change"
+msgstr "Изменить"
+
+msgid "Back"
+msgstr "Назад"
+
+msgid "API Key, starts with ak_"
+msgstr "API-ключ, начинается с ak_"
+
+msgid "Create an API Key (starting with ak_) under \"Open API\" in the AkileCDN dashboard. The key has the same permissions as the account and is only stored on this device."
+msgstr "Создайте API-ключ (начинается с ak_) в разделе «Открытый API» панели AkileCDN. Ключ имеет те же права, что и аккаунт, и хранится только на этом устройстве."
+
+msgid "The API Key should start with ak_"
+msgstr "API-ключ должен начинаться с ak_"
+
+msgid "Enter the API Key first"
+msgstr "Сначала введите API-ключ"
+
+msgid "AkileCDN Nodes (%d)"
+msgstr "Узлы AkileCDN (%d)"
+
+msgid "Rule #%s"
+msgstr "Правило #%s"
+
+msgid "Port %d"
+msgstr "Порт %d"
+
+msgid "Not updated yet"
+msgstr "Ещё не обновлялось"
+
+msgid "Updated to %s"
+msgstr "Обновлено: %s"
+
+msgid "Already %s"
+msgstr "Уже %s"
+
+msgid "\"AkileCDN Whitelist\" is off, so the added nodes are not updated for now."
+msgstr "«Белый список AkileCDN» выключен, добавленные узлы пока не обновляются."
+
+msgid "Add Node from Subscription"
+msgstr "Добавить узел из подписки"
+
+msgid "20 nodes at most"
+msgstr "Не более 20 узлов"
+
+msgid "Choose a node in the current subscription"
+msgstr "Выберите узел из текущей подписки"
+
+msgid "Search nodes"
+msgstr "Поиск узлов"
+
+msgid "No nodes to choose from in the current subscription"
+msgstr "В текущей подписке нет узлов для выбора"
+
+msgid "No matching nodes"
+msgstr "Нет подходящих узлов"
+
+msgid "No rule listens on port %d: make sure this node is an AkileCDN forward and the API Key belongs to the account of this rule."
+msgstr "Нет правил, слушающих порт %d: убедитесь, что этот узел — переадресация AkileCDN, а API-ключ принадлежит аккаунту этого правила."
+
+msgid "Choose the rule to whitelist"
+msgstr "Выберите правило для белого списка"
+
+msgid "Node %s"
+msgstr "Узел %s"
+
+msgid "Current whitelist %s"
+msgstr "Текущий белый список: %s"
+
+msgid "Not set"
+msgstr "Не задан"
+
+msgid "This rule has already been added"
+msgstr "Это правило уже добавлено"
+
+msgid "API Key is invalid or has been deleted"
+msgstr "API-ключ недействителен или удалён"
+
+msgid "Rule not found (deleted, or not owned by the account of this API Key)"
+msgstr "Правило не найдено (удалено или не принадлежит аккаунту этого API-ключа)"
+
+msgid "Too many requests, retrying automatically later"
+msgstr "Слишком много запросов, повтор будет выполнен автоматически позже"
+
+msgid "Unparseable response"
+msgstr "Не удалось разобрать ответ"
+
+msgid "Could not get this device's direct public IPv4"
+msgstr "Не удалось определить внешний IPv4 этого устройства при прямом подключении"

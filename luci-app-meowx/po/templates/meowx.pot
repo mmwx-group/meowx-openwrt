@@ -1639,3 +1639,111 @@ msgstr ""
 
 msgid "Devices reach the exposed subnets through MeowNest; when a subnet is already used by another router it is mapped to a block from the panel's mapping pool. Direct connections need UDP; when both ends are behind strict NAT, traffic goes through the relay chosen on the panel (end-to-end encrypted)."
 msgstr ""
+
+msgid "Whitelisting"
+msgstr ""
+
+msgid "About whitelisting"
+msgstr ""
+
+msgid "Tell firewalls on the node side your router's direct public IP: po0 and GGY servers whitelist the IP the request comes from, AkileCDN writes it into the entry whitelist of a rule. Reports go out when the service starts and whenever WAN reconnects, then every 10 minutes; they always go direct, never through a proxy."
+msgstr ""
+
+msgid "AkileCDN Whitelist"
+msgstr ""
+
+msgid "Write this device's direct public IPv4 into the entry whitelist of the selected AkileCDN rules. It is updated right away when the network changes or the app comes back to the foreground, and the public IP is checked every 10 minutes and only written when it changed. A rule holds only one IP, so devices that all turn this on overwrite each other."
+msgstr ""
+
+msgid "API Key"
+msgstr ""
+
+msgid "Change"
+msgstr ""
+
+msgid "Back"
+msgstr ""
+
+msgid "API Key, starts with ak_"
+msgstr ""
+
+msgid "Create an API Key (starting with ak_) under \"Open API\" in the AkileCDN dashboard. The key has the same permissions as the account and is only stored on this device."
+msgstr ""
+
+msgid "The API Key should start with ak_"
+msgstr ""
+
+msgid "Enter the API Key first"
+msgstr ""
+
+msgid "AkileCDN Nodes (%d)"
+msgstr ""
+
+msgid "Rule #%s"
+msgstr ""
+
+msgid "Port %d"
+msgstr ""
+
+msgid "Not updated yet"
+msgstr ""
+
+msgid "Updated to %s"
+msgstr ""
+
+msgid "Already %s"
+msgstr ""
+
+msgid "\"AkileCDN Whitelist\" is off, so the added nodes are not updated for now."
+msgstr ""
+
+msgid "Add Node from Subscription"
+msgstr ""
+
+msgid "20 nodes at most"
+msgstr ""
+
+msgid "Choose a node in the current subscription"
+msgstr ""
+
+msgid "Search nodes"
+msgstr ""
+
+msgid "No nodes to choose from in the current subscription"
+msgstr ""
+
+msgid "No matching nodes"
+msgstr ""
+
+msgid "No rule listens on port %d: make sure this node is an AkileCDN forward and the API Key belongs to the account of this rule."
+msgstr ""
+
+msgid "Choose the rule to whitelist"
+msgstr ""
+
+msgid "Node %s"
+msgstr ""
+
+msgid "Current whitelist %s"
+msgstr ""
+
+msgid "Not set"
+msgstr ""
+
+msgid "This rule has already been added"
+msgstr ""
+
+msgid "API Key is invalid or has been deleted"
+msgstr ""
+
+msgid "Rule not found (deleted, or not owned by the account of this API Key)"
+msgstr ""
+
+msgid "Too many requests, retrying automatically later"
+msgstr ""
+
+msgid "Unparseable response"
+msgstr ""
+
+msgid "Could not get this device's direct public IPv4"
+msgstr ""
