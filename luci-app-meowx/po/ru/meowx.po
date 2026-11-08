@@ -1192,6 +1192,18 @@ msgstr ""
 msgid "Allow mesh devices to access this router itself (LuCI, SSH…)"
 msgstr ""
 
+msgid "Let LAN devices reach other sites (subnets exposed by your other routers)"
+msgstr ""
+
+msgid "Turn this on at both sites for two-way access between their LANs. If this router is not the LAN gateway (side router), add static routes on the main router sending the other sites' subnets to this router."
+msgstr ""
+
+msgid "tailscale0 has lost its MeowNest address or routes; restarting tailscaled to fix it…"
+msgstr ""
+
+msgid "tailscale0 has lost its MeowNest address or routes."
+msgstr ""
+
 msgid "Device name"
 msgstr ""
 

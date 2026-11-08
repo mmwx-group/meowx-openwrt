@@ -98,6 +98,8 @@ function renderCard(initial) {
         forceMap.checked = !!s.force_map;
         const routerAccess = E('input', { type: 'checkbox' });
         routerAccess.checked = !!s.router_access;
+        const lanAccess = E('input', { type: 'checkbox' });
+        lanAccess.checked = !!s.lan_access;
         const name = E('input', {
             type: 'text', class: 'mx-quickadd__input', autocomplete: 'off', spellcheck: 'false',
             placeholder: st.hostname || 'openwrt', value: s.hostname ?? ''
@@ -109,6 +111,7 @@ function renderCard(initial) {
                 .concat(extra.value.split(/[\s,，]+/).map((v) => v.trim()).filter((v) => v)),
             force_map: forceMap.checked,
             router_access: routerAccess.checked,
+            lan_access: lanAccess.checked,
             hostname: name.value.trim()
         });
         const save = (button, enabled) => meowx.busy(button, () =>
@@ -180,6 +183,12 @@ function renderCard(initial) {
             if (st.state?.error && !st.applying) {
                 children.push(E('div', { class: 'mx-account__error' }, st.state.error));
             }
+            // 自检：tailscale0 的喵窝地址 / 路由丢了（后台会重启 tailscaled 修一次）
+            if (s.enabled && !st.applying && st.tun && !st.tun.ok) {
+                children.push(E('div', { class: 'mx-account__error' }, st.healing
+                    ? _('tailscale0 has lost its MeowNest address or routes; restarting tailscaled to fix it…')
+                    : (st.state?.warning || _('tailscale0 has lost its MeowNest address or routes.'))));
+            }
 
             // 开放的网段（主控返回的结果：原样 / 映射段）
             const sites = st.state?.sites ?? [];
@@ -200,6 +209,8 @@ function renderCard(initial) {
             children.push(E('div', { class: 'mx-quickadd' }, [extra]));
             children.push(E('label', { class: 'mx-mesh__check' }, [forceMap, E('span', {}, _('Always map (use a block from the panel\'s mapping pool even without conflicts)'))]));
             children.push(E('label', { class: 'mx-mesh__check' }, [routerAccess, E('span', {}, _('Allow mesh devices to access this router itself (LuCI, SSH…)'))]));
+            children.push(E('label', { class: 'mx-mesh__check' }, [lanAccess, E('span', {}, _('Let LAN devices reach other sites (subnets exposed by your other routers)'))]));
+            children.push(E('div', { class: 'mx-po0__note' }, _('Turn this on at both sites for two-way access between their LANs. If this router is not the LAN gateway (side router), add static routes on the main router sending the other sites\' subnets to this router.')));
             children.push(E('div', { class: 'mx-po0__group' }, _('Device name')));
             children.push(E('div', { class: 'mx-quickadd' }, [name, E('button', {
                 type: 'button',
