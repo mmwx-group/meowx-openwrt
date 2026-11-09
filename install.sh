@@ -120,11 +120,13 @@ elif [ -x "/usr/bin/apk" ]; then
 	# install apks from remote repository
 	echo "install apks from remote repository"
 	# --upgrade：已经装过的也升到软件源里的新版（apk add 缺省不升级已安装的包，再跑一遍安装脚本等于没升）
-	apk add --upgrade --allow-untrusted -X $feed_url/packages.adb meowx-core meowx luci-app-meowx || fail "failed to install meowx"
+	# --update-cache：-X 临时加的软件源不在系统的源列表里，上面的 apk update 刷不到它；apk 会沿用本机缓存里 4 小时内的旧索引，
+	# 当天装过旧版的路由器再跑一遍就以为已是最新、什么都不升（用户实报 0.3.3 → 0.3.4 升级「success」却没升）
+	apk add --upgrade --update-cache --allow-untrusted -X $feed_url/packages.adb meowx-core meowx luci-app-meowx || fail "failed to install meowx"
 	# kmod-dummy 可选（只给 IPv6 fake-ip 网段挂路由用）：有些第三方固件的软件源里没有，装不上不影响使用
 	apk add kmod-dummy > /dev/null 2>&1 || echo "kmod-dummy is unavailable, skip (only needed by the IPv6 fake-ip range)"
 	for lang in $languages; do
-		apk add --upgrade --allow-untrusted -X $feed_url/packages.adb "luci-i18n-meowx-${lang}" || echo "failed to install luci-i18n-meowx-${lang}, skip"
+		apk add --upgrade --update-cache --allow-untrusted -X $feed_url/packages.adb "luci-i18n-meowx-${lang}" || echo "failed to install luci-i18n-meowx-${lang}, skip"
 	done
 fi
 
