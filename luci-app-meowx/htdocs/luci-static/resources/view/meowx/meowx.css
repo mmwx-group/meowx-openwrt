@@ -1028,10 +1028,13 @@ body.mx-dark {
     overflow-y: auto;
 }
 
-/* 压过「.mx button」的胶囊按钮样式（多一个类） */
+/* 压过「.mx button」的胶囊按钮样式（多一个类）。flex: none：列表是限高可滚动的纵向 flex，
+   不写的话选项多了每一项会被压扁到放得下为止，底色只剩一条、文字溢出到下一项上（min-height: 0 也挡不住） */
 #view#view .mx .mx-akile__option {
     display: block;
+    flex: none;
     width: 100%;
+    height: auto;
     min-height: 0;
     line-height: 1.45;
     font-weight: 400;
