@@ -47,6 +47,12 @@ if [ -z "$arch" ]; then
 	fi
 fi
 
+# 哪一步失败就停下：以前各步都不看退出码，最后总是打印 success
+fail() {
+	echo "$1"
+	exit 1
+}
+
 # feed url
 repository_url="https://dl.miaomiaowux.com/meowx/openwrt"
 feed_url="$repository_url/$branch/$arch/meowx"
@@ -65,9 +71,9 @@ fi
 if [ -x "/bin/opkg" ]; then
 	# add key
 	echo "add key"
-	key_build_pub_file="key-build.pub"
-	wget -O "$key_build_pub_file" "$repository_url/key-build.pub"
-	opkg-key add "$key_build_pub_file"
+	key_build_pub_file="/tmp/meowx-key-build.pub"
+	wget -q -O "$key_build_pub_file" "$repository_url/key-build.pub" || fail "cannot download $repository_url/key-build.pub"
+	opkg-key add "$key_build_pub_file" || { rm -f "$key_build_pub_file"; fail "cannot add the feed key"; }
 	rm -f "$key_build_pub_file"
 	# add feed
 	echo "add feed"
@@ -77,11 +83,11 @@ if [ -x "/bin/opkg" ]; then
 	echo "src/gz meowx $feed_url" >> /etc/opkg/customfeeds.conf
 	# update feeds
 	echo "update feeds"
-	opkg update
+	opkg update || echo "opkg update reported errors, check the output above"
 elif [ -x "/usr/bin/apk" ]; then
 	# add key
 	echo "add key"
-	wget -O "/etc/apk/keys/meowx.pem" "$repository_url/public-key.pem"
+	wget -q -O "/etc/apk/keys/meowx.pem" "$repository_url/public-key.pem" || { rm -f /etc/apk/keys/meowx.pem; fail "cannot download $repository_url/public-key.pem"; }
 	# add feed
 	echo "add feed"
 	if grep -q meowx /etc/apk/repositories.d/customfeeds.list; then
@@ -90,7 +96,7 @@ elif [ -x "/usr/bin/apk" ]; then
 	echo "$feed_url/packages.adb" >> /etc/apk/repositories.d/customfeeds.list
 	# update feeds
 	echo "update feeds"
-	apk update
+	apk update || echo "apk update reported errors, check the output above"
 fi
 
 echo "success"
