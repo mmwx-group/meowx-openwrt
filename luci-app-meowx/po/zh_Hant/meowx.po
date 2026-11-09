@@ -1757,3 +1757,126 @@ msgstr "應答無法解析"
 
 msgid "Could not get this device's direct public IPv4"
 msgstr "查不到本機直連出口 IPv4"
+
+msgid "Network Speed Test"
+msgstr "網路測速"
+
+msgid "Preparing"
+msgstr "準備中"
+
+msgid "Testing latency"
+msgstr "測延遲"
+
+msgid "Download"
+msgstr "下載"
+
+msgid "Upload"
+msgstr "上傳"
+
+msgid "Done"
+msgstr "完成"
+
+msgid "Failed"
+msgstr "失敗"
+
+msgid "Cancelled"
+msgstr "已取消"
+
+msgid "Ready"
+msgstr "準備就緒"
+
+msgid "Speed over time"
+msgstr "速率曲線"
+
+msgid "Test via"
+msgstr "測速節點"
+
+msgid "Start test"
+msgstr "開始測速"
+
+msgid "Stop test"
+msgstr "停止測速"
+
+msgid "Single thread"
+msgstr "單執行緒"
+
+msgid "Multi-thread (8)"
+msgstr "多執行緒（8）"
+
+msgid "Test server"
+msgstr "測速源"
+
+msgid "Google and Microsoft test download only."
+msgstr "Google、Microsoft 只測下載。"
+
+msgid "Connections"
+msgstr "執行緒"
+
+msgid "About the speed test"
+msgstr "關於測速"
+
+msgid "This measures the speed of the router going out through the selected node. On low-end routers encryption may be the bottleneck, in which case the result is the router's own limit rather than the node's."
+msgstr "測的是路由器經所選節點出去的速度。低階路由器加解密跑不滿時，測到的是路由器本身的上限，而不是節點的。"
+
+msgid "A test saturates your bandwidth for a dozen seconds or so, slowing down other devices on the LAN, and uses real traffic on the node (a fast multi-thread test can use several hundred MB or more)."
+msgstr "測速會在十幾秒內佔滿頻寬，區域網路裡其它裝置會變慢，並照實消耗節點流量（高速多執行緒一次可能用掉幾百 MB 甚至更多）。"
+
+msgid "\"Direct\" tests the router's own network without any proxy."
+msgstr "「直連」測的是路由器本身的網路，不經任何代理。"
+
+msgid "Test history"
+msgstr "測速記錄"
+
+msgid "Only kept in this browser (last %d tests)."
+msgstr "只儲存在這個瀏覽器裡（最近 %d 次）。"
+
+msgid "Clear history"
+msgstr "清空記錄"
+
+msgid "Direct (DIRECT, tests the router's own network)"
+msgstr "直連（DIRECT，測路由器本身的網路）"
+
+msgid "The current core does not support the speed test. Please update MeowX."
+msgstr "目前核心不支援測速，請更新 MeowX。"
+
+msgid "MeowX is not running. Start the service on the App Config page first."
+msgstr "MeowX 沒有在執行，請先在「插件配置」裡啟用服務。"
+
+msgid "Speed test failed"
+msgstr "測速失敗"
+
+msgid "Done · Download"
+msgstr "完成 · 下載"
+
+msgid "Server %s"
+msgstr "伺服器 %s"
+
+msgid "Via %s"
+msgstr "經由 %s"
+
+msgid "Used %s"
+msgstr "已用 %s"
+
+msgid "Exit %s"
+msgstr "出口 %s"
+
+msgid "Exit: looking up…"
+msgstr "出口：查詢中…"
+
+msgid "Peak %s"
+msgstr "峰值 %s"
+
+msgid "Not tested by %s"
+msgstr "%s 不測上傳"
+
+msgid "Start speed test?"
+msgstr "開始測速？"
+
+msgid "The test saturates your bandwidth for a dozen seconds or so, slowing down other devices on the LAN, and uses real traffic."
+msgstr "測速會在十幾秒內佔滿頻寬，區域網路裡其它裝置會變慢，並照實消耗流量。"
+
+msgid "Via: %s · Server: %s · %s"
+msgstr "節點：%s · 測速源：%s · %s"
+
+msgid "No speed tests yet."
+msgstr "還沒有測速記錄。"

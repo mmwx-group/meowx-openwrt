@@ -1344,3 +1344,126 @@ msgstr "Не удалось разобрать ответ"
 
 msgid "Could not get this device's direct public IPv4"
 msgstr "Не удалось определить внешний IPv4 этого устройства при прямом подключении"
+
+msgid "Network Speed Test"
+msgstr "Тест скорости"
+
+msgid "Preparing"
+msgstr "Подготовка"
+
+msgid "Testing latency"
+msgstr "Проверка задержки"
+
+msgid "Download"
+msgstr "Загрузка"
+
+msgid "Upload"
+msgstr "Отдача"
+
+msgid "Done"
+msgstr "Готово"
+
+msgid "Failed"
+msgstr "Ошибка"
+
+msgid "Cancelled"
+msgstr "Отменено"
+
+msgid "Ready"
+msgstr "Готов"
+
+msgid "Speed over time"
+msgstr "Скорость во времени"
+
+msgid "Test via"
+msgstr "Через узел"
+
+msgid "Start test"
+msgstr "Начать тест"
+
+msgid "Stop test"
+msgstr "Остановить тест"
+
+msgid "Single thread"
+msgstr "Один поток"
+
+msgid "Multi-thread (8)"
+msgstr "Многопоточный (8)"
+
+msgid "Test server"
+msgstr "Сервер теста"
+
+msgid "Google and Microsoft test download only."
+msgstr "Google и Microsoft проверяют только загрузку."
+
+msgid "Connections"
+msgstr "Потоки"
+
+msgid "About the speed test"
+msgstr "О тесте скорости"
+
+msgid "This measures the speed of the router going out through the selected node. On low-end routers encryption may be the bottleneck, in which case the result is the router's own limit rather than the node's."
+msgstr "Измеряется скорость выхода роутера через выбранный узел. На слабых роутерах узким местом может стать шифрование, и тогда результат — предел самого роутера, а не узла."
+
+msgid "A test saturates your bandwidth for a dozen seconds or so, slowing down other devices on the LAN, and uses real traffic on the node (a fast multi-thread test can use several hundred MB or more)."
+msgstr "Тест на десяток с лишним секунд занимает весь канал, замедляя другие устройства в LAN, и расходует реальный трафик узла (быстрый многопоточный тест может потратить несколько сотен МБ и больше)."
+
+msgid "\"Direct\" tests the router's own network without any proxy."
+msgstr "«Напрямую» проверяет собственную сеть роутера без прокси."
+
+msgid "Test history"
+msgstr "История тестов"
+
+msgid "Only kept in this browser (last %d tests)."
+msgstr "Хранится только в этом браузере (последние %d тестов)."
+
+msgid "Clear history"
+msgstr "Очистить историю"
+
+msgid "Direct (DIRECT, tests the router's own network)"
+msgstr "Напрямую (DIRECT, сеть самого роутера)"
+
+msgid "The current core does not support the speed test. Please update MeowX."
+msgstr "Текущее ядро не поддерживает тест скорости. Обновите MeowX."
+
+msgid "MeowX is not running. Start the service on the App Config page first."
+msgstr "MeowX не запущен. Сначала включите службу на странице настроек приложения."
+
+msgid "Speed test failed"
+msgstr "Тест скорости не удался"
+
+msgid "Done · Download"
+msgstr "Готово · загрузка"
+
+msgid "Server %s"
+msgstr "Сервер %s"
+
+msgid "Via %s"
+msgstr "Через %s"
+
+msgid "Used %s"
+msgstr "Израсходовано %s"
+
+msgid "Exit %s"
+msgstr "Выход %s"
+
+msgid "Exit: looking up…"
+msgstr "Выход: определяется…"
+
+msgid "Peak %s"
+msgstr "Пик %s"
+
+msgid "Not tested by %s"
+msgstr "%s не проверяет отдачу"
+
+msgid "Start speed test?"
+msgstr "Начать тест скорости?"
+
+msgid "The test saturates your bandwidth for a dozen seconds or so, slowing down other devices on the LAN, and uses real traffic."
+msgstr "Тест на десяток с лишним секунд занимает весь канал, замедляя другие устройства в LAN, и расходует реальный трафик."
+
+msgid "Via: %s · Server: %s · %s"
+msgstr "Узел: %s · сервер: %s · %s"
+
+msgid "No speed tests yet."
+msgstr "Тестов пока не было."

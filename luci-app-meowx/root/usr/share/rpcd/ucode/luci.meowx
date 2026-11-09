@@ -2,13 +2,35 @@
 
 'use strict';
 
-import { access, popen, readfile, writefile } from 'fs';
+import { access, popen, readfile, stat, writefile } from 'fs';
 import { cursor } from 'uci';
 import { get_users, get_groups, get_cgroups, load_profile } from '/etc/meowx/ucode/include.uc';
 
 // 拼进 shell 命令行的参数一律经它：整个值包进单引号，值里的单引号换成 '\''（popen 走 /bin/sh -c）
 function shell_quote(value) {
 	return "'" + replace(`${value ?? ''}`, "'", "'\\''") + "'";
+}
+
+// 内核控制接口的地址与密钥（api 用）：取它要把整份运行配置交给 yq 解析一遍，订阅大时在低端路由器上要一两秒，
+// 而网络测速页测速时每半秒问一次进度——按运行配置的修改时间 / 大小 / inode 缓存，配置重新生成才重读
+// （rpcd 的 ucode 插件常驻，模块里的变量跨调用保留）
+let api_cache = null;
+
+function api_target() {
+	const st = stat('/etc/meowx/run/config.yaml');
+	const key = st ? `${st.mtime}:${st.size}:${st.inode}` : null;
+	if (key != null && api_cache?.key == key) {
+		return api_cache;
+	}
+	const profile = load_profile();
+	const target = {
+		key: key,
+		listen: profile?.['external-controller'],
+		tls_listen: profile?.['external-controller-tls'],
+		secret: profile?.['secret']
+	};
+	api_cache = key != null ? target : null;
+	return target;
 }
 
 function panel_cmd(args) {
@@ -589,10 +611,10 @@ const methods = {
 			const query = req.args?.query;
 			const body = req.args?.body;
 
-			const profile = load_profile();
-			const api_listen = profile['external-controller'];
-			const api_tls_listen = profile['external-controller-tls'];
-			const api_secret = profile['secret'];
+			const target = api_target();
+			const api_listen = target.listen;
+			const api_tls_listen = target.tls_listen;
+			const api_secret = target.secret;
 			if (!api_listen && !api_tls_listen) {
 				return result;
 			}

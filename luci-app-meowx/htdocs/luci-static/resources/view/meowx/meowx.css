@@ -19,6 +19,7 @@ body {
     --mx-strong: #7A5647;
     --mx-on-strong: #EFE8DF;
     --mx-rose: #B02E63;
+    --mx-vio: #5B45B0;
     --mx-pink: #F3A6BF;
     --mx-soft: #FCE4EC;
     --mx-good: #17693F;
@@ -48,6 +49,7 @@ body.mx-dark {
     --mx-strong: #F7F0F3;
     --mx-on-strong: #0E0C11;
     --mx-rose: #F7B6CB;
+    --mx-vio: #B3A2FF;
     --mx-soft: #3E2C38;
     --mx-good: #57D292;
     --mx-slow: #FF8377;
@@ -1884,4 +1886,431 @@ body.mx-dark {
     font-size: 12px;
     white-space: pre-wrap;
     word-break: break-all;
+}
+
+/* ---------- 网络测速页（同客户端测速页：左栏节点 + 码表 + 开始，右栏读数 + 曲线 + 设置；下载紫、上传玫红） ---------- */
+
+#view#view .mx-st {
+    container-type: inline-size;
+}
+
+#view#view .mx-st__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0 16px;
+}
+
+@container (min-width: 820px) {
+    #view#view .mx-st__grid {
+        grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    }
+}
+
+#view#view .mx-st__side {
+    min-width: 0;
+}
+
+#view#view .mx-st__main {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+}
+
+#view#view .mx-st__label {
+    margin: 0 0 6px;
+    color: var(--mx-t2);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .02em;
+}
+
+#view#view .mx-st__label--gap {
+    margin-top: 14px;
+}
+
+#view#view .mx .mx-st__select {
+    width: 100%;
+    max-width: none;
+    min-height: 38px;
+}
+
+/* 码表 */
+#view#view .mx-st__gauge {
+    position: relative;
+    width: 100%;
+    max-width: 320px;
+    margin: 14px auto 0;
+}
+
+#view#view .mx-st__gauge-svg {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+#view#view .mx-st__gauge-track,
+#view#view .mx-st__gauge-value {
+    fill: none;
+    stroke-width: 14;
+    stroke-linecap: round;
+}
+
+#view#view .mx-st__gauge-track {
+    stroke: var(--mx-elev2);
+}
+
+#view#view .mx-st__gauge-value {
+    stroke: var(--mx-vio);
+    transition: stroke-dasharray .45s var(--mx-soft-spring), stroke var(--mx-content) ease-out;
+}
+
+#view#view .mx-st__gauge-value.is-upload {
+    stroke: var(--mx-rose);
+}
+
+#view#view .mx-st__gauge-tick {
+    fill: var(--mx-t2);
+    font-size: 10px;
+    font-family: inherit;
+}
+
+#view#view .mx-st__gauge-center {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 34%;
+    text-align: center;
+    pointer-events: none;
+}
+
+#view#view .mx-st__gauge-num {
+    font-size: 44px;
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -.02em;
+    font-variant-numeric: tabular-nums;
+    color: var(--mx-t1);
+}
+
+#view#view .mx-st__gauge-unit {
+    color: var(--mx-t2);
+    font-size: 13px;
+    font-weight: 650;
+}
+
+#view#view .mx-st__gauge-phase {
+    display: inline-block;
+    margin-top: 8px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: var(--mx-elev2);
+    color: var(--mx-t2);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+#view#view .mx-st__gauge-phase.is-download {
+    background: color-mix(in srgb, var(--mx-vio) 16%, transparent);
+    color: var(--mx-vio);
+}
+
+#view#view .mx-st__gauge-phase.is-upload,
+#view#view .mx-st__gauge-phase.is-latency,
+#view#view .mx-st__gauge-phase.is-preparing {
+    background: var(--mx-soft);
+    color: var(--mx-rose);
+}
+
+#view#view .mx-st__gauge-phase.is-done {
+    background: color-mix(in srgb, var(--mx-good) 16%, transparent);
+    color: var(--mx-good);
+}
+
+#view#view .mx-st__gauge-phase.is-failed {
+    background: color-mix(in srgb, var(--mx-slow) 14%, transparent);
+    color: var(--mx-slow);
+}
+
+/* 本阶段进度 */
+#view#view .mx-st__bar {
+    height: 4px;
+    margin: 4px 0 16px;
+    border-radius: 999px;
+    background: var(--mx-elev2);
+    overflow: hidden;
+}
+
+#view#view .mx-st__bar-fill {
+    width: 0;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--mx-vio);
+    transition: width .3s linear;
+}
+
+#view#view .mx-st__bar-fill.is-upload {
+    background: var(--mx-rose);
+}
+
+#view#view .mx .mx-st__start {
+    width: 100%;
+    min-height: 42px;
+    font-size: 15px;
+}
+
+/* 读数三格 */
+#view#view .mx-st__cells {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+}
+
+#view#view .mx-st__cell {
+    min-width: 0;
+    padding: 10px 12px;
+    border-radius: var(--mx-r-cell);
+    background: var(--mx-elev2);
+}
+
+#view#view .mx-st__cell-label {
+    color: var(--mx-t2);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+#view#view .mx-st__cell-value {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    margin-top: 2px;
+    white-space: nowrap;
+}
+
+#view#view .mx-st__cell-num {
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: -.01em;
+    font-variant-numeric: tabular-nums;
+}
+
+#view#view .mx-st__cell.is-download .mx-st__cell-num {
+    color: var(--mx-vio);
+}
+
+#view#view .mx-st__cell.is-upload .mx-st__cell-num {
+    color: var(--mx-rose);
+}
+
+#view#view .mx-st__cell-unit {
+    color: var(--mx-t2);
+    font-size: 12px;
+    font-weight: 650;
+}
+
+#view#view .mx-st__cell-sub {
+    min-height: 16px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--mx-t2);
+    font-size: 11px;
+}
+
+/* 速率曲线 */
+#view#view .mx-st__chart {
+    margin-top: 12px;
+    height: 170px;
+}
+
+#view#view .mx-st__chart-svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
+#view#view .mx-st__gridline {
+    stroke: var(--mx-stroke);
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+}
+
+#view#view .mx-st__axis {
+    fill: var(--mx-t2);
+    font-size: 10px;
+    font-family: inherit;
+}
+
+#view#view .mx-st__line {
+    fill: none;
+    stroke-width: 2;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+}
+
+#view#view .mx-st__line.is-download {
+    stroke: var(--mx-vio);
+}
+
+#view#view .mx-st__line.is-upload {
+    stroke: var(--mx-rose);
+}
+
+#view#view .mx-st__area {
+    stroke: none;
+    opacity: .14;
+}
+
+#view#view .mx-st__area.is-download {
+    fill: var(--mx-vio);
+}
+
+#view#view .mx-st__area.is-upload {
+    fill: var(--mx-rose);
+}
+
+#view#view .mx-st__legend {
+    display: flex;
+    gap: 14px;
+    margin: 6px 0 4px;
+    color: var(--mx-t2);
+    font-size: 12px;
+}
+
+#view#view .mx-st__key::before {
+    content: "";
+    display: inline-block;
+    width: 10px;
+    height: 3px;
+    margin-right: 6px;
+    border-radius: 2px;
+    vertical-align: middle;
+    background: var(--mx-vio);
+}
+
+#view#view .mx-st__key.is-upload::before {
+    background: var(--mx-rose);
+}
+
+#view#view .mx-st__meta {
+    margin-top: 4px;
+    color: var(--mx-t2);
+    font-size: 12px;
+    overflow-wrap: anywhere;
+}
+
+#view#view .mx-st__meta[hidden] {
+    display: none;
+}
+
+/* 分段控件（测速源 / 线程数）：同页签的胶囊，选中 = 摩卡实心 */
+#view#view .mx-seg {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 4px;
+    border-radius: 18px;
+    background: var(--mx-elev2);
+}
+
+#view#view .mx-seg .mx-seg__item {
+    flex: 1 1 auto;
+    min-height: 32px;
+    padding: 4px 12px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--mx-t2) !important;
+    font-weight: 650;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color var(--mx-toggle) var(--mx-ease-snappy), color var(--mx-toggle) ease-out;
+}
+
+#view#view .mx-seg .mx-seg__item.is-active {
+    background: var(--mx-strong);
+    color: var(--mx-on-strong) !important;
+}
+
+#view#view .mx-seg.is-disabled {
+    opacity: .55;
+}
+
+#view#view .mx-seg.is-disabled .mx-seg__item {
+    cursor: not-allowed;
+}
+
+/* 说明与测速记录 */
+#view#view .mx-st__notes {
+    margin: 8px 0 0;
+    padding-left: 18px;
+    color: var(--mx-t2);
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+#view#view .mx-st__hist-via {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+#view#view .mx-st__hist-result {
+    display: flex;
+    flex: none;
+    gap: 12px;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    font-size: 13px;
+}
+
+#view#view .mx-st__hist-result .is-download {
+    color: var(--mx-vio);
+}
+
+#view#view .mx-st__hist-result .is-upload {
+    color: var(--mx-rose);
+}
+
+#view#view .mx-st__hist-error {
+    flex: none;
+    max-width: 50%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--mx-slow);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+#view#view .mx-st .mx-po0__head .cbi-button {
+    flex: none;
+}
+
+#view#view .mx-st .mx-po0__list {
+    margin-top: 10px;
+}
+
+@media (max-width: 640px) {
+    #view#view .mx-st__cell {
+        padding: 8px 10px;
+    }
+
+    #view#view .mx-st__cell-num {
+        font-size: 20px;
+    }
+
+    #view#view .mx-st__hist {
+        flex-wrap: wrap;
+    }
+
+    #view#view .mx-st__hist .mx-po0__main {
+        flex: 1 1 180px;
+    }
+
+    #view#view .mx-st__hist-error {
+        max-width: 100%;
+    }
 }

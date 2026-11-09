@@ -3,7 +3,7 @@
 'require dom';
 'require tools.meowx as meowx';
 
-// MeowX 只有这一个视图：顶部胶囊页签在页内切换八个页面（同系统页的选项卡），不跳页面、不闪。
+// MeowX 只有这一个视图：顶部胶囊页签在页内切换十个页面（同系统页的选项卡），不跳页面、不闪。
 // 页面第一次点开时加载渲染，之后留在页里隐藏：来回切不重新加载、没保存的修改不丢，「保存并应用」一起保存（同系统页）。
 // 当前页签记在地址的 #锚点 里，后退键与刷新都停在原页。
 const pages = [
@@ -13,6 +13,7 @@ const pages = [
     { id: 'proxy', title: _('Proxy Config'), module: 'view.meowx.proxy' },
     { id: 'editor', title: _('Editor'), module: 'view.meowx.editor' },
     { id: 'log', title: _('Log'), module: 'view.meowx.log' },
+    { id: 'speedtest', title: _('Network Speed Test'), module: 'view.meowx.speedtest', noActions: true },
     { id: 'extras', title: _('Extras'), module: 'view.meowx.extras' },
     { id: 'mesh', title: _('MeowNest'), module: 'view.meowx.mesh', noActions: true },
     { id: 'about', title: _('About'), module: 'view.meowx.about', noActions: true }
@@ -58,6 +59,10 @@ return view.extend({
         this.current = id;
         if (fromClick) {
             history.pushState(null, '', '#' + id);
+        }
+        // 切走时要收尾的页面（网络测速：停掉正在跑的测速）自己实现 onHide
+        if (previous != null && this.modules[previous]?.onHide) {
+            Promise.resolve(this.modules[previous].onHide()).catch(() => { });
         }
         this.tabs.querySelectorAll('.mx-tabs__item').forEach((item) => {
             const active = item.getAttribute('data-page') == id;

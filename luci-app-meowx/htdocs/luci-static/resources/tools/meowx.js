@@ -325,6 +325,26 @@ return baseclass.extend({
         return callMeowXAPI('POST', '/upgrade/ui');
     },
 
+    // 内核控制接口：由路由器带上密钥用 curl 转发（luci.meowx 的 api），回内核应答的 JSON。
+    // 拿不到 HTTP 状态码：204 空包与内核没在跑都回 {}，不是 JSON 的应答（如旧内核的「404 page not found」）回 { message }
+    api: function (method, path, body) {
+        return callMeowXAPI(method, path, undefined, body != null ? JSON.stringify(body) : undefined);
+    },
+
+    // 页面关掉 / 跳走时发的最后一个请求（pagehide 里用）：LuCI 的 rpc 请求排队等下一帧才发，页面卸载时发不出去，
+    // 这里直接 fetch 并带 keepalive，页面没了请求照样送达
+    apiBeacon: function (method, path) {
+        try {
+            fetch(rpc.getBaseURL(), {
+                method: 'POST',
+                keepalive: true,
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'call', params: [rpc.getSessionID(), 'luci.meowx', 'api', { method: method, path: path }] })
+            }).catch(function () { });
+        } catch (e) { }
+    },
+
     checkUpdate: function () {
         return L.resolveDefault(callMeowXCheckUpdate(), { success: false });
     },

@@ -1750,3 +1750,126 @@ msgstr ""
 
 msgid "Could not get this device's direct public IPv4"
 msgstr ""
+
+msgid "Network Speed Test"
+msgstr ""
+
+msgid "Preparing"
+msgstr ""
+
+msgid "Testing latency"
+msgstr ""
+
+msgid "Download"
+msgstr ""
+
+msgid "Upload"
+msgstr ""
+
+msgid "Done"
+msgstr ""
+
+msgid "Failed"
+msgstr ""
+
+msgid "Cancelled"
+msgstr ""
+
+msgid "Ready"
+msgstr ""
+
+msgid "Speed over time"
+msgstr ""
+
+msgid "Test via"
+msgstr ""
+
+msgid "Start test"
+msgstr ""
+
+msgid "Stop test"
+msgstr ""
+
+msgid "Single thread"
+msgstr ""
+
+msgid "Multi-thread (8)"
+msgstr ""
+
+msgid "Test server"
+msgstr ""
+
+msgid "Google and Microsoft test download only."
+msgstr ""
+
+msgid "Connections"
+msgstr ""
+
+msgid "About the speed test"
+msgstr ""
+
+msgid "This measures the speed of the router going out through the selected node. On low-end routers encryption may be the bottleneck, in which case the result is the router's own limit rather than the node's."
+msgstr ""
+
+msgid "A test saturates your bandwidth for a dozen seconds or so, slowing down other devices on the LAN, and uses real traffic on the node (a fast multi-thread test can use several hundred MB or more)."
+msgstr ""
+
+msgid "\"Direct\" tests the router's own network without any proxy."
+msgstr ""
+
+msgid "Test history"
+msgstr ""
+
+msgid "Only kept in this browser (last %d tests)."
+msgstr ""
+
+msgid "Clear history"
+msgstr ""
+
+msgid "Direct (DIRECT, tests the router's own network)"
+msgstr ""
+
+msgid "The current core does not support the speed test. Please update MeowX."
+msgstr ""
+
+msgid "MeowX is not running. Start the service on the App Config page first."
+msgstr ""
+
+msgid "Speed test failed"
+msgstr ""
+
+msgid "Done · Download"
+msgstr ""
+
+msgid "Server %s"
+msgstr ""
+
+msgid "Via %s"
+msgstr ""
+
+msgid "Used %s"
+msgstr ""
+
+msgid "Exit %s"
+msgstr ""
+
+msgid "Exit: looking up…"
+msgstr ""
+
+msgid "Peak %s"
+msgstr ""
+
+msgid "Not tested by %s"
+msgstr ""
+
+msgid "Start speed test?"
+msgstr ""
+
+msgid "The test saturates your bandwidth for a dozen seconds or so, slowing down other devices on the LAN, and uses real traffic."
+msgstr ""
+
+msgid "Via: %s · Server: %s · %s"
+msgstr ""
+
+msgid "No speed tests yet."
+msgstr ""
