@@ -489,6 +489,8 @@ function status() {
 					online: p.Online,
 					relay: p.Relay,
 					direct: !!p.CurAddr,
+					// 最近没有往来（tailscale 的 Active）：界面显示「空闲」而不是「经中继」——Relay 只是对端的 home DERP，不代表正在走中继
+					active: p.Active,
 					routes: p.PrimaryRoutes ?? []
 				});
 			}

@@ -1626,6 +1626,9 @@ msgstr "其他裝置（%d）"
 msgid "No other devices yet. Turn on \"MeowNest\" in MeowX signed in with the same admin account."
 msgstr "還沒有其他裝置：在用同一管理員帳號登入的 MeowX 裡打開「喵窩」即可。"
 
+msgid "Idle"
+msgstr "閒置"
+
 msgid "Via relay %s"
 msgstr "經中繼 %s"
 

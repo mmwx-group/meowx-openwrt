@@ -1213,6 +1213,9 @@ msgstr ""
 msgid "No other devices yet. Turn on \"MeowNest\" in MeowX signed in with the same admin account."
 msgstr ""
 
+msgid "Idle"
+msgstr "Простаивает"
+
 msgid "Via relay %s"
 msgstr ""
 

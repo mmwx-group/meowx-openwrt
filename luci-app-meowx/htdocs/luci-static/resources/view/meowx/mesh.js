@@ -229,7 +229,7 @@ function renderCard(initial) {
                 } else {
                     children.push(E('div', { class: 'mx-po0__list' }, peers.map((p) => row(
                         [E('span', { class: 'mx-mesh__dot' + (p.online ? ' is-online' : '') }), ' ', p.name || p.dns_name],
-                        [p.ip, (p.routes ?? []).join(', '), p.online ? (p.direct ? _('Direct') : (p.relay ? _('Via relay %s').format(p.relay) : '')) : _('Offline')].filter((x) => x).join(' · ')
+                        [p.ip, (p.routes ?? []).join(', '), p.online ? (p.direct ? _('Direct') : (p.active === false ? _('Idle') : (p.relay ? _('Via relay %s').format(p.relay) : ''))) : _('Offline')].filter((x) => x).join(' · ')
                     ))));
                 }
             }
