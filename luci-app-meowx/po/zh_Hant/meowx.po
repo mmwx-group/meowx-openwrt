@@ -1361,6 +1361,33 @@ msgstr "已更新到 %s，正在重新整理頁面…"
 msgid "No output"
 msgstr "沒有輸出"
 
+msgid "New core %s available"
+msgstr "核心有新版本 %s"
+
+msgid "Update core to %s"
+msgstr "更新核心到 %s"
+
+msgid "The core is up to date"
+msgstr "核心已是最新版本"
+
+msgid "Checking for core updates…"
+msgstr "正在檢查核心更新…"
+
+msgid "Unable to check for core updates"
+msgstr "檢查核心更新失敗"
+
+msgid "No core build for this architecture; update the plugin to get a new core"
+msgstr "這個架構沒有可直接下載的核心，請透過升級外掛取得新核心"
+
+msgid "Update the core to %s? Only the core is replaced and the service restarts once; the plugin and its settings stay as they are."
+msgstr "把核心更新到 %s？只替換核心、服務重新啟動一次，外掛與設定都不變。"
+
+msgid "Core updated to %s, reloading the page…"
+msgstr "核心已更新到 %s，正在重新整理頁面…"
+
+msgid "Core update failed"
+msgstr "核心更新失敗"
+
 msgid "The core is not running, so the web dashboard cannot be updated. Start the service first."
 msgstr "核心沒有執行，無法更新 Web 面板，請先啟動服務。"
 

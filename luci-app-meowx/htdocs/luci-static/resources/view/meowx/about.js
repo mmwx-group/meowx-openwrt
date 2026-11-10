@@ -19,6 +19,20 @@ function sentence(text, nodes) {
     return parts.flatMap((part, i) => i < nodes.length ? [part, nodes[i]] : [part]);
 }
 
+// 等后台安装跑完：升级插件会重载 rpcd，期间轮询可能失败，失败当作「还在装」，最多等 10 分钟
+function waitUpgrade() {
+    return new Promise((resolve) => {
+        const started = Date.now();
+        const poll = () => meowx.upgradeStatus().then((st) => {
+            if (st?.running && Date.now() - started < 600000) {
+                return setTimeout(poll, 2000);
+            }
+            resolve(st);
+        }, () => setTimeout(poll, 3000));
+        setTimeout(poll, 2000);
+    });
+}
+
 return baseclass.extend({
     load: function () {
         return meowx.version();
@@ -34,7 +48,7 @@ return baseclass.extend({
                 E('div', { class: 'mx-about__ver' }, _('Plugin %s · Core %s').format(version?.app || '-', version?.core || '-'))
             ])
         ]);
-        const update = this.renderUpdate(version?.app);
+        const update = this.renderUpdate(version?.app, version?.core);
         const open = E('div', { class: 'mx-account mx-about' }, [
             E('span', { class: 'mx-subcard__label' }, _('Open Source')),
             E('p', { class: 'mx-about__text' }, _('This project is open source under the GPL-3.0 license. Source code, issues and release notes are on GitHub:')),
@@ -51,14 +65,17 @@ return baseclass.extend({
                 [link(mihomoURL, 'mihomo'), link(coreURL, 'meowx-core')]))
         ]);
         const map = E('div', { id: 'cbi-meowx', class: 'cbi-map' });
-        return meowx.decorate(map, { hero: [E('div', { class: 'mx-cards' }, [E('div', { class: 'mx-account' }, [head, update]), open, thanks])] });
+        return meowx.decorate(map, { hero: [E('div', { class: 'mx-cards' }, [E('div', { class: 'mx-account' }, [head, ...update]), open, thanks])] });
     },
 
     // 插件更新：打开「关于」时查一次 dl.miaomiaowux.com 的发布清单；有新版本给「更新到 x」按钮，路由器自己跑一遍
-    // 一键安装脚本（opkg 装新 ipk 即升级，apk 带 --upgrade），装完自动刷新页面；失败时显示安装输出
-    renderUpdate: function (installed) {
+    // 一键安装脚本（opkg 装新 ipk 即升级，apk 带 --upgrade），装完自动刷新页面；失败时显示安装输出。
+    // 内核单独一行、单独检查：查 meowx-core 的 GitHub Release，比装着的新就给「更新内核」，直接下载内核替换，插件不动
+    renderUpdate: function (installed, installedCore) {
         const line = E('div', { class: 'mx-about__update' }, E('span', { class: 'mx-about__update-text' }, _('Checking for updates…')));
+        const coreLine = E('div', { class: 'mx-about__update' }, E('span', { class: 'mx-about__update-text' }, _('Checking for core updates…')));
         const show = (text, button) => line.replaceChildren(...[E('span', { class: 'mx-about__update-text' }, text), button].filter(Boolean));
+        const showCore = (text, button) => coreLine.replaceChildren(...[E('span', { class: 'mx-about__update-text' }, text), button].filter(Boolean));
         const check = () => meowx.checkUpdate().then((res) => {
             if (!res?.success) {
                 return show(_('Unable to check for updates'), E('button', { type: 'button', class: 'cbi-button', click: (ev) => meowx.busy(ev.currentTarget, check) }, _('Retry')));
@@ -72,25 +89,32 @@ return baseclass.extend({
                 click: (ev) => this.upgrade(ev.currentTarget, res.latest, installed, line)
             }, _('Update to %s').format(res.latest)));
         });
+        const checkCore = () => meowx.checkCoreUpdate().then((res) => {
+            if (res?.supported === false) {
+                return showCore(_('No core build for this architecture; update the plugin to get a new core'));
+            }
+            if (!res?.success) {
+                return showCore(_('Unable to check for core updates'), E('button', { type: 'button', class: 'cbi-button', click: (ev) => meowx.busy(ev.currentTarget, checkCore) }, _('Retry')));
+            }
+            if (!installedCore || meowx.compareVersion(res.latest, installedCore) <= 0) {
+                return showCore(_('The core is up to date'));
+            }
+            showCore(_('New core %s available').format(res.latest), E('button', {
+                type: 'button',
+                class: 'cbi-button cbi-button-action',
+                click: (ev) => this.upgradeCore(ev.currentTarget, res.latest, installedCore, coreLine)
+            }, _('Update core to %s').format(res.latest)));
+        });
         check();
-        return line;
+        checkCore();
+        return [line, coreLine];
     },
 
     upgrade: function (button, latest, installed, line) {
         if (!confirm(_('Update MeowX to %s? The page may be briefly unavailable while it installs; settings and subscriptions are kept.').format(latest))) {
             return;
         }
-        return meowx.busy(button, () => meowx.upgrade().then(() => new Promise((resolve) => {
-            // 升级会重载 rpcd，期间轮询可能失败：失败当作「还在装」，最多等 10 分钟
-            const started = Date.now();
-            const poll = () => meowx.upgradeStatus().then((st) => {
-                if (st?.running && Date.now() - started < 600000) {
-                    return setTimeout(poll, 2000);
-                }
-                resolve(st);
-            }, () => setTimeout(poll, 3000));
-            setTimeout(poll, 2000);
-        })).then((st) => meowx.version().then((v) => {
+        return meowx.busy(button, () => meowx.upgrade().then(waitUpgrade).then((st) => meowx.version().then((v) => {
             if (meowx.compareVersion(v?.app, installed) > 0) {
                 ui.addNotification(null, E('p', _('Updated to %s, reloading the page…').format(v.app)), 'info');
                 // LuCI 脚本地址里的 ?v= 只随 luci-base 变，插件升级后浏览器照样用缓存里的旧脚本：先把用过的 MeowX 脚本
@@ -106,6 +130,23 @@ return baseclass.extend({
             }
             line.replaceChildren(
                 E('span', { class: 'mx-about__update-text is-failed' }, _('Update failed')),
+                E('pre', { class: 'mx-about__log' }, String(st?.log || '').trim() || _('No output')));
+        })));
+    },
+
+    // 只换内核：插件不动，装完重启一次服务；页面脚本没变，直接刷新
+    upgradeCore: function (button, latest, installed, line) {
+        if (!confirm(_('Update the core to %s? Only the core is replaced and the service restarts once; the plugin and its settings stay as they are.').format(latest))) {
+            return;
+        }
+        return meowx.busy(button, () => meowx.upgradeCore().then(waitUpgrade).then((st) => meowx.version().then((v) => {
+            if (meowx.compareVersion(v?.core, installed) > 0) {
+                ui.addNotification(null, E('p', _('Core updated to %s, reloading the page…').format(v.core)), 'info');
+                setTimeout(() => location.reload(), 800);
+                return;
+            }
+            line.replaceChildren(
+                E('span', { class: 'mx-about__update-text is-failed' }, _('Core update failed')),
                 E('pre', { class: 'mx-about__log' }, String(st?.log || '').trim() || _('No output')));
         })));
     }

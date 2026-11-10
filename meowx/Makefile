@@ -46,6 +46,7 @@ define Package/meowx/install
 	$(INSTALL_BIN) $(CURDIR)/files/scripts/include.sh $(1)/etc/meowx/scripts/include.sh
 	$(INSTALL_BIN) $(CURDIR)/files/scripts/firewall_include.sh $(1)/etc/meowx/scripts/firewall_include.sh
 	$(INSTALL_BIN) $(CURDIR)/files/scripts/debug.sh $(1)/etc/meowx/scripts/debug.sh
+	$(INSTALL_BIN) $(CURDIR)/files/scripts/core_update.sh $(1)/etc/meowx/scripts/core_update.sh
 
 	$(INSTALL_BIN) $(CURDIR)/files/nftables/geoip_cn.nft $(1)/etc/meowx/nftables/geoip_cn.nft
 	$(INSTALL_BIN) $(CURDIR)/files/nftables/geoip6_cn.nft $(1)/etc/meowx/nftables/geoip6_cn.nft

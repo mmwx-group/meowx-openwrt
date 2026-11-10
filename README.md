@@ -57,7 +57,20 @@ opkg update && opkg upgrade meowx-core meowx luci-app-meowx    # 24.10
 apk update && apk upgrade meowx-core meowx luci-app-meowx      # 25.12 及以后
 ```
 
-用一键安装装的，再执行一遍一键安装命令即可。升级会保留设置、订阅与主控账户。
+用一键安装装的，再执行一遍一键安装命令即可。升级会保留设置、订阅与主控账户。也可以在 LuCI「关于」页一键更新。
+
+### 只更新内核
+
+LuCI「关于」页的「更新内核」直接从 [meowx-core 的 Release](https://github.com/mmwx-group/meowx-core/releases) 下载本机架构的内核
+（按「GitHub 加速」的设置走加速地址，不通再直连），校验 sha256、确认能在本机跑起来后替换 `/usr/bin/meowx-core`，
+服务在跑就重启一次；插件不动，也不用等这里发版。命令行同样可以：
+
+```shell
+/etc/meowx/scripts/core_update.sh update            # 更新到最新；也可以跟版本号，如 update 0.5.0
+```
+
+这样换上去的内核不经过包管理：之后升级插件时，软件源里内核包的版本变了才会覆盖它（若那时软件源的内核比 Release 旧，
+在「关于」页再更新一次即可）。
 
 ## 卸载
 

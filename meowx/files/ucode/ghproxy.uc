@@ -33,7 +33,7 @@ export const PRESETS = [
 	{ url: 'https://gh.idayer.com/', type: 'prefix' }
 ];
 
-// 内核（meowC 的 mihomo）不写 geox-url / external-ui-url 时的缺省下载地址（config/config.go），
+// 内核（meowx-core 的 mihomo）不写 geox-url / external-ui-url 时的缺省下载地址（config/config.go），
 // 开了加速时补上再换算，否则这几样照样直连 GitHub
 export const GEOX_DEFAULTS = {
 	geosite: 'https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geosite.dat',

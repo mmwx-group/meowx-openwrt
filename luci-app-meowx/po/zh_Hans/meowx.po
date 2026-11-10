@@ -1361,6 +1361,33 @@ msgstr "已更新到 %s，正在刷新页面…"
 msgid "No output"
 msgstr "没有输出"
 
+msgid "New core %s available"
+msgstr "内核有新版本 %s"
+
+msgid "Update core to %s"
+msgstr "更新内核到 %s"
+
+msgid "The core is up to date"
+msgstr "内核已是最新版本"
+
+msgid "Checking for core updates…"
+msgstr "正在检查内核更新…"
+
+msgid "Unable to check for core updates"
+msgstr "检查内核更新失败"
+
+msgid "No core build for this architecture; update the plugin to get a new core"
+msgstr "这个架构没有可直接下载的内核，请通过升级插件获得新内核"
+
+msgid "Update the core to %s? Only the core is replaced and the service restarts once; the plugin and its settings stay as they are."
+msgstr "把内核更新到 %s？只替换内核、服务重启一次，插件和设置都不变。"
+
+msgid "Core updated to %s, reloading the page…"
+msgstr "内核已更新到 %s，正在刷新页面…"
+
+msgid "Core update failed"
+msgstr "内核更新失败"
+
 msgid "The core is not running, so the web dashboard cannot be updated. Start the service first."
 msgstr "内核没有运行，无法更新 Web 面板，请先启动服务。"
 

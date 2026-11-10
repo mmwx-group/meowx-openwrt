@@ -1354,6 +1354,33 @@ msgstr ""
 msgid "No output"
 msgstr ""
 
+msgid "New core %s available"
+msgstr ""
+
+msgid "Update core to %s"
+msgstr ""
+
+msgid "The core is up to date"
+msgstr ""
+
+msgid "Checking for core updates…"
+msgstr ""
+
+msgid "Unable to check for core updates"
+msgstr ""
+
+msgid "No core build for this architecture; update the plugin to get a new core"
+msgstr ""
+
+msgid "Update the core to %s? Only the core is replaced and the service restarts once; the plugin and its settings stay as they are."
+msgstr ""
+
+msgid "Core updated to %s, reloading the page…"
+msgstr ""
+
+msgid "Core update failed"
+msgstr ""
+
 msgid "The core is not running, so the web dashboard cannot be updated. Start the service first."
 msgstr ""
 

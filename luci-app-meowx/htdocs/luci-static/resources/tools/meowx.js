@@ -148,6 +148,18 @@ const callMeowXUpgrade = rpc.declare({
     expect: { '': {} }
 });
 
+const callMeowXCheckCoreUpdate = rpc.declare({
+    object: 'luci.meowx',
+    method: 'check_core_update',
+    expect: { '': {} }
+});
+
+const callMeowXUpgradeCore = rpc.declare({
+    object: 'luci.meowx',
+    method: 'upgrade_core',
+    expect: { '': {} }
+});
+
 const callMeowXUpgradeStatus = rpc.declare({
     object: 'luci.meowx',
     method: 'upgrade_status',
@@ -351,6 +363,14 @@ return baseclass.extend({
 
     upgrade: function () {
         return callMeowXUpgrade();
+    },
+
+    checkCoreUpdate: function () {
+        return L.resolveDefault(callMeowXCheckCoreUpdate(), { success: false });
+    },
+
+    upgradeCore: function () {
+        return callMeowXUpgradeCore();
     },
 
     upgradeStatus: function () {

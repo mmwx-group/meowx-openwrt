@@ -5,12 +5,13 @@
 //   test    由路由器逐个测各加速地址（并发 curl），结果写进缓存，输出状态（JSON）
 //   status  输出预设列表、当前设置与缓存的测速结果（JSON），不测速
 //   cron    每天一次（只在「自动选最快」时挂）：重测；原来选中的已经不可达、新选的又不一样时输出 reload
+//   url     按当前设置换算一个 GitHub 地址（内核更新脚本下载 release 附件用），不加速时原样输出
 
 'use strict';
 
 import { readfile, writefile, open, popen, unlink, stdin } from 'fs';
 import { cursor } from 'uci';
-import { PRESETS, DIRECT_URL, normalize_mirror, mirror_type, test_url, rewrite_profile, pick_fastest } from '/etc/meowx/ucode/ghproxy.uc';
+import { PRESETS, DIRECT_URL, normalize_mirror, mirror_type, test_url, rewrite_profile, pick_fastest, convert } from '/etc/meowx/ucode/ghproxy.uc';
 
 const CACHE_PATH = '/etc/meowx/ghproxy.json';
 const APP_LOG_PATH = '/var/log/meowx/app.log';
@@ -219,7 +220,10 @@ if (command == 'apply') {
 			print('reload\n');
 		}
 	}
+} else if (command == 'url' && ARGV[1]) {
+	const sel = resolve(s, true);
+	print((sel == null ? ARGV[1] : convert(ARGV[1], sel)) + '\n');
 } else {
-	warn('usage: ghproxy_cli.uc apply|test|status|cron\n');
+	warn('usage: ghproxy_cli.uc apply|test|status|cron|url <github url>\n');
 	exit(1);
 }
