@@ -177,7 +177,7 @@ return baseclass.extend({
         // GitHub 加速：面板、Geo 数据、规则集经加速地址下载（生成运行配置时改写，见 init 的 ghproxy_apply）
         const ghproxy = data[2] ?? {};
         s = m.section(form.NamedSection, 'ghproxy', 'ghproxy', _('GitHub Acceleration'),
-            _('Download the web dashboard, GeoX data and rule sets hosted on GitHub through a mirror, so the first start does not time out. Third-party mirrors can change what they serve, and the dashboard is a web app running on your router, so this is off by default: turn it on only if you trust the mirror. Only these download addresses in the running config are rewritten (the subscription file is not changed); proxy providers and subscription addresses may contain tokens and never go through a mirror.'));
+            _('Download the web dashboard, GeoX data and rule sets hosted on GitHub through a mirror, so the first start does not time out. Third-party mirrors can change what they serve, and the dashboard is a web app running on your router, so turn it off (No acceleration) if you do not trust the mirrors. Only these download addresses in the running config are rewritten (the subscription file is not changed); proxy providers and subscription addresses may contain tokens and never go through a mirror.'));
 
         o = s.option(form.ListValue, 'mode', _('Mirror'));
         o.value('off', _('No acceleration (direct)'));
@@ -186,7 +186,7 @@ return baseclass.extend({
             o.value(preset.url, `${preset.url} · ${ghproxyTypeLabel(preset.type)}`);
         }
         o.value('custom', _('Custom Mirror'));
-        o.default = 'off';
+        o.default = 'auto';
         o.rmempty = false;
         o.description = _('jsDelivr mirrors only serve files in repositories, so release assets such as the dashboard keep the original address. Auto tests the mirrors when the service starts (the result is kept for a day) and once a day, and uses the fastest reachable one (release assets then go through the fastest prefix mirror); when none is reachable it downloads directly.');
         const modeOption = o;

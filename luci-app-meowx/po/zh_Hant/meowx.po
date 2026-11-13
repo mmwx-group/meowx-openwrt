@@ -1482,8 +1482,8 @@ msgstr "「僅核心」開著，混入設定（包括這個開關）不生效。
 msgid "GitHub Acceleration"
 msgstr "GitHub 加速"
 
-msgid "Download the web dashboard, GeoX data and rule sets hosted on GitHub through a mirror, so the first start does not time out. Third-party mirrors can change what they serve, and the dashboard is a web app running on your router, so this is off by default: turn it on only if you trust the mirror. Only these download addresses in the running config are rewritten (the subscription file is not changed); proxy providers and subscription addresses may contain tokens and never go through a mirror."
-msgstr "面板、Geo 資料、規則集這些放在 GitHub 上的檔案經加速位址下載，避免首次啟動時下載逾時。第三方加速站能改動它轉發的內容，而面板是在路由器上執行的網頁程式，所以預設不加速，信得過加速站再開啟。只改寫執行設定裡的這幾項下載位址（不改訂閱原檔）；代理集合（proxy-providers）與訂閱位址可能帶權杖，一律不經加速站。"
+msgid "Download the web dashboard, GeoX data and rule sets hosted on GitHub through a mirror, so the first start does not time out. Third-party mirrors can change what they serve, and the dashboard is a web app running on your router, so turn it off (No acceleration) if you do not trust the mirrors. Only these download addresses in the running config are rewritten (the subscription file is not changed); proxy providers and subscription addresses may contain tokens and never go through a mirror."
+msgstr "面板、Geo 資料、規則集這些放在 GitHub 上的檔案經加速位址下載，避免首次啟動時下載逾時。第三方加速站能改動它轉發的內容，而面板是在路由器上執行的網頁程式，預設自動選最快的加速站，信不過加速站請選「不加速」。只改寫執行設定裡的這幾項下載位址（不改訂閱原檔）；代理集合（proxy-providers）與訂閱位址可能帶權杖，一律不經加速站。"
 
 msgid "Mirror"
 msgstr "加速位址"
