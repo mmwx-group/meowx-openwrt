@@ -2,7 +2,7 @@
 
 'use strict';
 
-import { access, popen, readfile, stat, writefile } from 'fs';
+import { access, popen, readfile, rename, stat, writefile } from 'fs';
 import { cursor } from 'uci';
 import { get_users, get_groups, get_cgroups, load_profile } from '/etc/meowx/ucode/include.uc';
 
@@ -56,6 +56,31 @@ function panel_sync(urls_before, report) {
 	if (report) {
 		system('(/usr/bin/meowx-core panel report >/dev/null 2>&1 &)');
 	}
+}
+
+// 测速榜（网络测速页上传测速结果，规格 miaomiaowuC/Design/speedtest-board.md §6，同客户端）：同意与否、本机随机身份
+// （install_id，UUID v4，「重置身份」换一个）存这个文件；测速记录本身只在浏览器里
+const SPEEDBOARD_PATH = '/etc/meowx/speedboard.json';
+
+function speedboard_load() {
+	const st = json(readfile(SPEEDBOARD_PATH) ?? 'null');
+	return type(st) == 'object' ? st : {};
+}
+
+function speedboard_save(st) {
+	const tmp = SPEEDBOARD_PATH + '.tmp';
+	return writefile(tmp, sprintf('%J', st)) != null && rename(tmp, SPEEDBOARD_PATH);
+}
+
+function speedboard_uuid() {
+	let h = hexenc(readfile('/dev/urandom', 16));
+	const variant = substr('89ab', hex(substr(h, 16, 1)) % 4, 1);
+	h = substr(h, 0, 12) + '4' + substr(h, 13, 3) + variant + substr(h, 17);
+	return `${substr(h, 0, 8)}-${substr(h, 8, 4)}-${substr(h, 12, 4)}-${substr(h, 16, 4)}-${substr(h, 20, 12)}`;
+}
+
+function speedboard_state(st) {
+	return { success: true, asked: type(st.upload) == 'bool', upload: st.upload === true, install_id: st.install_id };
 }
 
 // 新订阅一律建具名 section（sub_<8 位十六进制>）：匿名 section 的 ID（cfgXXXXXX）按位置算，调整顺序后就变，
@@ -636,6 +661,39 @@ const methods = {
 				res.started = true;
 			}
 			return res;
+		}
+	},
+	// 测速榜：action = status（顺手补上 install_id）/ set(upload) / reset（换一个 install_id）/ grant(hash)。
+	// grant 经 meowx-core 向主控要一张绑定上传正文 sha256 的一次性凭证；没登录、主控不给都回 success: false，页面就匿名传
+	speedboard: {
+		args: { action: 'action', upload: false, hash: 'hash' },
+		call: function(req) {
+			const action = req.args?.action ?? 'status';
+			if (action == 'grant') {
+				const hash = lc(trim(req.args?.hash ?? ''));
+				if (!match(hash, /^[0-9a-f]{64}$/)) {
+					return { success: false, error: 'invalid hash' };
+				}
+				const res = panel_cmd(`speedtest-grant ${hash}`);
+				return res?.success && type(res.grant) == 'string' && res.grant != '' ? { success: true, grant: res.grant } : { success: false, error: res?.error };
+			}
+			if (index([ 'status', 'set', 'reset' ], action) < 0) {
+				return { success: false, error: 'invalid action' };
+			}
+			const st = speedboard_load();
+			let changed = false;
+			if (action == 'set') {
+				st.upload = req.args?.upload === true;
+				changed = true;
+			}
+			if (action == 'reset' || !match(st.install_id ?? '', /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)) {
+				st.install_id = speedboard_uuid();
+				changed = true;
+			}
+			if (changed && !speedboard_save(st)) {
+				return { success: false, error: 'cannot write ' + SPEEDBOARD_PATH };
+			}
+			return speedboard_state(st);
 		}
 	},
 	api: {

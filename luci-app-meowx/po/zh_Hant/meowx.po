@@ -1907,3 +1907,138 @@ msgstr "節點：%s · 測速源：%s · %s"
 
 msgid "No speed tests yet."
 msgstr "還沒有測速記錄。"
+
+msgid "Failed tests are not uploaded"
+msgstr "失敗的測速不上傳"
+
+msgid "No download result"
+msgstr "沒有下載結果"
+
+msgid "Recorded by an older version"
+msgstr "這條記錄是舊版本記的，不能上傳"
+
+msgid "No node protocol for this record"
+msgstr "這條記錄沒有節點協議"
+
+msgid "MeowX is not running, or the core is too old"
+msgstr "MeowX 沒有在執行，或核心版本過舊"
+
+msgid "The node used for the test is no longer in the current config"
+msgstr "測速用的節點已不在目前設定裡"
+
+msgid "Could not reach the speed board: %s"
+msgstr "連不上測速榜：%s"
+
+msgid "Could not reach the speed board"
+msgstr "連不上測速榜"
+
+msgid "Unparseable response from the speed board"
+msgstr "測速榜的回應無法解析"
+
+msgid "The speed board did not accept this result"
+msgstr "測速榜沒有收下這條結果"
+
+msgid "Too many uploads"
+msgstr "上傳太頻繁"
+
+msgid "The speed board is temporarily unavailable (HTTP %d)"
+msgstr "測速榜暫時無法使用（HTTP %d）"
+
+msgid "Upload failed (HTTP %d)"
+msgstr "上傳失敗（HTTP %d）"
+
+msgid "This record has no delete token"
+msgstr "這條記錄沒有刪除憑據"
+
+msgid "Wrong delete token"
+msgstr "刪除憑據不對"
+
+msgid "Too many requests, try again later"
+msgstr "請求太頻繁，稍後再試"
+
+msgid "Delete failed (HTTP %d)"
+msgstr "刪除失敗（HTTP %d）"
+
+msgid "Upload results to the MeowX speed board?"
+msgstr "把測速結果上傳到 MeowX 測速榜？"
+
+msgid "Each finished test can be uploaded to the public MeowX speed board (speed.meowx.net). You get a result page and see how the result compares with other tests (\"faster than x%\"); providers are ranked by speed."
+msgstr "測完的結果可以上傳到公開的 MeowX 測速榜（speed.meowx.net）：每次測速有一個結果頁，還能看到它超越了多少其他測速（「超越了 x%」）；測速榜按服務商排名。"
+
+msgid "Uploaded: test server, threads, via node or direct, the node protocol (e.g. VLESS), latency, speeds, data used and a random ID of this router. The speed board looks up the network operator from the address the upload comes from (through the node used for the test) and does not store full IP addresses."
+msgstr "上傳的內容：測速源、執行緒數、經節點還是直連、節點協議（如 VLESS）、延遲、速率、用量，以及這台路由器的一個隨機身分。測速榜按上傳請求的來源位址（經測速用的節點發出）認出業者，不保存完整 IP。"
+
+msgid "Not uploaded: node names, server addresses, passwords, subscriptions or your account. You can change this any time under \"Speed board\" on this page."
+msgstr "不上傳：節點名、伺服器位址、密碼、訂閱與帳戶。隨時可以在本頁的「測速榜」裡改。"
+
+msgid "Don't upload"
+msgstr "不上傳"
+
+msgid "Upload results"
+msgstr "上傳"
+
+msgid "Speed board"
+msgstr "測速榜"
+
+msgid "Upload finished tests to speed.meowx.net and get a result page. Node names and addresses are not uploaded. When the router is logged in to a panel account, results are linked to that panel's license."
+msgstr "把測完的結果上傳到 speed.meowx.net，每次有一個結果頁；不上傳節點名與位址。路由器登入了主控帳戶時，結果歸到那個主控的授權名下。"
+
+msgid "Open speed board"
+msgstr "打開測速榜"
+
+msgid "Reset the speed board identity of this router? Later uploads count as a new device; results already uploaded are kept."
+msgstr "重置這台路由器在測速榜上的身分？之後上傳的結果算一台新裝置，已經上傳的結果保留。"
+
+msgid "Reset identity"
+msgstr "重置身分"
+
+msgid "The speed board identity of this router is unavailable"
+msgstr "取不到這台路由器在測速榜上的身分"
+
+msgid "Delete this result from the speed board? The result page stops working; the record stays in this browser."
+msgstr "從測速榜刪除這條結果？結果頁將無法開啟，這個瀏覽器裡的記錄保留。"
+
+msgid "Upload to speed board"
+msgstr "上傳到測速榜"
+
+msgid "Uploading to the speed board…"
+msgstr "正在上傳到測速榜…"
+
+msgid "%s tests"
+msgstr "%s 次測速"
+
+msgid "Linked to your panel account"
+msgstr "已歸到主控帳戶"
+
+msgid "Copy link"
+msgstr "複製連結"
+
+msgid "Copied"
+msgstr "已複製"
+
+msgid "Faster than %s of tests"
+msgstr "超越了 %s 的測速"
+
+msgid "Uploaded to the speed board"
+msgstr "已上傳到測速榜"
+
+msgid "Result page"
+msgstr "結果頁"
+
+msgid "Delete"
+msgstr "刪除"
+
+msgid "Not uploaded: %s"
+msgstr "沒有上傳：%s"
+
+msgid "the upload did not finish"
+msgstr "上傳沒有完成"
+
+msgid "unknown error"
+msgstr "未知原因"
+
+msgid "Retry after %s"
+msgstr "%s 之後重試"
+
+msgid "Clear history? Results uploaded to the speed board stay there and can no longer be deleted from this browser."
+msgstr "清空記錄？已經上傳到測速榜的結果會留在那裡，清空後就無法從這個瀏覽器刪除了。"

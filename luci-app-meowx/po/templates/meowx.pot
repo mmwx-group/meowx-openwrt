@@ -1900,3 +1900,138 @@ msgstr ""
 
 msgid "No speed tests yet."
 msgstr ""
+
+msgid "Failed tests are not uploaded"
+msgstr ""
+
+msgid "No download result"
+msgstr ""
+
+msgid "Recorded by an older version"
+msgstr ""
+
+msgid "No node protocol for this record"
+msgstr ""
+
+msgid "MeowX is not running, or the core is too old"
+msgstr ""
+
+msgid "The node used for the test is no longer in the current config"
+msgstr ""
+
+msgid "Could not reach the speed board: %s"
+msgstr ""
+
+msgid "Could not reach the speed board"
+msgstr ""
+
+msgid "Unparseable response from the speed board"
+msgstr ""
+
+msgid "The speed board did not accept this result"
+msgstr ""
+
+msgid "Too many uploads"
+msgstr ""
+
+msgid "The speed board is temporarily unavailable (HTTP %d)"
+msgstr ""
+
+msgid "Upload failed (HTTP %d)"
+msgstr ""
+
+msgid "This record has no delete token"
+msgstr ""
+
+msgid "Wrong delete token"
+msgstr ""
+
+msgid "Too many requests, try again later"
+msgstr ""
+
+msgid "Delete failed (HTTP %d)"
+msgstr ""
+
+msgid "Upload results to the MeowX speed board?"
+msgstr ""
+
+msgid "Each finished test can be uploaded to the public MeowX speed board (speed.meowx.net). You get a result page and see how the result compares with other tests (\"faster than x%\"); providers are ranked by speed."
+msgstr ""
+
+msgid "Uploaded: test server, threads, via node or direct, the node protocol (e.g. VLESS), latency, speeds, data used and a random ID of this router. The speed board looks up the network operator from the address the upload comes from (through the node used for the test) and does not store full IP addresses."
+msgstr ""
+
+msgid "Not uploaded: node names, server addresses, passwords, subscriptions or your account. You can change this any time under \"Speed board\" on this page."
+msgstr ""
+
+msgid "Don't upload"
+msgstr ""
+
+msgid "Upload results"
+msgstr ""
+
+msgid "Speed board"
+msgstr ""
+
+msgid "Upload finished tests to speed.meowx.net and get a result page. Node names and addresses are not uploaded. When the router is logged in to a panel account, results are linked to that panel's license."
+msgstr ""
+
+msgid "Open speed board"
+msgstr ""
+
+msgid "Reset the speed board identity of this router? Later uploads count as a new device; results already uploaded are kept."
+msgstr ""
+
+msgid "Reset identity"
+msgstr ""
+
+msgid "The speed board identity of this router is unavailable"
+msgstr ""
+
+msgid "Delete this result from the speed board? The result page stops working; the record stays in this browser."
+msgstr ""
+
+msgid "Upload to speed board"
+msgstr ""
+
+msgid "Uploading to the speed board…"
+msgstr ""
+
+msgid "%s tests"
+msgstr ""
+
+msgid "Linked to your panel account"
+msgstr ""
+
+msgid "Copy link"
+msgstr ""
+
+msgid "Copied"
+msgstr ""
+
+msgid "Faster than %s of tests"
+msgstr ""
+
+msgid "Uploaded to the speed board"
+msgstr ""
+
+msgid "Result page"
+msgstr ""
+
+msgid "Delete"
+msgstr ""
+
+msgid "Not uploaded: %s"
+msgstr ""
+
+msgid "the upload did not finish"
+msgstr ""
+
+msgid "unknown error"
+msgstr ""
+
+msgid "Retry after %s"
+msgstr ""
+
+msgid "Clear history? Results uploaded to the speed board stay there and can no longer be deleted from this browser."
+msgstr ""

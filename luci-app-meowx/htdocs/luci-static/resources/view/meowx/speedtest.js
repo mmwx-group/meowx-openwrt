@@ -2,12 +2,15 @@
 'require baseclass';
 'require ui';
 'require tools.meowx as meowx';
+'require tools.speedboard as speedboard';
 
 // 「网络测速」页：测法与安卓 / Windows / Linux / iOS 客户端相同，在内核里跑（meowx-core 的 component/speedtest），
 // 经内核控制接口 /meowx/speedtest 开始 / 停止 / 取进度（luci.meowx 的 api 由路由器带上密钥转发，同「打开面板」用的那一套）。
 // 只能选节点或直连（DIRECT），不能选代理组：测速直连测速服务器、不过规则（规则模式下测速地址常被分到直连，测的就成了宽带）。
 // 测的时候每半秒问一次进度（每次都要在路由器上起一次 curl，比客户端的 300ms 放宽一点，低端路由器上少占点 CPU）；
 // 切到别的页签、关掉或跳走页面时停掉正在跑的测速。测速记录只存在这个浏览器里（localStorage，最近 20 条）。
+// 测速榜（tools/speedboard.js）：第一次打开问一次要不要上传，同意了测完自动传，结果链接与删除凭据存在记录里
+// （换浏览器就删不了这台浏览器传的结果，用户定的可以接受）。
 
 const POLL_MS = 500;
 const HISTORY_KEY = 'meowx.speedtest.history';
@@ -79,7 +82,7 @@ function exitText(exit) {
 function parseProxies(res) {
     const proxies = res?.proxies;
     if (!proxies || typeof proxies != 'object') {
-        return { nodes: [], preferred: 'DIRECT' };
+        return { nodes: [], types: {}, preferred: 'DIRECT' };
     }
     const isGroup = (p) => Array.isArray(p?.all);
     const isNode = (name) => proxies[name] && !isGroup(proxies[name]) && !BUILTIN_TYPES.includes(proxies[name].type);
@@ -105,7 +108,9 @@ function parseProxies(res) {
     for (let i = 0; current && isGroup(proxies[current]) && i < 16; i++) {
         current = proxies[current].now;
     }
-    return { nodes: nodes, preferred: current && isNode(current) ? current : 'DIRECT' };
+    const types = {};
+    nodes.forEach((name) => { types[name] = proxies[name].type; });
+    return { nodes: nodes, types: types, preferred: current && isNode(current) ? current : 'DIRECT' };
 }
 
 function loadHistory() {
@@ -121,6 +126,24 @@ function saveHistory(list) {
     try {
         localStorage.setItem(HISTORY_KEY, JSON.stringify(list.slice(0, HISTORY_MAX)));
     } catch (e) { }
+}
+
+// 复制到剪贴板：路由器网页多半是 http 打开的，navigator.clipboard 只在 https / localhost 下有，退回 execCommand
+function copyText(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+        return navigator.clipboard.writeText(text);
+    }
+    return new Promise((resolve, reject) => {
+        const area = E('textarea', { style: 'position:fixed;top:-1000px;left:0;opacity:0', readonly: '' }, text);
+        document.body.appendChild(area);
+        area.select();
+        let ok = false;
+        try {
+            ok = document.execCommand('copy');
+        } catch (e) { }
+        area.remove();
+        ok ? resolve() : reject(new Error('copy failed'));
+    });
 }
 
 // 码表：270° 弧，对数刻度（0–1000 Mbps）
@@ -238,16 +261,22 @@ return baseclass.extend({
     load: function () {
         return Promise.all([
             L.resolveDefault(meowx.api('GET', '/meowx/speedtest'), {}),
-            L.resolveDefault(meowx.api('GET', '/proxies'), {})
+            L.resolveDefault(meowx.api('GET', '/proxies'), {}),
+            L.resolveDefault(meowx.version(), {}),
+            speedboard.status()
         ]);
     },
 
-    render: function ([status, proxies]) {
+    render: function ([status, proxies, version, board]) {
         this.settings = { source: 'google', connections: 1 };
         this.proxyInfo = parseProxies(proxies);
         this.progress = null;
         this.ownRun = null;        // 本页开始的那一次：开始前的 runID，下一次进度里 runID 变大的就是它
         this.recorded = new Set(); // 已记进测速记录的 runID
+        this.board = board;        // 测速榜：{ asked, upload, installId }
+        this.version = speedboard.appVersion(version?.app);
+        this.uploading = new Set(); // 正在上传的记录 id（记录里还是 uploading、却不在这里的，是上次没传完就关了页面）
+        this.currentRecord = null; // 本页这一次测完记下的记录 id：码表下面显示它在测速榜上的状态
 
         // ---- 左栏：节点 + 码表 + 开始 ----
         this.nodeSelect = E('select', { class: 'mx-st__select', 'aria-label': _('Test via') });
@@ -263,6 +292,7 @@ return baseclass.extend({
             click: () => this.isRunning() ? this.stop() : this.confirmStart()
         }, _('Start test'));
         this.notice = E('div', { class: 'mx-account__error', hidden: '' });
+        this.boardLine = E('div', { class: 'mx-st__board-host' });
 
         const left = E('div', { class: 'mx-account mx-st__card mx-st__main' }, [
             E('div', { class: 'mx-st__label' }, _('Test via')),
@@ -272,6 +302,7 @@ return baseclass.extend({
                 E('div', { class: 'mx-st__gauge-center' }, [this.gaugeValue, this.gaugeUnit, this.gaugePhase])
             ]),
             E('div', { class: 'mx-st__bar' }, this.phaseBar),
+            this.boardLine,
             this.startButton,
             this.notice
         ]);
@@ -321,7 +352,8 @@ return baseclass.extend({
                 E('div', { class: 'mx-po0__note' }, _('Google and Microsoft test download only.')),
                 E('div', { class: 'mx-st__label mx-st__label--gap' }, _('Connections')),
                 this.connSeg.node
-            ])
+            ]),
+            this.renderBoardCard()
         ]);
 
         // ---- 说明 + 测速记录 ----
@@ -344,7 +376,13 @@ return baseclass.extend({
                     type: 'button',
                     class: 'cbi-button cbi-button-negative',
                     click: () => {
+                        // 删除凭据只存在记录里：清掉之后，已经传到测速榜的结果就删不了了
+                        if (loadHistory().some((r) => r.board?.status == 'uploaded') &&
+                            !confirm(_('Clear history? Results uploaded to the speed board stay there and can no longer be deleted from this browser.'))) {
+                            return;
+                        }
                         saveHistory([]);
+                        this.currentRecord = null;
                         this.drawHistory();
                     }
                 }, _('Clear history'))
@@ -369,6 +407,9 @@ return baseclass.extend({
         this.apply(status);
         if (this.isRunning()) {
             this.poll();   // 打开页面时已经在测（别的标签页开始的）：接着显示进度
+        }
+        if (!this.board.asked) {
+            setTimeout(() => this.askBoardConsent(), 0);   // 第一次打开测速页问一次要不要上传到测速榜
         }
 
         const map = E('div', { id: 'cbi-meowx', class: 'cbi-map' });
@@ -528,7 +569,9 @@ return baseclass.extend({
                 this.update();
                 return;
             }
-            this.ownRun = { before: before, id: null };
+            // 线程数与节点协议在开始时定下来（记录与上传正文用；测完时下拉框与订阅都可能变了）
+            this.ownRun = { before: before, id: null, connections: this.settings.connections,
+                protocol: via == 'DIRECT' ? null : speedboard.protocolCode(this.proxyInfo.types[via]) };
             this.progress = Object.assign({}, this.progress ?? {}, { phase: 'preparing', runID: before, source: this.settings.source, via: via,
                 downloadSamples: [], uploadSamples: [], latencyMs: null, downloadMbps: null, uploadMbps: null,
                 downloadPeakMbps: null, uploadPeakMbps: null, currentMbps: 0, bytesUsed: 0, server: '', exit: null, phaseProgress: 0 });
@@ -577,24 +620,204 @@ return baseclass.extend({
         this.timer = setTimeout(tick, this.isRunning() ? POLL_MS : 0);
     },
 
+    // 记一条；测完、同意了就接着传到测速榜。采样压到 40 个点（详情与上传正文都够用），出口不记 IP
     record: function (p) {
-        const list = loadHistory();
-        list.unshift({
+        const run = this.ownRun ?? {};
+        const done = p.phase == 'done';
+        const rec = {
+            id: `${Date.now().toString(16)}-${Math.floor(Math.random() * 0xffffffff).toString(16)}`,
             time: Date.now(),
             via: p.via,
             source: p.source,
-            connections: this.settings.connections,
+            connections: run.connections ?? this.settings.connections,
+            protocol: run.protocol ?? null,
             latencyMs: p.latencyMs ?? null,
             downloadMbps: p.downloadMbps ?? null,
             uploadMbps: p.uploadMbps ?? null,
-            error: p.phase == 'failed' ? (p.error || _('Speed test failed')) : ''
-        });
+            downloadPeakMbps: p.downloadPeakMbps ?? null,
+            uploadPeakMbps: p.uploadPeakMbps ?? null,
+            downloadSamples: speedboard.downsample(p.downloadSamples ?? []),
+            uploadSamples: speedboard.downsample(p.uploadSamples ?? []),
+            bytesUsed: p.bytesUsed ?? 0,
+            durationMs: done ? (p.durationMs ?? null) : null,
+            server: p.server ?? '',
+            exit: p.exit ? { asn: p.exit.asn ?? 0, org: p.exit.org ?? '', country: p.exit.country ?? '' } : null,
+            error: done ? '' : (p.error || _('Speed test failed')),
+            board: null
+        };
+        const list = loadHistory();
+        list.unshift(rec);
         saveHistory(list);
+        this.currentRecord = done ? rec.id : null;
         this.drawHistory();
+        if (done && this.board.upload && !speedboard.blocker(rec)) {
+            this.uploadRecord(rec.id);
+        }
+    },
+
+    // ---- 测速榜 ----
+
+    askBoardConsent: function () {
+        this.board.asked = true;   // 关掉弹窗也不再问（下次打开页面看路由器上存的）
+        const choose = (upload) => {
+            ui.hideModal();
+            this.setBoardUpload(upload);
+        };
+        ui.showModal(_('Upload results to the MeowX speed board?'), [
+            E('p', {}, _('Each finished test can be uploaded to the public MeowX speed board (speed.meowx.net). You get a result page and see how the result compares with other tests ("faster than x%"); providers are ranked by speed.')),
+            E('p', {}, _('Uploaded: test server, threads, via node or direct, the node protocol (e.g. VLESS), latency, speeds, data used and a random ID of this router. The speed board looks up the network operator from the address the upload comes from (through the node used for the test) and does not store full IP addresses.')),
+            E('p', {}, _('Not uploaded: node names, server addresses, passwords, subscriptions or your account. You can change this any time under "Speed board" on this page.')),
+            E('div', { class: 'right' }, [
+                E('button', { type: 'button', class: 'cbi-button', click: () => choose(false) }, _('Don\'t upload')),
+                ' ',
+                E('button', { type: 'button', class: 'cbi-button cbi-button-action', click: () => choose(true) }, _('Upload results'))
+            ])
+        ]);
+    },
+
+    setBoardUpload: function (upload) {
+        this.board.upload = upload;
+        this.board.asked = true;
+        if (this.boardToggle) {
+            this.boardToggle.checked = upload;
+        }
+        this.drawHistory();
+        return speedboard.setUpload(upload).then((res) => {
+            if (res?.install_id) {
+                this.board.installId = res.install_id;
+            }
+        }, (err) => {
+            this.showNotice(String(err?.message ?? err), true);
+        });
+    },
+
+    // 设置栏下面的「测速榜」卡：开关、打开测速榜、重置身份
+    renderBoardCard: function () {
+        this.boardToggle = E('input', { type: 'checkbox', 'aria-label': _('Speed board') });
+        this.boardToggle.checked = !!this.board.upload;
+        this.boardToggle.addEventListener('change', () => this.setBoardUpload(this.boardToggle.checked));
+        return E('div', { class: 'mx-account mx-st__card' }, [
+            E('div', { class: 'mx-po0__head' }, [
+                E('div', { class: 'mx-po0__title' }, [
+                    E('span', { class: 'mx-subcard__label' }, _('Speed board')),
+                    E('div', { class: 'mx-account__hint' }, _('Upload finished tests to speed.meowx.net and get a result page. Node names and addresses are not uploaded. When the router is logged in to a panel account, results are linked to that panel\'s license.'))
+                ]),
+                this.boardToggle
+            ]),
+            E('div', { class: 'mx-st__board-actions mx-st__board-actions--card' }, [
+                E('a', { class: 'cbi-button', href: speedboard.BOARD_PAGE, target: '_blank', rel: 'noopener' }, _('Open speed board')),
+                E('button', {
+                    type: 'button',
+                    class: 'cbi-button',
+                    click: (ev) => {
+                        if (!confirm(_('Reset the speed board identity of this router? Later uploads count as a new device; results already uploaded are kept.'))) {
+                            return;
+                        }
+                        const button = ev.currentTarget;
+                        button.disabled = true;
+                        speedboard.resetIdentity().then((res) => {
+                            if (res?.install_id) {
+                                this.board.installId = res.install_id;
+                            }
+                        }).finally(() => { button.disabled = false; });
+                    }
+                }, _('Reset identity'))
+            ])
+        ]);
+    },
+
+    updateRecord: function (id, fn) {
+        const list = loadHistory();
+        const rec = list.find((r) => r.id == id);
+        if (rec) {
+            fn(rec);
+            saveHistory(list);
+        }
+        this.drawHistory();
+    },
+
+    uploadRecord: function (id) {
+        const rec = loadHistory().find((r) => r.id == id);
+        if (!rec || this.uploading.has(id)) {
+            return;
+        }
+        this.uploading.add(id);
+        this.updateRecord(id, (r) => { r.board = { status: 'uploading' }; });
+        const task = this.board.installId
+            ? speedboard.upload(rec, this.board.installId, this.version)
+            : Promise.resolve({ status: 'failed', error: _('The speed board identity of this router is unavailable'), retryable: true });
+        return task.catch((err) => ({ status: 'failed', error: String(err?.message ?? err), retryable: true })).then((board) => {
+            this.uploading.delete(id);
+            this.updateRecord(id, (r) => { r.board = board; });
+        });
+    },
+
+    deleteRecord: function (id, button) {
+        const rec = loadHistory().find((r) => r.id == id);
+        if (!rec || !confirm(_('Delete this result from the speed board? The result page stops working; the record stays in this browser.'))) {
+            return;
+        }
+        button.disabled = true;
+        return speedboard.delete(rec).then((res) => {
+            if (res.ok) {
+                this.updateRecord(id, (r) => { r.board = null; });
+            } else {
+                button.disabled = false;
+                alert(res.message);
+            }
+        });
+    },
+
+    // 一条记录在测速榜上的状态（码表下面与测速记录每一行共用）；没东西可显示回 null
+    boardWidget: function (r) {
+        const b = r.board;
+        const button = (label, cls, click, disabled) => E('button', { type: 'button', class: 'cbi-button ' + (cls ?? ''), click: click, disabled: disabled ? '' : null }, label);
+        if (!b) {
+            if (!this.board.upload || speedboard.blocker(r)) {
+                return null;
+            }
+            return E('div', { class: 'mx-st__board' }, [
+                E('div', { class: 'mx-st__board-actions' }, button(_('Upload to speed board'), 'cbi-button-action', () => this.uploadRecord(r.id)))
+            ]);
+        }
+        if (b.status == 'uploading' && this.uploading.has(r.id)) {
+            return E('div', { class: 'mx-st__board' }, E('span', { class: 'mx-st__board-note' }, _('Uploading to the speed board…')));
+        }
+        if (b.status == 'uploaded') {
+            const p = b.percentile;
+            const sub = [p?.scope, p ? _('%s tests').format(Number(p.samples).toLocaleString()) : null, b.provider,
+                b.attributed ? _('Linked to your panel account') : null].filter((x) => x).join(' · ');
+            const copy = button(_('Copy link'), '', () => copyText(b.url).then(() => {
+                copy.textContent = _('Copied');
+                setTimeout(() => { copy.textContent = _('Copy link'); }, 1500);
+            }, () => prompt(_('Copy link'), b.url)));
+            return E('div', { class: 'mx-st__board' }, [
+                E('div', { class: 'mx-st__board-text' }, [
+                    E('strong', { class: 'mx-st__board-pct' }, p ? _('Faster than %s of tests').format(`${p.value}%`) : _('Uploaded to the speed board')),
+                    sub ? E('span', { class: 'mx-st__board-note' }, sub) : ''
+                ]),
+                E('div', { class: 'mx-st__board-actions' }, [
+                    E('a', { class: 'cbi-button', href: b.url, target: '_blank', rel: 'noopener' }, _('Result page')),
+                    copy,
+                    button(_('Delete'), 'cbi-button-negative', (ev) => this.deleteRecord(r.id, ev.currentTarget))
+                ])
+            ]);
+        }
+        // 失败，或上次没传完就关了页面
+        const stale = b.status == 'uploading';
+        const wait = !stale && b.retryAt && b.retryAt > Date.now();
+        const children = [E('span', { class: 'mx-st__board-note is-error' }, _('Not uploaded: %s').format(stale ? _('the upload did not finish') : (b.error || _('unknown error'))))];
+        if (stale || b.retryable !== false) {
+            children.push(E('div', { class: 'mx-st__board-actions' }, button(
+                wait ? _('Retry after %s').format(new Date(b.retryAt).toLocaleTimeString()) : _('Retry'), '', () => this.uploadRecord(r.id), wait)));
+        }
+        return E('div', { class: 'mx-st__board' }, children);
     },
 
     drawHistory: function () {
         const list = loadHistory();
+        const current = this.currentRecord ? list.find((r) => r.id == this.currentRecord) : null;
+        this.boardLine.replaceChildren(...[current ? this.boardWidget(current) : null].filter((x) => x));
         if (list.length == 0) {
             this.historyList.replaceChildren(E('div', { class: 'mx-po0__empty' }, _('No speed tests yet.')));
             return;
@@ -614,7 +837,8 @@ return baseclass.extend({
                     E('div', { class: 'mx-st__hist-via' }, viaTitle(r.via)),
                     E('div', { class: 'mx-po0__token' }, `${when} · ${setup}`)
                 ]),
-                result
+                result,
+                this.boardWidget(r) ?? ''
             ]);
         }));
     },
