@@ -175,6 +175,9 @@ return baseclass.extend({
 
         s.tab('bypass', _('Bypass'));
 
+        o = s.taboption('bypass', form.Flag, 'bypass_proxy_server', _('Bypass Proxy Server Address'), _('Traffic from LAN devices and the router to the servers of the nodes in the current profile does not enter the core, so a device running its own proxy client is not proxied again by the router. Domains of the servers are resolved through the core and refreshed every 30 minutes; in fake-ip mode they are also added to the fake-ip filter so that devices get the real addresses.'));
+        o.rmempty = false;
+
         o = s.taboption('bypass', form.Flag, 'bypass_china_mainland_ip', _('Bypass China Mainland IP'));
         o.rmempty = false;
 

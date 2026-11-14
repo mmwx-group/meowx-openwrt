@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=meowx
 PKG_VERSION:=0.3.5
-PKG_RELEASE:=1
+PKG_RELEASE:=2
 
 PKG_LICENSE:=GPL3.0+
 PKG_MAINTAINER:=MeowX
@@ -42,6 +42,8 @@ define Package/meowx/install
 	$(INSTALL_BIN) $(CURDIR)/files/ucode/ghproxy.uc $(1)/etc/meowx/ucode/ghproxy.uc
 	$(INSTALL_BIN) $(CURDIR)/files/ucode/ghproxy_cli.uc $(1)/etc/meowx/ucode/ghproxy_cli.uc
 	$(INSTALL_BIN) $(CURDIR)/files/ucode/mesh_cli.uc $(1)/etc/meowx/ucode/mesh_cli.uc
+	$(INSTALL_BIN) $(CURDIR)/files/ucode/proxy_server.uc $(1)/etc/meowx/ucode/proxy_server.uc
+	$(INSTALL_BIN) $(CURDIR)/files/ucode/proxy_server_cli.uc $(1)/etc/meowx/ucode/proxy_server_cli.uc
 
 	$(INSTALL_BIN) $(CURDIR)/files/scripts/include.sh $(1)/etc/meowx/scripts/include.sh
 	$(INSTALL_BIN) $(CURDIR)/files/scripts/firewall_include.sh $(1)/etc/meowx/scripts/firewall_include.sh
