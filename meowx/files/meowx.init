@@ -16,6 +16,7 @@ extra_command 'panel_cron' 'Set the firewall whitelist report cron (panel accoun
 extra_command 'panel_report' 'Report the firewall whitelist now ("timer" = the scheduled round), reload if the po0 list changed'
 extra_command 'clear_logs' 'Clear logs if size exceeds the limit'
 extra_command 'ghproxy_cron' 'Re-test GitHub mirrors (auto mode), reload if the selected one became unreachable'
+extra_command 'proxy_server_update' 'Resolve the proxy server addresses again and refresh the bypass sets (bypass proxy server address)'
 
 boot_func() {
 	# prepare files
@@ -165,6 +166,11 @@ start_service() {
 	if [ "$(uci -q get meowx.ghproxy.mode)" = "auto" ]; then
 		log "App" "Set GitHub mirror test cron."
 		echo "41 4 * * * /etc/init.d/meowx ghproxy_cron #meowx ghproxy" >> "/etc/crontabs/root"
+	fi
+	## 绕过节点服务器地址：每 30 分钟经内核重新解析一次节点域名（地址会变）
+	if [ "$(uci -q get meowx.proxy.bypass_proxy_server)" = "1" ] && [ "$(uci -q get meowx.proxy.enabled)" = "1" ] && [ "$(uci -q get meowx.config.core_only)" != "1" ]; then
+		log "App" "Set proxy server address refresh cron."
+		echo "*/30 * * * * /etc/init.d/meowx proxy_server_update #meowx proxy server" >> "/etc/crontabs/root"
 	fi
 	## add log scheduled clear cron if needed
 	if [ "$log_scheduled_clear" = 1 ] && [ -n "$log_scheduled_clear_cron" ]; then
@@ -353,6 +359,23 @@ mixin_profile() {
 	fi
 	ghproxy_apply "$profile_path"
 	mesh_apply "$profile_path"
+	proxy_server_fakeip_apply "$profile_path"
+}
+
+# 绕过节点服务器地址（代理配置 → 绕过）开着、fake-ip 模式：节点域名并进 fake-ip-filter——局域网设备向路由器查节点域名时
+# 拿到真实地址，连过去才命中劫持表里的绕过集合（拿着假地址照样进内核）。白名单 / 规则模式不加；「仅核心」没有劫持，不加
+proxy_server_fakeip_apply() {
+	local profile_path; profile_path="$1"
+	[ "$(uci -q get meowx.proxy.bypass_proxy_server)" = "1" ] || return 0
+	[ "$(uci -q get meowx.proxy.enabled)" = "1" ] || return 0
+	[ "$(uci -q get meowx.config.core_only)" = "1" ] && return 0
+	local patch
+	patch=$(yq -M -p yaml -o json 'explode(.)' "$profile_path" 2>/dev/null | ucode -S "$PROXY_SERVER_CLI" fakeip)
+	if [ -z "$patch" ] || [ "$patch" = "{}" ] || [ "$patch" = "{ }" ]; then
+		return 0
+	fi
+	log "Mixin" "Add proxy server domains to fake-ip-filter."
+	echo "$patch" | yq -M -p json -o yaml | yq -M -i eval-all '. as $item ireduce ({}; . * $item )' "$profile_path" -
 }
 
 # 喵窝（辅助功能 → 喵窝）：主控与中继的域名加进 fake-ip-filter——透明代理（fake-ip）下路由器自己查这些
@@ -624,6 +647,10 @@ service_started() {
 		# check hijack
 		if nft list tables | grep -q meowx; then
 			log "Proxy" "Hijack successful."
+			# 绕过节点服务器地址：写成 IP 的节点已在劫持表里，域名要等内核起来经它解析，放后台做、不拖住启动
+			if [ "$(uci -q get meowx.proxy.bypass_proxy_server)" = "1" ]; then
+				(ucode -S "$PROXY_SERVER_CLI" apply > /dev/null 2>&1 &)
+			fi
 		else
 			log "Proxy" "Hijack failed."
 			log "App" "Exit."
@@ -1075,6 +1102,13 @@ panel_report() {
 
 # 每天一次（只在「自动选最快」时挂）：重测各加速地址；原来选中的已经不可达、新选的又不一样时重载，
 # 否则只更新缓存、下次启动再用（不为换一个更快的地址打断连接）
+# 定时任务（每 30 分钟）：服务在跑、劫持表里有绕过集合时，重新解析节点地址
+proxy_server_update() {
+	[ "$(uci -q get meowx.proxy.bypass_proxy_server)" = "1" ] || return 0
+	nft list set inet meowx proxy_server > /dev/null 2>&1 || return 0
+	ucode -S "$PROXY_SERVER_CLI" apply > /dev/null 2>&1
+}
+
 ghproxy_cron() {
 	if [ "$(ucode -S "$GHPROXY_CLI" cron)" = "reload" ] && service_running_meowx; then
 		log "App" "GitHub mirror changed, reload."

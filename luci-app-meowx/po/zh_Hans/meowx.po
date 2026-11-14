@@ -95,6 +95,12 @@ msgstr "黑名单模式"
 msgid "Bypass"
 msgstr "绕过"
 
+msgid "Bypass Proxy Server Address"
+msgstr "绕过节点服务器地址"
+
+msgid "Traffic from LAN devices and the router to the servers of the nodes in the current profile does not enter the core, so a device running its own proxy client is not proxied again by the router. Domains of the servers are resolved through the core and refreshed every 30 minutes; in fake-ip mode they are also added to the fake-ip filter so that devices get the real addresses."
+msgstr "局域网设备与路由器发往当前配置里各节点服务器的流量不进内核：设备上自己也开着代理客户端时，不会被路由器再代理一层。节点的域名经内核解析、每 30 分钟刷新一次；fake-ip 模式下这些域名还会加进 fake-ip 过滤名单，让设备拿到真实地址。"
+
 #: applications/luci-app-meowx/htdocs/luci-static/resources/view/meowx/proxy.js:173
 msgid "Bypass China Mainland IP"
 msgstr "绕过中国大陆 IP"

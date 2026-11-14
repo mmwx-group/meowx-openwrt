@@ -88,6 +88,12 @@ msgstr ""
 msgid "Bypass"
 msgstr ""
 
+msgid "Bypass Proxy Server Address"
+msgstr ""
+
+msgid "Traffic from LAN devices and the router to the servers of the nodes in the current profile does not enter the core, so a device running its own proxy client is not proxied again by the router. Domains of the servers are resolved through the core and refreshed every 30 minutes; in fake-ip mode they are also added to the fake-ip filter so that devices get the real addresses."
+msgstr ""
+
 #: applications/luci-app-meowx/htdocs/luci-static/resources/view/meowx/proxy.js:173
 msgid "Bypass China Mainland IP"
 msgstr ""
