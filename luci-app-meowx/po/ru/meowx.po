@@ -1467,3 +1467,141 @@ msgstr "Узел: %s · сервер: %s · %s"
 
 msgid "No speed tests yet."
 msgstr "Тестов пока не было."
+
+msgid "Failed tests are not uploaded"
+msgstr "Неудачные тесты не загружаются"
+
+msgid "No download result"
+msgstr "Нет результата скачивания"
+
+msgid "Recorded by an older version"
+msgstr "Запись сделана старой версией, загрузить нельзя"
+
+msgid "No node protocol for this record"
+msgstr "Для этой записи не указан протокол узла"
+
+msgid "MeowX is not running, or the core is too old"
+msgstr "MeowX не запущен или ядро устарело"
+
+msgid "The node used for the test is no longer in the current config"
+msgstr "Узел, использованный для теста, больше не входит в текущую конфигурацию"
+
+msgid "Could not reach the speed board: %s"
+msgstr "Не удалось связаться с рейтингом скорости: %s"
+
+msgid "Could not reach the speed board"
+msgstr "Не удалось связаться с рейтингом скорости"
+
+msgid "Unparseable response from the speed board"
+msgstr "Не удалось разобрать ответ рейтинга скорости"
+
+msgid "The speed board did not accept this result"
+msgstr "Рейтинг скорости не принял этот результат"
+
+msgid "Too many uploads"
+msgstr "Слишком частые загрузки"
+
+msgid "The speed board is temporarily unavailable (HTTP %d)"
+msgstr "Рейтинг скорости временно недоступен (HTTP %d)"
+
+msgid "Upload failed (HTTP %d)"
+msgstr "Ошибка загрузки (HTTP %d)"
+
+msgid "This record has no delete token"
+msgstr "У этой записи нет токена удаления"
+
+msgid "Wrong delete token"
+msgstr "Неверный токен удаления"
+
+msgid "Too many requests, try again later"
+msgstr "Слишком много запросов, повторите позже"
+
+msgid "Delete failed (HTTP %d)"
+msgstr "Ошибка удаления (HTTP %d)"
+
+msgid "Upload results to the MeowX speed board?"
+msgstr "Загружать результаты в рейтинг скорости MeowX?"
+
+msgid "Each finished test can be uploaded to the public MeowX speed board (speed.meowx.net). You get a result page and see how the result compares with other tests (\"faster than x%\"); providers are ranked by speed."
+msgstr "Каждый завершённый тест можно загрузить в публичный рейтинг скорости MeowX (speed.meowx.net): для теста создаётся страница результата и видно, насколько он быстрее других («быстрее, чем x%»); провайдеры ранжируются по скорости."
+
+msgid "Uploaded: test server, threads, via node or direct, the node protocol (e.g. VLESS), latency, speeds, data used and a random ID of this router. The speed board looks up the network operator from the address the upload comes from (through the node used for the test) and does not store full IP addresses."
+msgstr "Загружается: сервер теста, число потоков, через узел или напрямую, протокол узла (например, VLESS), задержка, скорости, объём трафика и случайный идентификатор этого роутера. Рейтинг определяет оператора по адресу, с которого пришла загрузка (через узел, использованный для теста), и не хранит полные IP-адреса."
+
+msgid "Not uploaded: node names, server addresses, passwords, subscriptions or your account. You can change this any time under \"Speed board\" on this page."
+msgstr "Не загружается: имена узлов, адреса серверов, пароли, подписки и ваш аккаунт. Изменить это можно в любой момент в разделе «Рейтинг скорости» на этой странице."
+
+msgid "Don't upload"
+msgstr "Не загружать"
+
+msgid "Upload results"
+msgstr "Загружать"
+
+msgid "Speed board"
+msgstr "Рейтинг скорости"
+
+msgid "Upload finished tests to speed.meowx.net and get a result page. Node names and addresses are not uploaded. When the router is logged in to a panel account, results are linked to that panel's license."
+msgstr "Загружать завершённые тесты на speed.meowx.net и получать страницу результата. Имена и адреса узлов не загружаются. Если роутер вошёл в аккаунт панели, результаты привязываются к лицензии этой панели."
+
+msgid "Open speed board"
+msgstr "Открыть рейтинг скорости"
+
+msgid "Reset the speed board identity of this router? Later uploads count as a new device; results already uploaded are kept."
+msgstr "Сбросить идентификатор этого роутера в рейтинге скорости? Дальнейшие загрузки будут считаться новым устройством, уже загруженные результаты сохранятся."
+
+msgid "Reset identity"
+msgstr "Сбросить идентификатор"
+
+msgid "The speed board identity of this router is unavailable"
+msgstr "Идентификатор этого роутера в рейтинге скорости недоступен"
+
+msgid "Delete this result from the speed board? The result page stops working; the record stays in this browser."
+msgstr "Удалить этот результат из рейтинга скорости? Страница результата перестанет открываться, запись в этом браузере останется."
+
+msgid "Upload to speed board"
+msgstr "Загрузить в рейтинг скорости"
+
+msgid "Uploading to the speed board…"
+msgstr "Загрузка в рейтинг скорости…"
+
+msgid "%s tests"
+msgstr "тестов: %s"
+
+msgid "Linked to your panel account"
+msgstr "Привязано к аккаунту панели"
+
+msgid "Copy link"
+msgstr "Копировать ссылку"
+
+msgid "Copied"
+msgstr "Скопировано"
+
+msgid "Faster than %s of tests"
+msgstr "Быстрее, чем %s тестов"
+
+msgid "Uploaded to the speed board"
+msgstr "Загружено в рейтинг скорости"
+
+msgid "Result page"
+msgstr "Страница результата"
+
+msgid "Delete"
+msgstr "Удалить"
+
+msgid "Not uploaded: %s"
+msgstr "Не загружено: %s"
+
+msgid "the upload did not finish"
+msgstr "загрузка не завершилась"
+
+msgid "unknown error"
+msgstr "неизвестная ошибка"
+
+msgid "Retry after %s"
+msgstr "Повторить после %s"
+
+msgid "Retry"
+msgstr "Повторить"
+
+msgid "Clear history? Results uploaded to the speed board stay there and can no longer be deleted from this browser."
+msgstr "Очистить историю? Результаты, загруженные в рейтинг скорости, останутся там, и удалить их из этого браузера будет уже нельзя."

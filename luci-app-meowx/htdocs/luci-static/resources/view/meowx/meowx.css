@@ -2293,6 +2293,73 @@ body.mx-dark {
     margin-top: 10px;
 }
 
+/* 测速榜：码表下面这一次的结果、测速记录每一行下面一行（超越比例 + 结果页 / 复制链接 / 删除，或失败原因 + 重试） */
+#view#view .mx-st__board-host:empty {
+    display: none;
+}
+
+#view#view .mx-st__board-host {
+    margin: 10px 0 2px;
+}
+
+#view#view .mx-st__board {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 12px;
+}
+
+#view#view .mx-st__hist {
+    flex-wrap: wrap;
+}
+
+#view#view .mx-st__hist .mx-st__board {
+    flex: 1 1 100%;
+    padding-top: 6px;
+    border-top: 1px dashed var(--mx-stroke);
+}
+
+#view#view .mx-st__board-text {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-width: 0;
+}
+
+#view#view .mx-st__board-pct {
+    color: var(--mx-rose);
+    font-size: 14px;
+    font-weight: 750;
+}
+
+#view#view .mx-st__board-note {
+    color: var(--mx-t2);
+    font-size: 12px;
+    overflow-wrap: anywhere;
+}
+
+#view#view .mx-st__board-note.is-error {
+    flex: 1 1 auto;
+    color: var(--mx-slow);
+    font-weight: 600;
+}
+
+#view#view .mx-st__board-actions {
+    display: flex;
+    flex: none;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+#view#view .mx-st__board-actions--card {
+    margin-top: 10px;
+}
+
+#view#view .mx-st__board-actions .cbi-button {
+    margin: 0;
+    text-decoration: none;
+}
+
 @media (max-width: 640px) {
     #view#view .mx-st__cell {
         padding: 8px 10px;
