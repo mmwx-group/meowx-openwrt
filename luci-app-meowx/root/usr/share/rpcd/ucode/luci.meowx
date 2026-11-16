@@ -56,6 +56,8 @@ function panel_sync(urls_before, report) {
 	if (report) {
 		system('(/usr/bin/meowx-core panel report >/dev/null 2>&1 &)');
 	}
+	// 主控实时通道跟着账号走：登录后用登录态连，退出后换回订阅里的只读凭证（或停掉）
+	system('(/etc/init.d/meowx realtime_apply >/dev/null 2>&1 &)');
 }
 
 // 测速榜（网络测速页上传测速结果，规格 miaomiaowuC/Design/speedtest-board.md §6，同客户端）：同意与否、本机随机身份
@@ -453,6 +455,10 @@ const methods = {
 			const status = panel_cmd('status');
 			const urls = po0_urls();
 			const res = panel_cmd('logout');
+			// 这个主控推来的入口覆盖跟着账号清掉（内核没在跑时没有可清的）
+			if (status?.base) {
+				system('ucode -S /etc/meowx/ucode/realtime_cli.uc clear ' + shell_quote(status.base) + ' >/dev/null 2>&1');
+			}
 			const panel_host = url_parts(status?.base)?.host;
 			if (!panel_host) {
 				panel_sync(urls, false);

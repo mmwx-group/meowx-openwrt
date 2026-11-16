@@ -17,6 +17,8 @@ extra_command 'panel_report' 'Report the firewall whitelist now ("timer" = the s
 extra_command 'clear_logs' 'Clear logs if size exceeds the limit'
 extra_command 'ghproxy_cron' 'Re-test GitHub mirrors (auto mode), reload if the selected one became unreachable'
 extra_command 'proxy_server_update' 'Resolve the proxy server addresses again and refresh the bypass sets (bypass proxy server address)'
+extra_command 'realtime_apply' 'Hand the panel realtime channels (account / read-only credentials from subscriptions) to the core'
+extra_command 'subscription_changed' 'Core callback: a panel subscription changed, refresh the matching subscriptions (env MEOWX_SUB_BASE / KEY / REV)'
 
 boot_func() {
 	# prepare files
@@ -514,6 +516,8 @@ service_started() {
 	if [ ! -f "$STARTED_FLAG_PATH" ]; then
 		return
 	fi
+	# 主控实时通道（入口即时切换 + 订阅自动更新）：内核每次起来都要重新交给它，放后台等控制接口就绪，不拖住启动
+	(ucode -S "$REALTIME_CLI" apply > /dev/null 2>&1 &)
 	# load config
 	config_load meowx
 	# check if proxy enabled
@@ -848,7 +852,11 @@ update_subscription_locked() {
 	# download subscription
 	log "Profile" "Download subscription."
 	local http_code curl_result
-	http_code=$(curl -s -f -m 120 --connect-timeout 15 --retry 3 -L -X GET -A "$subscription_user_agent" -D "$subscription_header_tmpfile" -o "$subscription_tmpfile" -w '%{http_code}' "$subscription_url" 2> /dev/null)
+	# 主控推订阅变更触发的重拉（realtime_cli.uc changed 设 SUBSCRIPTION_PUSH=1）带 mmwx-refresh: push：主控据此不发「订阅已拉取」通知、
+	# 短链限速不计数。值为空时 curl 不发这个头
+	local refresh_mark; refresh_mark=""
+	[ "$SUBSCRIPTION_PUSH" = 1 ] && refresh_mark=" push"
+	http_code=$(curl -s -f -m 120 --connect-timeout 15 --retry 3 -L -X GET -A "$subscription_user_agent" -H "mmwx-refresh:$refresh_mark" -D "$subscription_header_tmpfile" -o "$subscription_tmpfile" -w '%{http_code}' "$subscription_url" 2> /dev/null)
 	curl_result=$?
 	if [ "$curl_result" != 0 ]; then
 		error_type="download"
@@ -947,6 +955,18 @@ update_subscription_locked() {
 		fi
 		subscription_interval=$(grep -i "^profile-update-interval:" "$subscription_header_tmpfile" | tail -n 1 | grep -o -E "[[:digit:]]+" | head -n 1)
 		uci_set "meowx" "$subscription_section" "update_interval" "${subscription_interval:-}"
+		# 主控给官方客户端的订阅键、内容指纹、实时通道地址与只读凭证（规格 entry-realtime.md §2.3 / §3.2）：每次按这次的应答头存，
+		# 没有就清掉（别家机场、旧主控）
+		local header option value
+		for header in mmwx-sub-key:sub_key mmwx-sub-rev:sub_rev mmwx-realtime-url:realtime_url mmwx-realtime:realtime; do
+			option="${header#*:}"
+			value=$(grep -i "^${header%%:*}:" "$subscription_header_tmpfile" | tail -n 1 | cut -d ':' -f 2- | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+			if [ -n "$value" ]; then
+				uci_set "meowx" "$subscription_section" "$option" "$value"
+			else
+				uci_remove "meowx" "$subscription_section" "$option" > /dev/null 2>&1
+			fi
+		done
 	else
 		# 失败：旧缓存与上次的用量 / 更新时间都保留，记下失败原因给界面
 		log "Profile" "Subscription update failed, keep the last downloaded copy."
@@ -1102,6 +1122,17 @@ panel_report() {
 
 # 每天一次（只在「自动选最快」时挂）：重测各加速地址；原来选中的已经不可达、新选的又不一样时重载，
 # 否则只更新缓存、下次启动再用（不为换一个更快的地址打断连接）
+# 把主控实时通道交给内核（登录 / 退出主控后也调）
+realtime_apply() {
+	service_running_meowx || return 0
+	ucode -S "$REALTIME_CLI" apply > /dev/null 2>&1
+}
+
+# 内核收到主控的订阅变更时调（参数 = 订阅键，环境变量带主控与 rev）：放后台重拉，内核那边不等
+subscription_changed() {
+	(ucode -S "$REALTIME_CLI" changed "$1" > /dev/null 2>&1 &)
+}
+
 # 定时任务（每 30 分钟）：服务在跑、劫持表里有绕过集合时，重新解析节点地址
 proxy_server_update() {
 	[ "$(uci -q get meowx.proxy.bypass_proxy_server)" = "1" ] || return 0

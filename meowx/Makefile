@@ -44,6 +44,7 @@ define Package/meowx/install
 	$(INSTALL_BIN) $(CURDIR)/files/ucode/mesh_cli.uc $(1)/etc/meowx/ucode/mesh_cli.uc
 	$(INSTALL_BIN) $(CURDIR)/files/ucode/proxy_server.uc $(1)/etc/meowx/ucode/proxy_server.uc
 	$(INSTALL_BIN) $(CURDIR)/files/ucode/proxy_server_cli.uc $(1)/etc/meowx/ucode/proxy_server_cli.uc
+	$(INSTALL_BIN) $(CURDIR)/files/ucode/realtime_cli.uc $(1)/etc/meowx/ucode/realtime_cli.uc
 
 	$(INSTALL_BIN) $(CURDIR)/files/scripts/include.sh $(1)/etc/meowx/scripts/include.sh
 	$(INSTALL_BIN) $(CURDIR)/files/scripts/firewall_include.sh $(1)/etc/meowx/scripts/firewall_include.sh
