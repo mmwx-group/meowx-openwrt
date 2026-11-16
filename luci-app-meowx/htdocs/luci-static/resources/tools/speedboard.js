@@ -12,6 +12,8 @@
 const API = 'https://license.miaomiaowux.com';
 const RESULTS = API + '/api/v2/speedtest/results';
 const MAX_SAMPLES = 40;
+// 内核每 250ms 记一个速率样本，报的平均速率去掉了前 2 秒（慢启动、上传开头先灌满发送缓冲的虚高）
+const WARMUP_SAMPLES = 8;
 const GRANT_TIMEOUT = 12000;
 
 const callSpeedBoard = rpc.declare({
@@ -96,6 +98,13 @@ function downsample(samples, count) {
     return out;
 }
 
+// 记进测速记录、上传给测速榜的采样：和平均速率一样去掉前 2 秒，再压到 40 个点。测速榜拿采样均值核对报的平均速率（差 50% 以上
+// 判不合理、不进榜），带着开头那段的话，上传一开头灌发送缓冲的尖峰（实测 1262 Mbps，之后每块写完才计一次）就让两者差出 70%
+function boardSamples(samples) {
+    const list = Array.isArray(samples) ? samples : [];
+    return downsample(list.length > WARMUP_SAMPLES ? list.slice(WARMUP_SAMPLES) : list);
+}
+
 // 节点协议的规格码（§2：配置里节点 type 的小写）。内核 /proxies 里 type 是 mihomo 的写法（Vless、Shadowsocks、Socks5…）
 function protocolCode(type) {
     let t = String(type ?? '').trim().toLowerCase();
@@ -150,6 +159,7 @@ return baseclass.extend({
 
     sha256Hex: sha256Hex,
     downsample: downsample,
+    boardSamples: boardSamples,
     protocolCode: protocolCode,
     appVersion: appVersion,
 

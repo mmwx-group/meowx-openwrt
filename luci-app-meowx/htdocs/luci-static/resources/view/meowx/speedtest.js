@@ -620,7 +620,7 @@ return baseclass.extend({
         this.timer = setTimeout(tick, this.isRunning() ? POLL_MS : 0);
     },
 
-    // 记一条；测完、同意了就接着传到测速榜。采样压到 40 个点（详情与上传正文都够用），出口不记 IP
+    // 记一条；测完、同意了就接着传到测速榜。采样去掉前 2 秒、压到 40 个点（同平均速率的口径，见 boardSamples），出口不记 IP
     record: function (p) {
         const run = this.ownRun ?? {};
         const done = p.phase == 'done';
@@ -636,8 +636,8 @@ return baseclass.extend({
             uploadMbps: p.uploadMbps ?? null,
             downloadPeakMbps: p.downloadPeakMbps ?? null,
             uploadPeakMbps: p.uploadPeakMbps ?? null,
-            downloadSamples: speedboard.downsample(p.downloadSamples ?? []),
-            uploadSamples: speedboard.downsample(p.uploadSamples ?? []),
+            downloadSamples: speedboard.boardSamples(p.downloadSamples ?? []),
+            uploadSamples: speedboard.boardSamples(p.uploadSamples ?? []),
             bytesUsed: p.bytesUsed ?? 0,
             durationMs: done ? (p.durationMs ?? null) : null,
             server: p.server ?? '',
