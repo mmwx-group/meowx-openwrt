@@ -506,6 +506,12 @@ test_profile_file() {
 		TEST_ERROR=$(echo "$output" | grep -m 1 -E 'level=(error|fatal)' | sed -n 's/.*msg="\(.*\)".*/\1/p')
 		[ -z "$TEST_ERROR" ] && TEST_ERROR=$(echo "$output" | grep -v -E 'level=(info|warning|debug)' | head -n 1)
 		[ -z "$TEST_ERROR" ] && TEST_ERROR="core exited with code $result"
+		# 订阅写了 geodata-mode: true 等要 GeoIP.dat / GeoSite.dat / MMDB 时，路由器上没有就由内核现下（经「GitHub 加速」）；
+		# 下不来就是这里失败，给个提示（插件不随包带 geo 数据：GeoIP.dat 就有 16MB）
+		case "$TEST_ERROR" in
+			*"can't download"*|*"can't initial Geo"*|*"can't initial MMDB"*)
+				TEST_ERROR="$TEST_ERROR (the core could not download geo data; check the GitHub mirror setting in Extras)" ;;
+		esac
 		return 1
 	fi
 	return 0
@@ -795,6 +801,24 @@ official_user_agent() {
 	echo "mihomo/1.19.0 MeowX/${version:-0} (OpenWrt)"
 }
 
+# proxies 是非空列表，或 proxy-providers 是非空映射（以前只看有没有这个键，proxies: null 也能过）
+subscription_is_clash() {
+	yq -M -p yaml -o yaml -e '((.proxies | tag) == "!!seq" and (.proxies | length) > 0) or ((.["proxy-providers"] | tag) == "!!map" and (.["proxy-providers"] | length) > 0)' "$1" > /dev/null 2>&1
+}
+
+# 内容是节点分享链接列表，或整段 base64 解出来是（机场给认不出的客户端的通用格式）
+subscription_is_link_list() {
+	ucode -l fs -e '
+		let text = trim(fs.readfile(ARGV[0]) ?? "");
+		const decoded = b64dec(text);
+		if (decoded) text = decoded;
+		for (let line in split(text, "\n"))
+			if (match(lc(trim(line)), /^(vmess|vless|ss|ssr|trojan|hysteria2|hy2|hysteria|tuic|anytls|wireguard|socks|snell):\/\//))
+				exit(0);
+		exit(1);
+	' "$1" 2> /dev/null
+}
+
 # 更新订阅。返回 0 成功（缓存已替换）/ 1 失败（旧缓存保留，原因写在 UCI 的 error_type / error）/ 3 等别的任务更新超时
 update_subscription() {
 	local subscription_section; subscription_section="$1"
@@ -830,6 +854,9 @@ update_subscription_locked() {
 	config_get subscription_info_url "$subscription_section" "info_url"
 	config_get subscription_url "$subscription_section" "url"
 	config_get subscription_user_agent "$subscription_section" "user_agent"
+	# 用的是缺省（官方）UA 时，拿到的不是 Clash 配置会换 clash.meta 再拉一次（见下）；用户自己填了 UA 的照填的来
+	local subscription_default_ua; subscription_default_ua=0
+	case "$subscription_user_agent" in ""|meowx) subscription_default_ua=1 ;; esac
 	subscription_user_agent=$(official_user_agent "$subscription_user_agent")
 	# update subscription
 	log "Profile" "Update subscription: ${subscription_name:-$subscription_section}."
@@ -868,14 +895,31 @@ update_subscription_locked() {
 		log "Profile" "Subscription download failed: $error."
 	else
 		log "Profile" "Subscription download successful."
+		# 不少机场面板只认 UA 里带 clash 的客户端，认不出就回 base64 节点链接；官方 UA 拿到的不是 Clash 配置时换 clash.meta
+		# 再拉一次，拿到就用它（主控订阅认得官方 UA，第一次就是 Clash 配置，不受影响）
+		if [ "$subscription_default_ua" = 1 ] && ! subscription_is_clash "$subscription_tmpfile"; then
+			log "Profile" "Not a Clash config with the official User-Agent, retry with clash.meta."
+			local retry_header retry_file
+			retry_header=$(mktemp "$TEMP_DIR/subscription.XXXXXX")
+			retry_file=$(mktemp "$TEMP_DIR/subscription.XXXXXX")
+			if curl -s -f -m 120 --connect-timeout 15 --retry 3 -L -X GET -A "clash.meta" -H "mmwx-refresh:$refresh_mark" -D "$retry_header" -o "$retry_file" "$subscription_url" 2> /dev/null && subscription_is_clash "$retry_file"; then
+				log "Profile" "Got a Clash config with clash.meta."
+				mv -f "$retry_file" "$subscription_tmpfile"
+				mv -f "$retry_header" "$subscription_header_tmpfile"
+			fi
+			rm -f "$retry_header" "$retry_file"
+		fi
 		if [ -z "$subscription_info_file" ] && grep -q -i "subscription-userinfo:" "$subscription_header_tmpfile"; then
 			subscription_info_file="$subscription_header_tmpfile"
 		fi
-		# proxies 必须是非空列表，或 proxy-providers 是非空映射（以前只看有没有这个键，proxies: null 也能过）
-		if ! yq -M -p yaml -o yaml -e '((.proxies | tag) == "!!seq" and (.proxies | length) > 0) or ((.["proxy-providers"] | tag) == "!!map" and (.["proxy-providers"] | length) > 0)' "$subscription_tmpfile" > /dev/null 2>&1; then
+		if ! subscription_is_clash "$subscription_tmpfile"; then
 			error_type="invalid"
-			error="no proxies or proxy-providers in it, or it is not a Clash YAML"
-			log "Profile" "Subscription is not valid."
+			if subscription_is_link_list "$subscription_tmpfile"; then
+				error="it returned node links (V2Ray / Shadowrocket format), not a Clash config: the provider did not recognize the client, set a User-Agent the provider supports for this subscription"
+			else
+				error="no proxies or proxy-providers in it, or it is not a Clash YAML"
+			fi
+			log "Profile" "Subscription is not valid: $error"
 		else
 			# 按真实的插件设置混入出完整配置，用内核测一遍（与启动时生成运行配置同一条路径）
 			local candidate_path; candidate_path=$(mktemp "$TEMP_DIR/subscription.XXXXXX")
