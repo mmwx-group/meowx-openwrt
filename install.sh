@@ -53,6 +53,16 @@ fail() {
 	exit 1
 }
 
+# 下载：有 curl 就先用 curl，不行再 wget（新装的路由器不一定有 curl）。wget 在 OpenWrt / ImmortalWrt 25.12 上是 uclient-fetch，
+# 开着 Fake-IP 与路由器自身代理时连外网会超时（#1798），从插件里一键升级时 curl 一定在（插件依赖它）
+# fetch <地址> <存到哪（/dev/null 只看能不能下）>
+fetch() {
+	if command -v curl > /dev/null 2>&1 && curl -fsSL --connect-timeout 10 --max-time 120 -o "$2" "$1"; then
+		return 0
+	fi
+	wget -q -O "$2" "$1"
+}
+
 # feed url
 repository_url="https://dl.miaomiaowux.com/meowx/openwrt"
 feed_url="$repository_url/$branch/$arch/meowx"
@@ -63,7 +73,7 @@ if [ -x "/usr/bin/apk" ]; then
 else
 	feed_index="$feed_url/Packages.gz"
 fi
-if [ -z "$arch" ] || ! wget -q -O /dev/null "$feed_index"; then
+if [ -z "$arch" ] || ! fetch "$feed_index" /dev/null; then
 	echo "no packages for $branch / ${arch:-unknown arch}, see https://github.com/mmwx-group/meowx-openwrt"
 	exit 1
 fi
@@ -71,9 +81,9 @@ fi
 tmp_dir="$(mktemp -d /tmp/meowx-install.XXXXXX)" || fail "cannot create a temporary directory"
 trap 'rm -rf "$tmp_dir"' EXIT
 
-# 先用 wget 下到本地再交给 opkg：老固件的 opkg 只把 http:// / ftp:// 当网址，https:// 的地址会被当成本地文件名去打开，装不上
+# 先下到本地再交给 opkg：老固件的 opkg 只把 http:// / ftp:// 当网址，https:// 的地址会被当成本地文件名去打开，装不上
 install_ipk() {
-	wget -q -O "$tmp_dir/$1" "$feed_url/$1" || {
+	fetch "$feed_url/$1" "$tmp_dir/$1" || {
 		echo "cannot download $feed_url/$1"
 		return 1
 	}
@@ -89,7 +99,7 @@ if [ -x "/bin/opkg" ]; then
 	languages=$(opkg list-installed luci-i18n-base-* | cut -d ' ' -f 1 | cut -d '-' -f 4-)
 	# get latest version
 	echo "get latest version"
-	wget -q -O "$tmp_dir/index.json" "$feed_url/index.json" || fail "cannot download $feed_url/index.json"
+	fetch "$feed_url/index.json" "$tmp_dir/index.json" || fail "cannot download $feed_url/index.json"
 	eval "$(jsonfilter -i "$tmp_dir/index.json" -e "meowx_core_version=@['packages']['meowx-core']" -e "meowx_version=@['packages']['meowx']" -e "luci_app_meowx_version=@['packages']['luci-app-meowx']")"
 	if [ -z "$meowx_core_version" ] || [ -z "$meowx_version" ] || [ -z "$luci_app_meowx_version" ]; then
 		fail "cannot read package versions from $feed_url/index.json"

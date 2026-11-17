@@ -53,6 +53,16 @@ fail() {
 	exit 1
 }
 
+# 下载：有 curl 就先用 curl，不行再 wget（新装的路由器不一定有 curl）。wget 在 OpenWrt / ImmortalWrt 25.12 上是 uclient-fetch，
+# 开着 Fake-IP 与路由器自身代理时连外网会超时（#1798）
+# fetch <地址> <存到哪（/dev/null 只看能不能下）>
+fetch() {
+	if command -v curl > /dev/null 2>&1 && curl -fsSL --connect-timeout 10 --max-time 120 -o "$2" "$1"; then
+		return 0
+	fi
+	wget -q -O "$2" "$1"
+}
+
 # feed url
 repository_url="https://dl.miaomiaowux.com/meowx/openwrt"
 feed_url="$repository_url/$branch/$arch/meowx"
@@ -63,7 +73,7 @@ if [ -x "/usr/bin/apk" ]; then
 else
 	feed_index="$feed_url/Packages.gz"
 fi
-if [ -z "$arch" ] || ! wget -q -O /dev/null "$feed_index"; then
+if [ -z "$arch" ] || ! fetch "$feed_index" /dev/null; then
 	echo "no packages for $branch / ${arch:-unknown arch}, see https://github.com/mmwx-group/meowx-openwrt"
 	exit 1
 fi
@@ -72,7 +82,7 @@ if [ -x "/bin/opkg" ]; then
 	# add key
 	echo "add key"
 	key_build_pub_file="/tmp/meowx-key-build.pub"
-	wget -q -O "$key_build_pub_file" "$repository_url/key-build.pub" || fail "cannot download $repository_url/key-build.pub"
+	fetch "$repository_url/key-build.pub" "$key_build_pub_file" || fail "cannot download $repository_url/key-build.pub"
 	opkg-key add "$key_build_pub_file" || { rm -f "$key_build_pub_file"; fail "cannot add the feed key"; }
 	rm -f "$key_build_pub_file"
 	# add feed
@@ -87,7 +97,7 @@ if [ -x "/bin/opkg" ]; then
 elif [ -x "/usr/bin/apk" ]; then
 	# add key
 	echo "add key"
-	wget -q -O "/etc/apk/keys/meowx.pem" "$repository_url/public-key.pem" || { rm -f /etc/apk/keys/meowx.pem; fail "cannot download $repository_url/public-key.pem"; }
+	fetch "$repository_url/public-key.pem" "/etc/apk/keys/meowx.pem" || { rm -f /etc/apk/keys/meowx.pem; fail "cannot download $repository_url/public-key.pem"; }
 	# add feed
 	echo "add feed"
 	if grep -q meowx /etc/apk/repositories.d/customfeeds.list; then

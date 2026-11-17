@@ -201,7 +201,8 @@ function start_upgrade(core_only) {
 		'#!/bin/sh',
 		'touch /var/run/meowx-upgrade.running',
 		'cd /tmp',
-		'if wget -q -T 30 -O /tmp/meowx-install.sh https://dl.miaomiaowux.com/meowx/openwrt/install.sh; then',
+		// 先用 curl（插件依赖它），不行再 wget：wget 在 OpenWrt / ImmortalWrt 25.12 上是 uclient-fetch，Fake-IP + 路由器自身代理时会超时（#1798）
+		'if curl -fsSL --connect-timeout 10 --max-time 60 -o /tmp/meowx-install.sh https://dl.miaomiaowux.com/meowx/openwrt/install.sh || wget -q -T 30 -O /tmp/meowx-install.sh https://dl.miaomiaowux.com/meowx/openwrt/install.sh; then',
 		'\tash /tmp/meowx-install.sh',
 		'else',
 		'\techo "download install.sh failed"',
@@ -221,7 +222,8 @@ const methods = {
 	// 插件自更新（「关于」页）：查 dl.miaomiaowux.com 发布清单里 OpenWrt 版的最新版本号
 	check_update: {
 		call: function() {
-			const process = popen('wget -q -T 15 -O - https://dl.miaomiaowux.com/meowx/latest.json 2>/dev/null');
+			// 先用 curl（插件依赖它），不行再 wget（理由同上面 start_upgrade）
+			const process = popen('curl -fsSL --connect-timeout 10 --max-time 15 https://dl.miaomiaowux.com/meowx/latest.json 2>/dev/null || wget -q -T 15 -O - https://dl.miaomiaowux.com/meowx/latest.json 2>/dev/null');
 			if (!process) {
 				return { success: false };
 			}
@@ -245,14 +247,16 @@ const methods = {
 	check_core_update: {
 		call: function() {
 			const supported = system('/etc/meowx/scripts/core_update.sh asset >/dev/null 2>&1') == 0;
-			const process = popen('/etc/meowx/scripts/core_update.sh latest 2>/dev/null');
+			// 失败原因（curl / wget 的报错，按加速、直连分开）在 stderr，一并带回给页面显示（#1798：以前丢掉，只剩「检查失败」）
+			const process = popen('/etc/meowx/scripts/core_update.sh latest 2>&1');
 			if (!process) {
 				return { success: false, supported: supported };
 			}
-			const latest = trim(process.read('all'));
+			const lines = filter(split(trim(process.read('all')), '\n'), (l) => l != '');
 			process.close();
+			const latest = trim(lines[0] ?? '');
 			if (!match(latest, /^[0-9][0-9A-Za-z.-]*$/)) {
-				return { success: false, supported: supported };
+				return { success: false, supported: supported, error: substr(join(' ', lines), 0, 400) };
 			}
 			return { success: true, latest: latest, supported: supported };
 		}

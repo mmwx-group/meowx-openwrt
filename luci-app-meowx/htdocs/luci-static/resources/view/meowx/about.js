@@ -94,7 +94,10 @@ return baseclass.extend({
                 return showCore(_('No core build for this architecture; update the plugin to get a new core'));
             }
             if (!res?.success) {
-                return showCore(_('Unable to check for core updates'), E('button', { type: 'button', class: 'cbi-button', click: (ev) => meowx.busy(ev.currentTarget, checkCore) }, _('Retry')));
+                // 带上具体原因（curl / wget 的报错，按加速、直连分开），方便排查（#1798）
+                const reason = String(res?.error ?? '').replace(/^cannot get the latest core version\s*/, '').replace(/^\((.*)\)$/, '$1').trim();
+                return showCore(reason ? `${_('Unable to check for core updates')} (${reason})` : _('Unable to check for core updates'),
+                    E('button', { type: 'button', class: 'cbi-button', click: (ev) => meowx.busy(ev.currentTarget, checkCore) }, _('Retry')));
             }
             if (!installedCore || meowx.compareVersion(res.latest, installedCore) <= 0) {
                 return showCore(_('The core is up to date'));

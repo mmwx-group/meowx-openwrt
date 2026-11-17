@@ -16,6 +16,7 @@ INIT="${MEOWX_INIT:-/etc/init.d/meowx}"
 GHPROXY_CLI="${MEOWX_GHPROXY_CLI:-/etc/meowx/ucode/ghproxy_cli.uc}"
 OPENWRT_RELEASE="${MEOWX_OPENWRT_RELEASE:-/etc/openwrt_release}"
 WORK_DIR="${MEOWX_CORE_WORK_DIR:-/tmp/meowx-core-update}"
+APP_LOG="${MEOWX_APP_LOG:-/var/log/meowx/app.log}"
 
 # 按「GitHub 加速」的设置换算地址；没开加速、或换算不了时原样
 mirror() {
@@ -24,11 +25,44 @@ mirror() {
 	echo "${url:-$1}"
 }
 
-# get <地址> <存到哪（- 为标准输出）> <mirror|direct> [超时秒]
+# get <地址> <存到哪（- 为标准输出）> <mirror|direct> [超时秒]：先用 curl（插件依赖它，一定装着），不行再试 wget。
+# 失败的原因写到 stderr（「关于」页与插件日志显示）。以前只用 wget：ImmortalWrt / OpenWrt 25.12 上它是 uclient-fetch，
+# 开着 Fake-IP 与路由器自身代理时连 GitHub 超时、curl 却正常（#1798），而且错误被丢掉，只剩一句「拿不到版本」
 get() {
-	local url="$1"
+	local url="$1" out="$2" timeout="${4:-60}" err rc
 	[ "$3" = "direct" ] || url=$(mirror "$1")
-	wget -q -T "${4:-60}" -O "$2" "$url"
+	err=$(mktemp "${TMPDIR:-/tmp}/meowx-core-get.XXXXXX") || err=/dev/null
+	if command -v curl > /dev/null 2>&1; then
+		curl -fsSL --connect-timeout 10 --max-time "$timeout" -o "$out" "$url" 2> "$err"
+		rc=$?
+		if [ "$rc" = 0 ]; then
+			[ "$err" = /dev/null ] || rm -f "$err"
+			return 0
+		fi
+		# curl 自己的报错就以「curl: (码) …」开头；没输出时补上退出码
+		if [ -s "$err" ]; then
+			tr '\n' ' ' < "$err" | sed 's/[[:space:]]*$//' >&2
+			echo >&2
+		else
+			echo "curl: exit code $rc" >&2
+		fi
+	fi
+	if command -v wget > /dev/null 2>&1; then
+		wget -q -T "$timeout" -O "$out" "$url" 2> "$err"
+		rc=$?
+		if [ "$rc" = 0 ]; then
+			[ "$err" = /dev/null ] || rm -f "$err"
+			return 0
+		fi
+		echo "wget: exit code $rc$( [ -s "$err" ] && printf ', %s' "$(tr '\n' ' ' < "$err" | sed 's/[[:space:]]*$//')")" >&2
+	fi
+	[ "$err" = /dev/null ] || rm -f "$err"
+	return 1
+}
+
+# 写一行插件日志（「日志」页的插件日志），格式同 init 脚本的 log
+log_app() {
+	[ -d "$(dirname "$APP_LOG")" ] && echo "[$(date '+%Y-%m-%d %H:%M:%S')] [Core] $1" >> "$APP_LOG"
 }
 
 asset() {
@@ -68,15 +102,22 @@ routes() {
 }
 
 latest() {
-	local via version
+	local via version reason reasons err
+	err=$(mktemp "${TMPDIR:-/tmp}/meowx-core-latest.XXXXXX") || err=/dev/null
 	for via in $(routes "$REPO_URL"); do
-		version=$(get "$REPO_URL/releases/latest/download/version.txt" - "$via" 8 2> /dev/null | head -n 1 | tr -d ' \r\n')
+		version=$(get "$REPO_URL/releases/latest/download/version.txt" - "$via" 10 2> "$err" | head -n 1 | tr -d ' \r\n')
 		if valid_version "$version"; then
+			[ "$err" = /dev/null ] || rm -f "$err"
 			echo "$version"
 			return 0
 		fi
+		reason=$(tr '\n' ' ' < "$err" 2> /dev/null | sed 's/[[:space:]]*$//')
+		[ -n "$version" ] && [ -z "$reason" ] && reason="unexpected content"
+		reasons="$reasons${reasons:+; }$via: ${reason:-no response}"
 	done
-	echo "cannot get the latest core version" >&2
+	[ "$err" = /dev/null ] || rm -f "$err"
+	echo "cannot get the latest core version ($reasons)" >&2
+	log_app "Check core update failed: $reasons"
 	return 1
 }
 
@@ -84,7 +125,7 @@ latest() {
 download() {
 	local via want got
 	for via in $(routes "$1"); do
-		if get "$1/sha256sums.txt" "$WORK_DIR/sha256sums.txt" "$via" && get "$1/$2" "$WORK_DIR/$2" "$via"; then
+		if get "$1/sha256sums.txt" "$WORK_DIR/sha256sums.txt" "$via" 2>&1 && get "$1/$2" "$WORK_DIR/$2" "$via" 2>&1; then
 			want=$(awk -v f="$2" '$2 == f { print $1 }' "$WORK_DIR/sha256sums.txt")
 			got=$(sha256sum "$WORK_DIR/$2" | cut -d ' ' -f 1)
 			[ -n "$want" ] && [ "$want" = "$got" ] && return 0
