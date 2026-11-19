@@ -169,7 +169,9 @@ function apply() {
 		code = api_call(api, 'DELETE', '/meowx/realtime');
 		log('No panel to connect (not logged in and no read-only credential from subscriptions).');
 	} else {
-		code = api_call(api, 'PUT', '/meowx/realtime', { channels: p.channels, hook: { exec: HOOK }, subs: p.subs });
+		// entryIcon：让内核给「主控指定了入口」的节点在 /proxies 里带一个小标图标（data:image/svg+xml，<title> 是入口名称 / IP 与切换时间），
+		// 外部面板 zashboard 不用改就在节点名前显示、悬停出提示。只有我们这边开（内核缺省关）；老内核不认这个字段，忽略。
+		code = api_call(api, 'PUT', '/meowx/realtime', { channels: p.channels, hook: { exec: HOOK }, subs: p.subs, entryIcon: true });
 		const kinds = map(p.channels, (c) => host_of(c.base) + (c.token ? ' (account)' : ' (read-only)'));
 		const note = code == '200' ? '' : ' — the core refused it (HTTP ' + code + '), the core may be too old';
 		log('Realtime channel: ' + join(', ', kinds) + note + '.');
