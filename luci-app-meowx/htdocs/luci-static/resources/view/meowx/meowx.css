@@ -834,6 +834,44 @@ body.mx-dark {
     font-size: 12px;
 }
 
+/* ---------- 首页「主控指定入口」卡（有生效中的入口覆盖才画；卡片外壳用 .mx-account） ---------- */
+
+#view#view .mx-entries__list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 10px;
+}
+
+/* 一条一行：节点名 → 入口 … 切换时间（靠右）；窄屏放不下就换行 */
+#view#view .mx-entries__row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 10px;
+    padding: 10px 12px;
+    border-radius: var(--mx-r-cell);
+    background: var(--mx-elev2);
+}
+
+#view#view .mx-entries__nodes {
+    font-size: 15px;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+
+#view#view .mx-entries__via {
+    font-size: 14px;
+    overflow-wrap: anywhere;
+}
+
+#view#view .mx-entries__time {
+    margin-left: auto;
+    color: var(--mx-t2);
+    font-size: 12px;
+    white-space: nowrap;
+}
+
 /* ---------- po0 加白卡（同客户端「流量控制 → po0 加白」） ---------- */
 
 #view#view .mx-po0__head {

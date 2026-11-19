@@ -270,7 +270,8 @@ return baseclass.extend({
             meowx.status(),
             meowx.listProfiles(),
             meowx.panelStatus(),
-            meowx.lastError()
+            meowx.lastError(),
+            meowx.entryOverrides()
         ]);
     },
     render: function (data) {
@@ -285,9 +286,35 @@ return baseclass.extend({
         m = new form.Map('meowx', _('MeowX'), `${_('Transparent Proxy with Mihomo on OpenWrt.')}`);
 
         const hero = renderHero(appVersion, coreVersion, running, data[5]);
+
+        // 账户卡、订阅卡，以及有生效中的入口覆盖时的「主控指定入口」卡（没有就不画）
+        const cards = E('div', { class: 'mx-cards' });
+        let entryCard = meowx.renderEntryCard(data[6]);
+        let entriesAt = Date.now();
+        const drawEntries = function (entries) {
+            entryCard?.remove();
+            entryCard = meowx.renderEntryCard(entries);
+            if (entryCard) {
+                cards.appendChild(entryCard);
+            }
+        };
+        const refreshEntries = function () {
+            entriesAt = Date.now();
+            return meowx.entryOverrides().then(drawEntries);
+        };
+        // 切回这一页时重取一次（main.js 调）
+        this.refreshEntries = refreshEntries;
+
         poll.add(function () {
             return Promise.all([L.resolveDefault(meowx.status()), meowx.lastError()]).then(function (res) {
                 updateHero(hero, res[0], res[1]);
+                // 主控指定入口跟着这一轮走，不另起定时器：内核没在跑就收掉卡片、不问；在跑时路由器每问一次要起一个 curl，
+                // 所以 30 秒才问一次，停在别的页签时不问（切回来有 onShow）
+                if (!res[0]) {
+                    drawEntries([]);
+                } else if (Date.now() - entriesAt >= 30000 && !cards.closest('[hidden]')) {
+                    return refreshEntries();
+                }
             });
         });
 
@@ -395,14 +422,20 @@ return baseclass.extend({
 
         // 账户卡与订阅卡：登录 / 退出 / 刷新 / 切换之后，表单按新的 uci 原地重画（「选择配置文件」跟着变，不会把旧值写回去），
         // 两张卡换新的。不整页刷新——那样会白屏一下、进场动画重播
-        const cards = E('div', { class: 'mx-cards' });
         const drawCards = function (status) {
             cards.replaceChildren(meowx.renderAccountCard(status, refresh), renderSubscriptionCard(profiles, status, refresh));
+            if (entryCard) {
+                cards.appendChild(entryCard);
+            }
         };
+        // 退出登录、切换订阅会改掉生效中的入口：跟着重取
         const refresh = function () {
-            return meowx.reloadMap(m).then(() => meowx.panelStatus()).then(drawCards);
+            return meowx.reloadMap(m).then(() => meowx.panelStatus()).then(drawCards).then(refreshEntries);
         };
         drawCards(panelStatus);
         return meowx.decorate(m.render(), { hero: [hero, cards] });
+    },
+    onShow: function () {
+        return this.refreshEntries?.();
     }
 });

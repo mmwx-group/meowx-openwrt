@@ -1605,3 +1605,12 @@ msgstr "Повторить"
 
 msgid "Clear history? Results uploaded to the speed board stay there and can no longer be deleted from this browser."
 msgstr "Очистить историю? Результаты, загруженные в рейтинг скорости, останутся там, и удалить их из этого браузера будет уже нельзя."
+
+msgid "Panel-Assigned Entry"
+msgstr "Входной узел, назначенный панелью"
+
+msgid "%s, %s"
+msgstr "%s, %s"
+
+msgid "Switched %s"
+msgstr "Переключено %s"

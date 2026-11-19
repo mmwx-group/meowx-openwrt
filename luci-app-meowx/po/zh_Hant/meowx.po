@@ -2048,3 +2048,12 @@ msgstr "%s 之後重試"
 
 msgid "Clear history? Results uploaded to the speed board stay there and can no longer be deleted from this browser."
 msgstr "清空記錄？已經上傳到測速榜的結果會留在那裡，清空後就無法從這個瀏覽器刪除了。"
+
+msgid "Panel-Assigned Entry"
+msgstr "主控指定入口"
+
+msgid "%s, %s"
+msgstr "%s、%s"
+
+msgid "Switched %s"
+msgstr "切換於 %s"

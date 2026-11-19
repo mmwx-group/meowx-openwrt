@@ -2041,3 +2041,12 @@ msgstr ""
 
 msgid "Clear history? Results uploaded to the speed board stay there and can no longer be deleted from this browser."
 msgstr ""
+
+msgid "Panel-Assigned Entry"
+msgstr ""
+
+msgid "%s, %s"
+msgstr ""
+
+msgid "Switched %s"
+msgstr ""

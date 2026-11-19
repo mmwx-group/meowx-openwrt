@@ -747,6 +747,45 @@ return baseclass.extend({
         return card;
     },
 
+    // 主控指定入口（规格 miaomiaowuC/Design/entry-realtime.md §6 / §7）：内核入口覆盖表里生效中的那些条目。
+    // 内核回 { entries: […] }（直接给数组也认）。内核没在跑（回 {}）、老内核没有这个路由（回 { message }）、rpc 出错都当成一条没有，不报错
+    entryOverrides: function () {
+        return L.resolveDefault(this.api('GET', '/meowx/entries'), {}).then(function (res) {
+            const list = Array.isArray(res) ? res : res?.entries;
+            return (Array.isArray(list) ? list : []).filter(function (e) {
+                return e?.active && e.server && Array.isArray(e.ips) && e.ips.length > 0;
+            });
+        });
+    },
+
+    // 首页「主控指定入口」卡：每条一行「节点名 → 入口 · 切换时间」。节点名是内核给的 nodes（当前配置里用到这条覆盖的节点），
+    // 老内核没有这个字段时写 server；入口有名称（names：IP → 入口服务器名称，只有用管理员账号登录主控时才有）写「名称（IP）」，
+    // 没有只写 IP。entries 是 entryOverrides() 的结果；一条都没有时回 null，整张卡不画
+    renderEntryCard: function (entries) {
+        if (!entries?.length) {
+            return null;
+        }
+        // 「、」/「, 」随语言：整句带占位符才翻得上（LuCI 查翻译前会去掉首尾空格）
+        const join = (items) => items.reduce((a, b) => _('%s, %s').format(a, b));
+        return E('div', { class: 'mx-account mx-entries' }, [
+            E('div', { class: 'mx-account__head' }, E('span', { class: 'mx-subcard__label' }, _('Panel-Assigned Entry'))),
+            E('div', { class: 'mx-entries__list' }, entries.map(function (e) {
+                const nodes = (Array.isArray(e.nodes) ? e.nodes : []).filter((n) => typeof n == 'string' && n != '');
+                const names = e.names && typeof e.names == 'object' ? e.names : {};
+                const via = e.ips.map(function (ip) {
+                    const name = typeof names[ip] == 'string' ? names[ip].trim() : '';
+                    return name ? _('%s (%s)').format(name, ip) : ip;
+                });
+                const at = +e.updatedAt;   // 毫秒：本机换上这份入口的时刻
+                return E('div', { class: 'mx-entries__row' }, [
+                    E('span', { class: 'mx-entries__nodes', title: e.server }, join(nodes.length ? nodes : [e.server])),
+                    E('span', { class: 'mx-entries__via' }, '→ ' + join(via)),
+                    at > 0 ? E('span', { class: 'mx-entries__time', title: new Date(at).toLocaleString() }, _('Switched %s').format(relativeTime(at / 1000))) : ''
+                ]);
+            }))
+        ]);
+    },
+
 
     // po0 加白卡（同客户端「流量控制 → po0 加白」+「自定义 po0 服务器」）：开关、主控登记的列表、自己添加的列表。
     // 每次操作后用回包原地重画这张卡；token 只显示脱敏写法，完整值只在路由器上
