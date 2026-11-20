@@ -43,6 +43,13 @@ function panel_cmd(args) {
 	return json(trim(output) || '{}') ?? { success: false, error: 'bad output' };
 }
 
+// po0 / GGY 的备注：去掉首尾空白；40 个字的上限、换行等控制字符的处理在 meowx-core 里做（这里按字节只挡明显过长的）。
+// 不合法返回 null
+function note_arg(value) {
+	const note = trim(`${value ?? ''}`);
+	return length(note) <= 400 ? note : null;
+}
+
 // 登录 / 退出 / 改 po0 之后：重挂白名单上报的定时任务；po0 实际上报的地址变了、服务又跑着就重载（直连规则写在配置里）
 function po0_urls() {
 	return join('\n', json(readfile('/etc/meowx/po0.json') ?? 'null')?.report_urls ?? []);
@@ -516,10 +523,11 @@ const methods = {
 			return panel_cmd('subscriptions');
 		}
 	},
-	// po0 加白（同客户端「po0 加白」）：action = status / enable / disable / fetch / add(address, token) / remove(index)。
-	// token 完整值只留在路由器上，回给界面的都是脱敏写法
+	// po0 加白（同客户端「po0 加白」）：action = status / enable / disable / fetch / add(address, token, note) / note(index, note) /
+	// remove(index)。token 完整值只留在路由器上，回给界面的都是脱敏写法；每台的上一次结果由 meowx-core 的 status 带回。
+	// 改备注只改本机存的备注：不重载、不重挂定时任务、不上报
 	po0: {
-		args: { action: 'action', address: 'address', token: 'token', index: 0 },
+		args: { action: 'action', address: 'address', token: 'token', index: 0, note: 'note' },
 		call: function(req) {
 			const action = req.args?.action ?? 'status';
 			let args;
@@ -533,7 +541,17 @@ const methods = {
 				if (!match(token, /^pgnfw_[A-Za-z0-9_-]{4,200}(@[0-9]{1,2})?$/)) {
 					return { success: false, error: 'invalid token' };
 				}
-				args = `po0 add ${shell_quote(address)} ${shell_quote(token)}`;
+				const note = note_arg(req.args?.note);
+				if (note == null) {
+					return { success: false, error: 'invalid note' };
+				}
+				args = `po0 add ${shell_quote(address)} ${shell_quote(token)}` + (note != '' ? ` ${shell_quote(note)}` : '');
+			} else if (action == 'note') {
+				const note = note_arg(req.args?.note);
+				if (note == null) {
+					return { success: false, error: 'invalid note' };
+				}
+				args = `po0 note ${int(req.args?.index ?? -1)} ${shell_quote(note)}`;
 			} else if (action == 'remove') {
 				args = `po0 remove ${int(req.args?.index ?? -1)}`;
 			} else if (index([ 'status', 'enable', 'disable', 'fetch' ], action) >= 0) {
@@ -543,17 +561,17 @@ const methods = {
 			}
 			const urls = po0_urls();
 			const res = panel_cmd(args);
-			if (action != 'status' && res?.success) {
+			if (action != 'status' && action != 'note' && res?.success) {
 				panel_sync(urls, action != 'disable' && action != 'remove');
 			}
 			return res;
 		}
 	},
-	// GGY 加白（同客户端「GGY 加白」）：action = status / enable / disable / add(token) / remove(index)。
-	// 打开开关、开着时添加，由 meowx-core 当场报一次（最多 10 秒）再回状态；改了之后重挂白名单上报的定时任务（删除不报）。
+	// GGY 加白（同客户端「GGY 加白」）：action = status / enable / disable / add(token, note) / note(index, note) / remove(index)。
+	// 打开开关、开着时添加，由 meowx-core 当场报一次（最多 10 秒）再回状态；改了之后重挂白名单上报的定时任务（删除、改备注不报）。
 	// 回给界面的 token 都是脱敏写法
 	ggy: {
-		args: { action: 'action', token: 'token', index: 0 },
+		args: { action: 'action', token: 'token', index: 0, note: 'note' },
 		call: function(req) {
 			const action = req.args?.action ?? 'status';
 			let args;
@@ -563,7 +581,17 @@ const methods = {
 				if (!match(token, /^[A-Za-z0-9_-]{8,200}$/)) {
 					return { success: false, error: 'invalid token' };
 				}
-				args = `ggy add ${shell_quote(token)}`;
+				const note = note_arg(req.args?.note);
+				if (note == null) {
+					return { success: false, error: 'invalid note' };
+				}
+				args = `ggy add ${shell_quote(token)}` + (note != '' ? ` ${shell_quote(note)}` : '');
+			} else if (action == 'note') {
+				const note = note_arg(req.args?.note);
+				if (note == null) {
+					return { success: false, error: 'invalid note' };
+				}
+				args = `ggy note ${int(req.args?.index ?? -1)} ${shell_quote(note)}`;
 			} else if (action == 'remove') {
 				args = `ggy remove ${int(req.args?.index ?? -1)}`;
 			} else if (index([ 'status', 'enable', 'disable' ], action) >= 0) {
@@ -572,7 +600,7 @@ const methods = {
 				return { success: false, error: 'invalid action' };
 			}
 			const res = panel_cmd(args);
-			if (action != 'status' && res?.success) {
+			if (action != 'status' && action != 'note' && res?.success) {
 				system('/etc/init.d/meowx panel_cron >/dev/null 2>&1');
 			}
 			return res;

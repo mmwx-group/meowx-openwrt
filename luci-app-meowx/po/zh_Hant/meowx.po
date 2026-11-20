@@ -1290,10 +1290,10 @@ msgid "Report this device's public IP to the firewall whitelist of GGY (Guguyun)
 msgstr "把本機出口 IP 上報到 GGY（咕咕雲）伺服器的防火牆白名單：填分享連結裡的 token（也可以直接貼上整條連結），每 10 分鐘及網路變化時自動加白；上報走直連。"
 
 msgid "Not reported yet"
-msgstr "還沒報過"
+msgstr "還沒上報"
 
 msgid "Whitelisted"
-msgstr "成功"
+msgstr "已加白"
 
 msgid "Failed: %s"
 msgstr "失敗：%s"
@@ -2057,3 +2057,66 @@ msgstr "%s、%s"
 
 msgid "Switched %s"
 msgstr "切換於 %s"
+
+msgid "The po0 firewall is not enabled"
+msgstr "po0 沒有開啟防火牆"
+
+msgid "Whitelisted · %s"
+msgstr "已加白 · %s"
+
+msgid "Whitelist not in effect · %s"
+msgstr "加白未生效 · %s"
+
+msgid "Slot conflict: this IP already holds another slot on this po0. Delete the old slot in the po0 dashboard first."
+msgstr "槽位衝突：本機 IP 已在這台 po0 的其它槽位，先到 po0 面板刪除舊槽位"
+
+msgid "Invalid token"
+msgstr "token 無效"
+
+msgid "Token invalid or expired"
+msgstr "token 無效或已失效"
+
+msgid "Last reported: %s"
+msgstr "上次上報 %s"
+
+msgid "Firewall off"
+msgstr "防火牆未開啟"
+
+msgid "Firewall on"
+msgstr "防火牆已開啟"
+
+msgid "Firewall on · whitelist %d/%d"
+msgstr "防火牆已開啟 · 名單 %d/%d"
+
+msgid "Firewall on · whitelist %d"
+msgstr "防火牆已開啟 · 名單 %d 條"
+
+msgid "This device"
+msgstr "本機"
+
+msgid "Slot %d"
+msgstr "槽位 %d"
+
+msgid "Empty slot"
+msgstr "空位"
+
+msgid "This device's public IP: %s"
+msgstr "本機出口 %s"
+
+msgid "This device uses slot %d"
+msgstr "本機使用槽位 %d"
+
+msgid "No fixed slot: when the list is full, the entry reported longest ago is pushed out"
+msgstr "本機未固定槽位，名單滿時最久沒上報的會被擠掉"
+
+msgid "View slots"
+msgstr "查看槽位"
+
+msgid "Slots"
+msgstr "槽位"
+
+msgid "Note"
+msgstr "備註"
+
+msgid "Note (optional)"
+msgstr "備註（可選）"
