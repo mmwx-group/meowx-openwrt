@@ -931,6 +931,162 @@ body.mx-dark {
     color: var(--mx-slow);
 }
 
+#view#view .mx-ggy__result.is-warn {
+    color: var(--mx-mid);
+}
+
+/* 有备注的自定义 po0 / GGY token：标题是备注（正文字体），下面一行是地址与脱敏 token */
+#view#view .mx-po0__name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 14px;
+    font-weight: 650;
+}
+
+/* 改备注的那一行：输入框 + 保存 / 取消 */
+#view#view .mx-po0__row--edit .mx-quickadd {
+    margin-top: 6px;
+}
+
+/* po0 槽位气泡（规格 po0-ggy-results.md §2）：锚定在「槽位」按钮上，右对齐往下弹，点外面关 */
+#view#view .mx-po0slots {
+    position: relative;
+    flex: none;
+}
+
+#view#view .mx-po0pop {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 8px);
+    z-index: 30;
+    box-sizing: border-box;
+    width: 300px;
+    max-width: calc(100vw - 80px);
+    padding: 12px 14px;
+    border-radius: 16px;
+    background: var(--mx-elev);
+    border: 1px solid var(--mx-stroke);
+    box-shadow: 0 12px 32px rgba(42, 33, 48, .16);
+    color: var(--mx-t1);
+    text-align: left;
+    opacity: 0;
+    visibility: hidden;
+    transform: scale(.96) translateY(-4px);
+    transform-origin: top right;
+    transition: opacity var(--mx-content) ease-out, transform var(--mx-toggle) var(--mx-soft-spring), visibility 0s linear var(--mx-toggle);
+}
+
+#view#view .mx-po0pop.is-open {
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+    transition: opacity var(--mx-content) ease-out, transform var(--mx-toggle) var(--mx-soft-spring);
+}
+
+/* 小三角指向按钮 */
+#view#view .mx-po0pop::before {
+    content: "";
+    position: absolute;
+    top: -6px;
+    right: 18px;
+    width: 10px;
+    height: 10px;
+    background: var(--mx-elev);
+    border-left: 1px solid var(--mx-stroke);
+    border-top: 1px solid var(--mx-stroke);
+    transform: rotate(45deg);
+}
+
+#view#view .mx-po0pop__title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+#view#view .mx-po0pop__summary {
+    margin-top: 2px;
+    color: var(--mx-t2);
+    font-size: 12px;
+}
+
+#view#view .mx-po0pop__summary.is-ok {
+    color: var(--mx-good);
+}
+
+#view#view .mx-po0pop__summary.is-warn {
+    color: var(--mx-mid);
+}
+
+#view#view .mx-po0pop__summary.is-failed {
+    color: var(--mx-slow);
+}
+
+#view#view .mx-po0pop__list {
+    list-style: none;
+    margin: 10px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+#view#view .mx-po0pop__entry {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 28px;
+    padding: 0 10px;
+    border-radius: 10px;
+    background: var(--mx-elev2);
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12.5px;
+}
+
+#view#view .mx-po0pop__entry.is-mine {
+    background: var(--mx-soft);
+    color: var(--mx-rose);
+    font-weight: 700;
+}
+
+#view#view .mx-po0pop__entry.is-empty {
+    background: transparent;
+    border: 1px dashed var(--mx-stroke);
+    color: var(--mx-t2);
+    font-family: inherit;
+}
+
+#view#view .mx-po0pop__ip {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#view#view .mx-po0pop__tag {
+    flex: none;
+    color: var(--mx-t2);
+    font-family: ui-rounded, system-ui, sans-serif;
+    font-size: 11.5px;
+    font-weight: 600;
+}
+
+#view#view .mx-po0pop__tag.is-mine {
+    color: var(--mx-rose);
+}
+
+#view#view .mx-po0pop__foot {
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid var(--mx-stroke);
+    color: var(--mx-t2);
+    font-size: 12px;
+    line-height: 1.6;
+}
+
 
 /* 「加白」组标题（辅助功能页）：说明收在 ⓘ 里 */
 #view#view .mx-group {
@@ -1079,6 +1235,27 @@ body.mx-dark {
 
     #view#view .mx-po0__add .mx-quickadd__input {
         flex-basis: 100%;
+    }
+
+    /* 窄屏：行尾的「槽位 / 备注 / 删除」换到下一行 */
+    #view#view .mx-po0__row {
+        flex-wrap: wrap;
+    }
+
+    #view#view .mx-po0__row > .mx-po0__main {
+        flex-basis: 100%;
+    }
+
+    /* 换行后「槽位」在行首：气泡改成左对齐，免得往左伸出屏幕 */
+    #view#view .mx-po0pop {
+        left: 0;
+        right: auto;
+        transform-origin: top left;
+    }
+
+    #view#view .mx-po0pop::before {
+        left: 18px;
+        right: auto;
     }
 }
 

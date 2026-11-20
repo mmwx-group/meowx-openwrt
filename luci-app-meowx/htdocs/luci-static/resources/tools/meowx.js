@@ -182,14 +182,14 @@ const callMeowXLastError = rpc.declare({
 const callMeowXPo0 = rpc.declare({
     object: 'luci.meowx',
     method: 'po0',
-    params: ['action', 'address', 'token', 'index'],
+    params: ['action', 'address', 'token', 'index', 'note'],
     expect: { '': {} }
 });
 
 const callMeowXGgy = rpc.declare({
     object: 'luci.meowx',
     method: 'ggy',
-    params: ['action', 'token', 'index'],
+    params: ['action', 'token', 'index', 'note'],
     expect: { '': {} }
 });
 
@@ -245,6 +245,192 @@ function relativeTime(ts) {
         return _('%d h ago').format(Math.floor(diff / 3600));
     }
     return _('%d days ago').format(Math.floor(diff / 86400));
+}
+
+// po0 / GGY 加白结果的时间（规格 po0-ggy-results.md §1.1）：刚刚 / N 分钟前 / 当天写 HH:mm / 跨天写日期
+function reportTime(ts) {
+    const t = +ts;
+    if (!(t > 0)) {
+        return '';
+    }
+    const diff = Math.max(0, Date.now() / 1000 - t);
+    if (diff < 60) {
+        return _('just now');
+    }
+    if (diff < 3600) {
+        return _('%d min ago').format(Math.floor(diff / 60));
+    }
+    const d = new Date(t * 1000), now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const hm = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    if (d.toDateString() == now.toDateString()) {
+        return hm;
+    }
+    const md = `${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    return (d.getFullYear() == now.getFullYear() ? md : `${d.getFullYear()}-${md}`) + ' ' + hm;
+}
+
+// meowx-core 回来的失败原因里认得的几句换成翻译（其它原样，如「HTTP 502」、连接错误）
+function whitelistReason(text) {
+    const known = {
+        '应答无法解析': _('Unparseable response'),
+        '连不上：超时': _('Connection timed out')
+    };
+    return known[text] ?? stripPeriod(text);
+}
+
+// 一台 po0 上一次的结果 → { text, cls }（cls：is-ok 绿 / is-warn 黄 / is-failed 红）。
+// entries 为 null = po0 的应答里没有名单（老版 po0 只回个确认，规格 §1.1「缺字段时信 200」）
+function po0ResultText(r) {
+    const count = (r) => (r.limit != null ? `${(r.entries ?? []).length}/${+r.limit}` : `${(r.entries ?? []).length}`);
+    switch (r.kind) {
+    case 'success':
+        // 有 limit 才带「条数/limit」；没有名单时只写「已加白」
+        return { text: r.limit != null && Array.isArray(r.entries) ? _('Whitelisted · %s').format(count(r)) : _('Whitelisted'), cls: 'is-ok' };
+    case 'disabled':
+        return { text: _('The po0 firewall is not enabled'), cls: 'is-warn' };
+    case 'notApplied':
+        return { text: _('Whitelist not in effect · %s').format(count(r)), cls: 'is-warn' };
+    case 'slotConflict':
+        return { text: _('Slot conflict: this IP already holds another slot on this po0. Delete the old slot in the po0 dashboard first.'), cls: 'is-failed' };
+    case 'invalidToken':
+        return { text: _('Invalid token'), cls: 'is-failed' };
+    }
+    return { text: _('Failed: %s').format(whitelistReason(r.message) || _('Operation failed')), cls: 'is-failed' };
+}
+
+// GGY 一个 token 上一次的结果（老内核没有 kind：按 ok / invalid 推）
+function ggyResultText(r) {
+    const kind = r.kind || (r.ok ? 'success' : (r.invalid ? 'invalidToken' : 'failed'));
+    if (kind == 'success') {
+        return { text: r.msg ? _('Whitelisted · %s').format(r.msg) : _('Whitelisted'), cls: 'is-ok' };
+    }
+    if (kind == 'invalidToken') {
+        return { text: _('Token invalid or expired'), cls: 'is-failed' };
+    }
+    return { text: _('Failed: %s').format(whitelistReason(r.error) || _('Operation failed')), cls: 'is-failed' };
+}
+
+// 结果行：文字 + 上次上报时间；还没报过写「还没上报」
+function whitelistResultLine(result, describe) {
+    if (!result) {
+        return E('div', { class: 'mx-ggy__result' }, _('Not reported yet'));
+    }
+    const d = describe(result);
+    const when = reportTime(result.at);
+    return E('div', { class: 'mx-ggy__result ' + d.cls, title: d.text }, d.text + (when ? ' · ' + when : ''));
+}
+
+// 同段判断（同 meowx-core 的 po0SameC24）：相等算；任一边以 /24 结尾时前三段相同算；IPv6 只按全等
+function po0SameC24(a, b) {
+    a = String(a ?? '').trim();
+    b = String(b ?? '').trim();
+    if (!a || !b) {
+        return false;
+    }
+    if (a == b) {
+        return true;
+    }
+    if (!a.endsWith('/24') && !b.endsWith('/24')) {
+        return false;
+    }
+    const pa = a.replace(/\/24$/, '').split('.'), pb = b.replace(/\/24$/, '').split('.');
+    return pa.length == 4 && pb.length == 4 && pa[0] == pb[0] && pa[1] == pb[1] && pa[2] == pb[2];
+}
+
+// 槽位气泡：锚定在「查看槽位」按钮上的浮层，点外面 / Esc 关；同一时间只开一个
+function closePo0Popovers(except) {
+    document.querySelectorAll('.mx-po0pop.is-open').forEach((pop) => {
+        if (pop != except) {
+            pop.classList.remove('is-open');
+            pop.previousElementSibling?.setAttribute('aria-expanded', 'false');
+        }
+    });
+}
+
+let po0PopoverListening = false;
+
+function listenPo0Popovers() {
+    if (po0PopoverListening) {
+        return;
+    }
+    po0PopoverListening = true;
+    document.addEventListener('click', (ev) => {
+        if (!ev.target.closest?.('.mx-po0slots')) {
+            closePo0Popovers(null);
+        }
+    });
+    document.addEventListener('keydown', (ev) => {
+        if (ev.key == 'Escape') {
+            closePo0Popovers(null);
+        }
+    });
+}
+
+// 气泡内容（规格 §2）：标题、概况、名单（槽位 / 本机 / 空位）、底部三行；没有 200 的结果时只有那句结果与时间
+function renderPo0Slots(title, result) {
+    listenPo0Popovers();
+    const children = [E('div', { class: 'mx-po0pop__title' }, title)];
+    const when = result ? reportTime(result.at) : '';
+    if (!result || result.enabled == null) {
+        const d = result ? po0ResultText(result) : { text: _('Not reported yet'), cls: '' };
+        children.push(E('div', { class: 'mx-po0pop__summary ' + d.cls }, d.text));
+        if (when) {
+            children.push(E('div', { class: 'mx-po0pop__foot' }, _('Last reported: %s').format(when)));
+        }
+    } else {
+        // 应答里没有名单（entries 为 null）就不画名单与空位；没有 current_ip 时 po0SameC24 不会命中，不标「本机」
+        const hasList = Array.isArray(result.entries);
+        const entries = result.entries ?? [];
+        const limit = hasList && +result.limit > 0 ? +result.limit : 0;
+        children.push(E('div', { class: 'mx-po0pop__summary' }, !result.enabled
+            ? _('Firewall off')
+            : !hasList
+                ? _('Firewall on')
+                : (limit ? _('Firewall on · whitelist %d/%d').format(entries.length, limit) : _('Firewall on · whitelist %d').format(entries.length))));
+        const rows = entries.map((e) => {
+            const mine = po0SameC24(e.ip, result.current_ip);
+            return E('li', { class: 'mx-po0pop__entry' + (mine ? ' is-mine' : '') }, [
+                E('span', { class: 'mx-po0pop__ip' }, e.ip),
+                mine ? E('span', { class: 'mx-po0pop__tag is-mine' }, _('This device')) : '',
+                e.slot != null ? E('span', { class: 'mx-po0pop__tag' }, '📌 ' + _('Slot %d').format(e.slot)) : ''
+            ]);
+        });
+        for (let i = entries.length; i < limit; i++) {
+            rows.push(E('li', { class: 'mx-po0pop__entry is-empty' }, _('Empty slot')));
+        }
+        if (rows.length > 0) {
+            children.push(E('ul', { class: 'mx-po0pop__list' }, rows));
+        }
+        const foot = [];
+        if (result.current_ip) {
+            foot.push(E('div', {}, _('This device\'s public IP: %s').format(result.current_ip)));
+        }
+        foot.push(E('div', {}, result.slot != null
+            ? _('This device uses slot %d').format(result.slot)
+            : _('No fixed slot: when the list is full, the entry reported longest ago is pushed out')));
+        if (when) {
+            foot.push(E('div', {}, _('Last reported: %s').format(when)));
+        }
+        children.push(E('div', { class: 'mx-po0pop__foot' }, foot));
+    }
+    const pop = E('div', { class: 'mx-po0pop', role: 'dialog', 'aria-label': title }, children);
+    const button = E('button', {
+        type: 'button',
+        class: 'cbi-button',
+        title: _('View slots'),
+        'aria-label': _('View slots'),
+        'aria-haspopup': 'dialog',
+        'aria-expanded': 'false',
+        click: (ev) => {
+            ev.stopPropagation();
+            const open = !pop.classList.contains('is-open');
+            closePo0Popovers(pop);
+            pop.classList.toggle('is-open', open);
+            button.setAttribute('aria-expanded', open ? 'true' : 'false');
+        }
+    }, _('Slots'));
+    return E('div', { class: 'mx-po0slots' }, [button, pop]);
 }
 
 return baseclass.extend({
@@ -570,20 +756,24 @@ return baseclass.extend({
         return callMeowXPanelProfile();
     },
 
-    po0: function (action, address, token, index) {
-        return callMeowXPo0(action, address ?? '', token ?? '', index ?? 0);
+    // po0 加白：opts = { address, token, index, note }，用到哪个给哪个（note 用于 add / note，空 = 没有备注）
+    po0: function (action, opts) {
+        opts = opts ?? {};
+        return callMeowXPo0(action, opts.address ?? '', opts.token ?? '', opts.index ?? 0, opts.note ?? '');
     },
 
     po0Status: function () {
-        return L.resolveDefault(callMeowXPo0('status', '', '', 0), { success: false, enabled: false, custom: [], panel: [] });
+        return L.resolveDefault(callMeowXPo0('status', '', '', 0, ''), { success: false, enabled: false, custom: [], panel: [] });
     },
 
-    ggy: function (action, token, index) {
-        return callMeowXGgy(action, token ?? '', index ?? 0);
+    // GGY 加白：opts = { token, index, note }
+    ggy: function (action, opts) {
+        opts = opts ?? {};
+        return callMeowXGgy(action, opts.token ?? '', opts.index ?? 0, opts.note ?? '');
     },
 
     ggyStatus: function () {
-        return L.resolveDefault(callMeowXGgy('status', '', 0), { success: false, enabled: false, tokens: [] });
+        return L.resolveDefault(callMeowXGgy('status', '', 0, ''), { success: false, enabled: false, tokens: [] });
     },
 
     // GGY 的输入框接受裸 token 或整条分享链接（带 ? 的当链接，取查询串里 token 的值）；合法 = 只含 A–Z a–z 0–9 _ -，8–200 位。
@@ -749,21 +939,44 @@ return baseclass.extend({
 
 
     // po0 加白卡（同客户端「流量控制 → po0 加白」+「自定义 po0 服务器」）：开关、主控登记的列表、自己添加的列表。
+    // 每台 po0 一行显示上一次上报的结果，「槽位」点开气泡看这台 po0 的白名单（规格 po0-ggy-results.md）；自己添加的可写备注。
     // 每次操作后用回包原地重画这张卡；token 只显示脱敏写法，完整值只在路由器上
     renderPo0Card: function (po0, loggedIn) {
         const card = E('div', { class: 'mx-account mx-po0' });
+        let editing = -1;   // 正在改备注的自定义条目序号
+        let current = po0 ?? {};
+        // 打开开关 / 添加之后路由器在后台上报：过一会儿再取两次状态，把结果补上（正在改备注时不打断）
+        const refreshLater = () => {
+            for (const delay of [5000, 15000]) {
+                setTimeout(() => {
+                    if (!card.isConnected || editing >= 0) {
+                        return;
+                    }
+                    this.po0Status().then((res) => {
+                        if (res?.success && card.isConnected && editing < 0 && JSON.stringify(res) != JSON.stringify(current)) {
+                            draw(res);
+                        }
+                    });
+                }, delay);
+            }
+        };
         const draw = (state) => {
+            current = state;
             const error = E('div', { class: 'mx-account__error', hidden: '' });
             const fail = (res) => {
                 error.textContent = res?.error || _('Operation failed');
                 error.hidden = false;
             };
-            const act = (button, action, address, token, index) => this.busy(button, () =>
-                this.po0(action, address, token, index).then((res) => {
+            const act = (button, action, opts) => this.busy(button, () =>
+                this.po0(action, opts).then((res) => {
                     if (!res?.success) {
                         return fail(res);
                     }
+                    editing = -1;
                     draw(res);
+                    if (action == 'add') {
+                        refreshLater();
+                    }
                 }));
 
             const toggle = E('input', { type: 'checkbox', 'aria-label': _('po0 Whitelist') });
@@ -777,6 +990,9 @@ return baseclass.extend({
                         return fail(res);
                     }
                     draw(res);
+                    if (res.enabled) {
+                        refreshLater();
+                    }
                 }, (err) => {
                     toggle.checked = !toggle.checked;
                     toggle.disabled = false;
@@ -794,6 +1010,10 @@ return baseclass.extend({
                 ])
             ];
 
+            // 开着时每台一行结果 +「槽位」气泡；关着时不报，只列条目
+            const status = (result) => state.enabled ? [whitelistResultLine(result, po0ResultText)] : [];
+            const slots = (title, result) => state.enabled ? renderPo0Slots(title, result) : '';
+
             if (state.enabled) {
                 const panel = state.panel ?? [];
                 children.push(E('div', { class: 'mx-po0__group' }, _('Registered on the panel (%d)').format(panel.length)));
@@ -806,7 +1026,8 @@ return baseclass.extend({
                         E('div', { class: 'mx-po0__main' }, [
                             E('div', { class: 'mx-po0__addr' }, server.name || server.host),
                             server.name ? E('div', { class: 'mx-po0__token' }, server.host) : ''
-                        ])
+                        ].concat(status(server.result))),
+                        slots(server.name || server.host, server.result)
                     ]))));
                 }
             }
@@ -814,17 +1035,33 @@ return baseclass.extend({
             const custom = state.custom ?? [];
             children.push(E('div', { class: 'mx-po0__group' }, _('Custom po0 servers (%d)').format(custom.length)));
             if (custom.length > 0) {
-                children.push(E('div', { class: 'mx-po0__list' }, custom.map((server, i) => E('div', { class: 'mx-po0__row' }, [
-                    E('div', { class: 'mx-po0__main' }, [
-                        E('div', { class: 'mx-po0__addr' }, server.address),
-                        E('div', { class: 'mx-po0__token' }, server.token)
-                    ]),
-                    E('button', {
-                        type: 'button',
-                        class: 'cbi-button cbi-button-negative',
-                        click: (ev) => act(ev.currentTarget, 'remove', '', '', i)
-                    }, _('Delete'))
-                ]))));
+                children.push(E('div', { class: 'mx-po0__list' }, custom.map((server, i) => {
+                    const title = server.note || server.address;
+                    if (editing == i) {
+                        return this.renderNoteEditor(server.note, server.address + ' · ' + server.token,
+                            (button, note) => act(button, 'note', { index: i, note: note }),
+                            () => { editing = -1; draw(state); });
+                    }
+                    return E('div', { class: 'mx-po0__row' }, [
+                        E('div', { class: 'mx-po0__main' }, [
+                            server.note
+                                ? E('div', { class: 'mx-po0__name' }, server.note)
+                                : E('div', { class: 'mx-po0__addr' }, server.address),
+                            E('div', { class: 'mx-po0__token' }, server.note ? `${server.address} · ${server.token}` : server.token)
+                        ].concat(status(server.result))),
+                        slots(title, server.result),
+                        E('button', {
+                            type: 'button',
+                            class: 'cbi-button',
+                            click: () => { editing = i; draw(state); }
+                        }, _('Note')),
+                        E('button', {
+                            type: 'button',
+                            class: 'cbi-button cbi-button-negative',
+                            click: (ev) => act(ev.currentTarget, 'remove', { index: i })
+                        }, _('Delete'))
+                    ]);
+                })));
             }
             if (!state.enabled && custom.length > 0) {
                 children.push(E('div', { class: 'mx-po0__empty' }, _('"po0 Whitelist" is off, so these servers are not reported for now.')));
@@ -832,6 +1069,7 @@ return baseclass.extend({
 
             const address = E('input', { type: 'text', class: 'mx-quickadd__input', placeholder: _('Whitelist server address: IP or domain, port optional'), autocomplete: 'off', spellcheck: 'false' });
             const token = E('input', { type: 'password', class: 'mx-quickadd__input', placeholder: _('Token, starts with pgnfw_ (@slot optional)'), autocomplete: 'new-password' });
+            const note = E('input', { type: 'text', class: 'mx-quickadd__input', placeholder: _('Note (optional)'), maxlength: 40, autocomplete: 'off' });
             const add = E('button', {
                 type: 'button',
                 class: 'cbi-button cbi-button-action',
@@ -844,34 +1082,62 @@ return baseclass.extend({
                         error.hidden = false;
                         return;
                     }
-                    return act(ev.currentTarget, 'add', a, t);
+                    return act(ev.currentTarget, 'add', { address: a, token: t, note: note.value.trim() });
                 }
             }, _('Add'));
             token.addEventListener('keydown', (ev) => { if (ev.key == 'Enter') add.click(); });
-            children.push(E('div', { class: 'mx-quickadd mx-po0__add' }, [address, token, add]));
+            note.addEventListener('keydown', (ev) => { if (ev.key == 'Enter') add.click(); });
+            children.push(E('div', { class: 'mx-quickadd mx-po0__add' }, [address, token, note, add]));
             children.push(error);
             children.push(E('div', { class: 'mx-po0__note' }, _('Fill in the po0 whitelist server address (IP or domain, port optional, e.g. 1.2.3.4 or fw.example.com:8443); it is not necessarily the node address. Copy the token from the po0 dashboard.')));
             card.replaceChildren(...children);
         };
-        draw(po0 ?? {});
+        draw(current);
         return card;
     },
 
-    // GGY 加白卡（同客户端「GGY 加白」，紧跟 po0 加白卡）：开关 + token 列表（脱敏写法 + 上一次的结果）。
+    // 改备注的一行（po0 自定义服务器 / GGY token 共用）：输入框 + 保存 / 取消，空 = 清除备注；最多 40 个字
+    renderNoteEditor: function (note, sub, onSave, onCancel) {
+        const input = E('input', { type: 'text', class: 'mx-quickadd__input', placeholder: _('Note (optional)'), maxlength: 40, autocomplete: 'off', value: note ?? '' });
+        const save = E('button', {
+            type: 'button',
+            class: 'cbi-button cbi-button-action',
+            click: (ev) => onSave(ev.currentTarget, input.value.trim())
+        }, _('Save'));
+        input.addEventListener('keydown', (ev) => {
+            if (ev.key == 'Enter') {
+                save.click();
+            } else if (ev.key == 'Escape') {
+                onCancel();
+            }
+        });
+        const row = E('div', { class: 'mx-po0__row mx-po0__row--edit' }, [
+            E('div', { class: 'mx-po0__main' }, [
+                E('div', { class: 'mx-po0__token' }, sub),
+                E('div', { class: 'mx-quickadd' }, [input, save, E('button', { type: 'button', class: 'cbi-button', click: onCancel }, _('Cancel'))])
+            ])
+        ]);
+        requestAnimationFrame(() => input.focus());
+        return row;
+    },
+
+    // GGY 加白卡（同客户端「GGY 加白」，紧跟 po0 加白卡）：开关 + token 列表（备注 / 脱敏写法 + 上一次的结果）。
     // 打开开关、开着时添加会当场报一次，回包里带着结果，用它原地重画；列表只显示脱敏写法，完整 token 只在输入框里出现
     renderGgyCard: function (ggy) {
         const card = E('div', { class: 'mx-account mx-po0 mx-ggy' });
+        let editing = -1;
         const draw = (state) => {
             const error = E('div', { class: 'mx-account__error', hidden: '' });
             const fail = (res) => {
                 error.textContent = res?.error || _('Operation failed');
                 error.hidden = false;
             };
-            const act = (button, action, token, index) => this.busy(button, () =>
-                this.ggy(action, token, index).then((res) => {
+            const act = (button, action, opts) => this.busy(button, () =>
+                this.ggy(action, opts).then((res) => {
                     if (!res?.success) {
                         return fail(res);
                     }
+                    editing = -1;
                     draw(res);
                 }));
 
@@ -903,30 +1169,33 @@ return baseclass.extend({
                 ])
             ];
 
-            // 上一次的结果：成功 / 失败原因 / 还没报过
-            const resultLine = (result) => {
-                if (!result) {
-                    return E('div', { class: 'mx-ggy__result' }, _('Not reported yet'));
-                }
-                const when = +result.at > 0 ? ' · ' + relativeTime(result.at) : '';
-                return result.ok
-                    ? E('div', { class: 'mx-ggy__result is-ok' }, _('Whitelisted') + when)
-                    : E('div', { class: 'mx-ggy__result is-failed', title: result.error || '' }, _('Failed: %s').format(result.error || _('Operation failed')) + when);
-            };
             const tokens = state.tokens ?? [];
             children.push(E('div', { class: 'mx-po0__group' }, _('Tokens (%d)').format(tokens.length)));
             if (tokens.length > 0) {
-                children.push(E('div', { class: 'mx-po0__list' }, tokens.map((item, i) => E('div', { class: 'mx-po0__row' }, [
-                    E('div', { class: 'mx-po0__main' }, [
-                        E('div', { class: 'mx-po0__addr' }, item.token),
-                        resultLine(item.result)
-                    ]),
-                    E('button', {
-                        type: 'button',
-                        class: 'cbi-button cbi-button-negative',
-                        click: (ev) => act(ev.currentTarget, 'remove', '', i)
-                    }, _('Delete'))
-                ]))));
+                children.push(E('div', { class: 'mx-po0__list' }, tokens.map((item, i) => {
+                    if (editing == i) {
+                        return this.renderNoteEditor(item.note, item.token,
+                            (button, note) => act(button, 'note', { index: i, note: note }),
+                            () => { editing = -1; draw(state); });
+                    }
+                    return E('div', { class: 'mx-po0__row' }, [
+                        E('div', { class: 'mx-po0__main' }, [
+                            item.note ? E('div', { class: 'mx-po0__name' }, item.note) : E('div', { class: 'mx-po0__addr' }, item.token),
+                            item.note ? E('div', { class: 'mx-po0__token' }, item.token) : '',
+                            whitelistResultLine(item.result, ggyResultText)
+                        ]),
+                        E('button', {
+                            type: 'button',
+                            class: 'cbi-button',
+                            click: () => { editing = i; draw(state); }
+                        }, _('Note')),
+                        E('button', {
+                            type: 'button',
+                            class: 'cbi-button cbi-button-negative',
+                            click: (ev) => act(ev.currentTarget, 'remove', { index: i })
+                        }, _('Delete'))
+                    ]);
+                })));
             }
             if (tokens.some((item) => item.result?.invalid)) {
                 children.push(E('div', { class: 'mx-po0__empty' }, _('A token is invalid or expired: generate a new share link on GGY, add it, and delete the old one.')));
@@ -936,6 +1205,7 @@ return baseclass.extend({
             }
 
             const token = E('input', { type: 'password', class: 'mx-quickadd__input', placeholder: _('Token, or paste the whole share link'), autocomplete: 'new-password' });
+            const note = E('input', { type: 'text', class: 'mx-quickadd__input', placeholder: _('Note (optional)'), maxlength: 40, autocomplete: 'off' });
             const add = E('button', {
                 type: 'button',
                 class: 'cbi-button cbi-button-action',
@@ -947,11 +1217,12 @@ return baseclass.extend({
                         error.hidden = false;
                         return;
                     }
-                    return act(ev.currentTarget, 'add', t);
+                    return act(ev.currentTarget, 'add', { token: t, note: note.value.trim() });
                 }
             }, _('Add'));
             token.addEventListener('keydown', (ev) => { if (ev.key == 'Enter') add.click(); });
-            children.push(E('div', { class: 'mx-quickadd mx-po0__add' }, [token, add]));
+            note.addEventListener('keydown', (ev) => { if (ev.key == 'Enter') add.click(); });
+            children.push(E('div', { class: 'mx-quickadd mx-po0__add' }, [token, note, add]));
             children.push(error);
             card.replaceChildren(...children);
         };

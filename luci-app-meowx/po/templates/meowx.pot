@@ -2041,3 +2041,66 @@ msgstr ""
 
 msgid "Clear history? Results uploaded to the speed board stay there and can no longer be deleted from this browser."
 msgstr ""
+
+msgid "The po0 firewall is not enabled"
+msgstr ""
+
+msgid "Whitelisted · %s"
+msgstr ""
+
+msgid "Whitelist not in effect · %s"
+msgstr ""
+
+msgid "Slot conflict: this IP already holds another slot on this po0. Delete the old slot in the po0 dashboard first."
+msgstr ""
+
+msgid "Invalid token"
+msgstr ""
+
+msgid "Token invalid or expired"
+msgstr ""
+
+msgid "Last reported: %s"
+msgstr ""
+
+msgid "Firewall off"
+msgstr ""
+
+msgid "Firewall on"
+msgstr ""
+
+msgid "Firewall on · whitelist %d/%d"
+msgstr ""
+
+msgid "Firewall on · whitelist %d"
+msgstr ""
+
+msgid "This device"
+msgstr ""
+
+msgid "Slot %d"
+msgstr ""
+
+msgid "Empty slot"
+msgstr ""
+
+msgid "This device's public IP: %s"
+msgstr ""
+
+msgid "This device uses slot %d"
+msgstr ""
+
+msgid "No fixed slot: when the list is full, the entry reported longest ago is pushed out"
+msgstr ""
+
+msgid "View slots"
+msgstr ""
+
+msgid "Slots"
+msgstr ""
+
+msgid "Note"
+msgstr ""
+
+msgid "Note (optional)"
+msgstr ""
