@@ -5,13 +5,13 @@ include $(TOPDIR)/rules.mk
 # 以前从 meowC 的 core/Clash.Meta 编、自带 001 / 002 / 003 三个补丁；独立程序自己起监听端口与 TUN、`meowx-core panel …`
 # 子命令（主控账户、账户订阅、白名单上报、喵窝入网）现在都在 meowx-core 里，这里不再打补丁。
 PKG_NAME:=meowx-core
-PKG_VERSION:=0.5.3
+PKG_VERSION:=0.5.4
 PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/mmwx-group/meowx-core.git
-PKG_SOURCE_VERSION:=efe75271edf3f271c3917add47b83933b277009f
-PKG_MIRROR_HASH:=a1ff7181aa4433efb832896019b58a1550f7477f2735f1587459373716b6240d
+PKG_SOURCE_VERSION:=62446a087f6fc9fb874c640253f4aac33231626f
+PKG_MIRROR_HASH:=0725ad6b660a20ba41de6a3aedd078c604301b2b5a4614b2a2b0e99af049a4d7
 
 PKG_LICENSE:=GPL-3.0-or-later
 PKG_LICENSE_FILES:=LICENSE
