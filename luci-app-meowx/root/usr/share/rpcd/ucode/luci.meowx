@@ -670,12 +670,13 @@ const methods = {
 		}
 	},
 	// 喵窝：action = status / save（settings 是设置对象，存完在后台应用）/ apply / leave（后台跑，页面轮询 status）
-	// / install（mesh_cli 自己转后台）
+	// / install（mesh_cli 自己转后台）/ panel（主控那边的喵窝信息，要向主控发请求，页面打开时取一次）
+	// / whitelist（settings.whitelist：「白名单节点经喵窝连线」开关，生效与否变了 mesh_cli 在后台重拉订阅 / 重载）
 	mesh: {
 		args: { action: 'action', settings: {} },
 		call: function(req) {
 			const action = req.args?.action ?? 'status';
-			if (index([ 'status', 'save', 'apply', 'install', 'leave' ], action) < 0) {
+			if (index([ 'status', 'save', 'apply', 'install', 'leave', 'panel', 'whitelist' ], action) < 0) {
 				return { success: false, error: 'invalid action' };
 			}
 			const cli = '/etc/meowx/ucode/mesh_cli.uc';
@@ -686,6 +687,8 @@ const methods = {
 			let command = `ucode -S ${cli} ${action}`;
 			if (action == 'save') {
 				command += ' ' + shell_quote(sprintf('%J', req.args?.settings ?? {}));
+			} else if (action == 'whitelist') {
+				command += req.args?.settings?.whitelist === false ? ' 0' : ' 1';
 			}
 			const process = popen(command + ' 2>/dev/null');
 			if (!process) {

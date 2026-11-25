@@ -42,6 +42,7 @@ define Package/meowx/install
 	$(INSTALL_BIN) $(CURDIR)/files/ucode/ghproxy.uc $(1)/etc/meowx/ucode/ghproxy.uc
 	$(INSTALL_BIN) $(CURDIR)/files/ucode/ghproxy_cli.uc $(1)/etc/meowx/ucode/ghproxy_cli.uc
 	$(INSTALL_BIN) $(CURDIR)/files/ucode/mesh_cli.uc $(1)/etc/meowx/ucode/mesh_cli.uc
+	$(INSTALL_BIN) $(CURDIR)/files/ucode/mesh_direct.uc $(1)/etc/meowx/ucode/mesh_direct.uc
 	$(INSTALL_BIN) $(CURDIR)/files/ucode/proxy_server.uc $(1)/etc/meowx/ucode/proxy_server.uc
 	$(INSTALL_BIN) $(CURDIR)/files/ucode/proxy_server_cli.uc $(1)/etc/meowx/ucode/proxy_server_cli.uc
 	$(INSTALL_BIN) $(CURDIR)/files/ucode/realtime_cli.uc $(1)/etc/meowx/ucode/realtime_cli.uc

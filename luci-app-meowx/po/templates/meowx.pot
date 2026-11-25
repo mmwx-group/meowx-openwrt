@@ -2113,3 +2113,60 @@ msgstr ""
 
 msgid "Note (optional)"
 msgstr ""
+
+msgid "Access: servers only"
+msgstr ""
+
+msgid "Access: servers + admin sites"
+msgstr ""
+
+msgid "Access: full"
+msgstr ""
+
+msgid "Loading MeowNest info from the panel…"
+msgstr ""
+
+msgid "Could not read MeowNest info from the panel: %s"
+msgstr ""
+
+msgid "This account is not on the panel's MeowNest list."
+msgstr ""
+
+msgid "Joined %s's MeowNest"
+msgstr ""
+
+msgid "Device limit: %d"
+msgstr ""
+
+msgid "Device limit: unlimited"
+msgstr ""
+
+msgid "Whitelisted nodes connect through MeowNest"
+msgstr ""
+
+msgid "Whitelisted server nodes in the subscription connect through MeowNest instead, without taking a slot in the server's IP whitelist. MeowNest must be on."
+msgstr ""
+
+msgid "In use: %d node(s) connect through MeowNest: %s"
+msgstr ""
+
+msgid "In use. The current subscription has no whitelisted nodes for MeowNest (the panel decides which servers get one)."
+msgstr ""
+
+msgid "Takes effect once MeowNest is on and joined."
+msgstr ""
+
+msgid "Servers reachable through MeowNest (%d)"
+msgstr ""
+
+msgid "Devices in the same network (%d)"
+msgstr ""
+
+msgid "Site · %s"
+msgstr ""
+
+msgid "Site"
+msgstr ""
+
+msgid "Could not read the device list: %s"
+msgstr ""

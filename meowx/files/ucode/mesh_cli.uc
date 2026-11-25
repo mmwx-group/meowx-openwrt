@@ -7,6 +7,12 @@
 //   install  装 tailscale（opkg / apk，后台跑，status 里看进度）
 //   leave    把这台路由器从喵窝里删掉（主控里删设备、撤掉申报的网段、tailscale logout），并关掉开关
 //   heal     tailscale0 的喵窝地址 / 路由丢了时重启 tailscaled 重新配置（status 发现时在后台调）
+//   panel    喵窝页要的主控信息：访问范围、设备上限、共享设备 / 站点、可经喵窝连接的服务器（meowx-core panel mesh view），
+//            外加当前运行配置里经喵窝连接的节点（页面打开时取一次，不在 2 秒一次的轮询里）
+//   whitelist <0|1>  「白名单节点经喵窝连线」开关（缺省开）；生效与否变了就在后台重拉订阅 / 重载（init 的 mesh_refresh）
+//   direct   打印 on / off：白名单直连这一刻生效没有（mesh_direct.uc direct_on）
+//   header <订阅地址> [<实时通道地址>]  打印拉这份订阅时 X-MeowX-Mesh 头的值（on / off；不是登录主控的订阅打印空行）
+//   nodes <on|off>  从 stdin 读配置（JSON：proxies / proxy-groups / rules / sub-rules），stdout 输出处理喵窝版节点后的补丁（JSON；不用改输出 {}）
 //
 // 路由器用官方 tailscale 程序（局域网要靠它的子网路由开放出去，内核里的 tailscale 只能当出站）。
 // 入网 key 由 meowx-core panel mesh enroll 向主控要（一次性、10 分钟有效），不用用户填。
@@ -17,9 +23,10 @@
 
 'use strict';
 
-import { readfile, writefile, popen, access, unlink, open, stat } from 'fs';
+import { readfile, writefile, popen, access, unlink, open, stat, stdin } from 'fs';
 import { cursor } from 'uci';
 import * as ubus from 'ubus';
+import { direct_on, header_value, mesh_nodes } from '/etc/meowx/ucode/mesh_direct.uc';
 
 const STATE_PATH = '/etc/meowx/mesh.json';
 const SNAT_PATH = '/etc/meowx/mesh-snat.nft';
@@ -32,6 +39,8 @@ const TAILSCALE = '/usr/sbin/tailscale';
 const TAILSCALED = '/usr/sbin/tailscaled';
 const DEVICE = 'tailscale0';
 const SELF = '/etc/meowx/ucode/mesh_cli.uc';
+const PANEL_PATH = '/etc/meowx/panel.json';
+const RUN_PROFILE = '/etc/meowx/run/config.yaml';
 // 本地网段优先的策略路由优先级：在 tailscale 的 5210–5270 之前、透明代理的 1024 / 1025 之后
 const LOCAL_RULE_PREF = 5190;
 // 自动修复（重启 tailscaled）至少隔这么久一次
@@ -95,7 +104,9 @@ function settings() {
 		force_map: uci_bool(uci.get('meowx', 'mesh', 'force_map')),
 		hostname: uci.get('meowx', 'mesh', 'hostname') ?? '',
 		router_access: uci_bool(uci.get('meowx', 'mesh', 'router_access')),
-		lan_access: uci_bool(uci.get('meowx', 'mesh', 'lan_access'))
+		lan_access: uci_bool(uci.get('meowx', 'mesh', 'lan_access')),
+		// 白名单节点经喵窝连线：缺省开，本机偏好（退出登录不清）；只有写成 0 才算关
+		whitelist_direct: uci.get('meowx', 'mesh', 'whitelist_direct') != '0'
 	};
 }
 
@@ -440,7 +451,38 @@ function applying() {
 }
 
 function panel_logged_in() {
-	return !!access('/etc/meowx/panel.json');
+	return !!access(PANEL_PATH);
+}
+
+// 登录的主控（只取地址：base = 主控、sub_base = 订阅域名，老内核没有 sub_base）；没登录给 null
+function panel_hosts() {
+	let st = null;
+	try {
+		st = json(readfile(PANEL_PATH) ?? 'null');
+	} catch (e) {
+		st = null;
+	}
+	return type(st) == 'object' && st.base ? { base: st.base, sub_base: st.sub_base } : null;
+}
+
+// 白名单直连这一刻生效没有（拉订阅的请求头、运行配置里留不留喵窝版节点都看它）
+function direct_now() {
+	const s = settings();
+	return direct_on({ enabled: s.enabled, whitelist: s.whitelist_direct, logged_in: panel_logged_in(), state: load_state() });
+}
+
+// 应用 / 退出 / 拨开关之后调：生效与否和上次记下的（mesh.json 的 direct）不一样了，就在后台让 init 重拉在用的本主控订阅
+// （带新的 X-MeowX-Mesh）、拉不到也按新状态重新生成运行配置。设置在应用前就已经存好，所以比的是上次记下的结果、不是应用前现算的
+function direct_changed() {
+	const after = direct_now();
+	const st = load_state();
+	if (after != !!st.direct) {
+		st.direct = after;
+		save_state(st);
+		log(`白名单节点经喵窝连线：${after ? '生效' : '不生效'}，重拉订阅 / 重载`);
+		system('(/etc/init.d/meowx mesh_refresh >/dev/null 2>&1 &)');
+	}
+	return after;
 }
 
 function status() {
@@ -676,6 +718,7 @@ function apply() {
 		res = fail(load_state(), `${e}`);
 	}
 	unlink(APPLY_FLAG);
+	direct_changed();
 	return res;
 }
 
@@ -735,7 +778,56 @@ function leave() {
 	st.advertised = [];
 	save_state(st);
 	log(`已退出喵窝（${s.hostname || hostname(s)}）`);
+	direct_changed();
 	return res;
+}
+
+// 喵窝页的主控信息（meowx-core panel mesh view：status 整理过的 access_scope / in_list / device_limit / servers，
+// 在名单里时还有 devices 的 shared_devices）。老内核没有 view 子命令时退回只取 status。
+// nodes = 当前运行配置里经喵窝连接的节点（生成运行配置时给它们写了 interface-name: tailscale0）
+function panel() {
+	const out = { success: true, settings: settings(), direct: direct_now(), panel_logged_in: panel_logged_in() };
+	if (out.panel_logged_in) {
+		let r = run_json('/usr/bin/meowx-core panel mesh view');
+		if (r.json?.success === false && match(r.json.error ?? '', /unknown mesh command/)) {
+			const st = run_json('/usr/bin/meowx-core panel mesh status');
+			r = { json: st.json?.success === false ? st.json : { success: true, status: st.json } };
+		}
+		out.view = r.json ?? { success: false, error: r.out };
+	}
+	out.nodes = [];
+	if (access(RUN_PROFILE)) {
+		const r = run_json(`yq -M -o json '[.proxies[]? | select(.["interface-name"] == "${DEVICE}") | .name]' ${RUN_PROFILE}`);
+		if (type(r.json) == 'array') {
+			out.nodes = filter(r.json, (x) => type(x) == 'string');
+		}
+	}
+	return out;
+}
+
+// 「白名单节点经喵窝连线」开关
+function whitelist(value) {
+	ensure_section();
+	uci.set('meowx', 'mesh', 'whitelist_direct', value == '0' ? '0' : '1');
+	uci.save('meowx');
+	uci.commit('meowx');
+	return { success: true, direct: direct_changed() };
+}
+
+// 拉订阅时 X-MeowX-Mesh 头的值（init 的 update_subscription 调）
+function header(url, realtime_url) {
+	return header_value(url, realtime_url, panel_hosts(), direct_now()) ?? '';
+}
+
+// 运行配置里的喵窝版节点（init 的 mixin_profile 调）
+function nodes(mode) {
+	let profile = null;
+	try {
+		profile = json(stdin.read('all') ?? 'null');
+	} catch (e) {
+		profile = null;
+	}
+	return mesh_nodes(profile, mode == 'on', DEVICE) ?? {};
 }
 
 // tailscale0 的喵窝地址 / 路由丢了：重启 tailscaled 重新配置（status 发现时在后台调，至多 HEAL_INTERVAL 一次）
@@ -820,6 +912,14 @@ function save(raw) {
 }
 
 const action = ARGV[0] ?? 'status';
+// 给 init 脚本用的几个：直接打印文字
+if (action == 'direct') {
+	print(direct_now() ? 'on\n' : 'off\n');
+	exit(0);
+} else if (action == 'header') {
+	print(header(ARGV[1], ARGV[2]) + '\n');
+	exit(0);
+}
 let result;
 if (action == 'status') {
 	result = status();
@@ -833,7 +933,13 @@ if (action == 'status') {
 	result = leave();
 } else if (action == 'heal') {
 	result = heal();
+} else if (action == 'panel') {
+	result = panel();
+} else if (action == 'whitelist') {
+	result = whitelist(ARGV[1]);
+} else if (action == 'nodes') {
+	result = nodes(ARGV[1]);
 } else {
-	result = { success: false, error: 'usage: mesh_cli.uc status | save <JSON> | apply | install | leave | heal' };
+	result = { success: false, error: 'usage: mesh_cli.uc status | save <JSON> | apply | install | leave | heal | panel | whitelist <0|1> | direct | header <url> [<realtime_url>] | nodes <on|off>' };
 }
 print(sprintf('%J\n', result));

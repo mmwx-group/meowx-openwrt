@@ -32,6 +32,7 @@ HIJACK_UT="$UCODE_DIR/hijack.ut"
 GHPROXY_CLI="$UCODE_DIR/ghproxy_cli.uc"
 PROXY_SERVER_CLI="$UCODE_DIR/proxy_server_cli.uc"
 REALTIME_CLI="$UCODE_DIR/realtime_cli.uc"
+MESH_CLI="$UCODE_DIR/mesh_cli.uc"
 
 # scripts
 SH_DIR="$HOME_DIR/scripts"

@@ -6,6 +6,8 @@
 // 「喵窝」页：路由器用官方 tailscale 程序加入主控的喵窝（Tailscale 协议），把局域网开放给同一管理员账号的其它设备。
 // 点了就生效（同 po0 卡片）：开关 / 「保存并应用」把设置交给路由器后台入网，页面每 2 秒问一次状态直到应用完。
 // 入网 key 由路由器向主控要（要先在「插件配置」里登录主控账户），防火墙、网段映射由 mesh_cli.uc 写进 fw4。
+// 主控那边的信息（访问范围、设备上限、同网络的设备 / 站点、可经喵窝连接的服务器）与「白名单节点经喵窝连线」开关
+// 放在单独一块（renderPanel）：要向主控发请求，只在打开页面、切回来、应用完时取一次，不进 2 秒一次的轮询。
 
 const POLL_MS = 2000;
 const POLL_LIMIT = 60;   // 最多等 2 分钟（tailscale up 自己最长 60 秒）
@@ -43,9 +45,110 @@ function row(main, sub, extra) {
     ]);
 }
 
+// 访问范围（主控 status 的 access_scope；旧主控没有 = 不显示）
+function scopeLabel(scope) {
+    switch (scope) {
+    case 'servers': return _('Access: servers only');
+    case 'sites': return _('Access: servers + admin sites');
+    case 'full': return _('Access: full');
+    }
+    return null;
+}
+
+// 主控那边的喵窝信息 + 白名单直连开关。info = mesh_cli.uc panel 的结果；null = 还在取
+function renderPanel(box, info, refresh) {
+    if (!info) {
+        box.replaceChildren(E('div', { class: 'mx-po0__group' }, [E('span', { class: 'spinning' }, _('Loading MeowNest info from the panel…'))]));
+        return;
+    }
+    const view = info.view ?? {};
+    const status = view.status ?? {};
+    const children = [];
+    if (view.success === false) {
+        children.push(E('div', { class: 'mx-po0__note' }, _('Could not read MeowNest info from the panel: %s').format(view.error || _('Operation failed'))));
+        box.replaceChildren(...children);
+        return;
+    }
+    // 老内核的 status 没整理过、没有 in_list：照同一个规则现算（available，或原因不是 not_admin）
+    const inList = status.in_list ?? (!!status.available || (!!status.reason && status.reason != 'not_admin'));
+    if (!inList) {
+        if (status.reason == 'not_admin') {
+            children.push(E('div', { class: 'mx-po0__note' }, _('This account is not on the panel\'s MeowNest list.')));
+        }
+        box.replaceChildren(...children);
+        return;
+    }
+
+    // 访问范围 · 已加入谁的喵窝 · 设备上限
+    const meta = [scopeLabel(status.access_scope),
+        status.joined_admin ? _('Joined %s\'s MeowNest').format(status.joined_admin) : null,
+        status.device_limit > 0 ? _('Device limit: %d').format(status.device_limit) : _('Device limit: unlimited')
+    ].filter((x) => x);
+    children.push(E('div', { class: 'mx-po0__note' }, meta.join(' · ')));
+
+    // 白名单节点经喵窝连线（缺省开）
+    const s = info.settings ?? {};
+    const box2 = E('input', { type: 'checkbox' });
+    box2.checked = s.whitelist_direct !== false;
+    const err = E('div', { class: 'mx-account__error', hidden: '' });
+    box2.addEventListener('change', () => meowx.busy(box2, () => meowx.mesh('whitelist', { whitelist: box2.checked }).then((res) => {
+        if (!res?.success) {
+            err.textContent = res?.error || _('Operation failed');
+            err.hidden = false;
+            return;
+        }
+        refresh();
+    }, (e) => {
+        err.textContent = String(e?.message ?? e);
+        err.hidden = false;
+    })));
+    children.push(E('label', { class: 'mx-mesh__check' }, [box2, E('span', {}, _('Whitelisted nodes connect through MeowNest'))]));
+    children.push(E('div', { class: 'mx-po0__note' }, _('Whitelisted server nodes in the subscription connect through MeowNest instead, without taking a slot in the server\'s IP whitelist. MeowNest must be on.')));
+    const nodes = info.nodes ?? [];
+    if (info.direct) {
+        children.push(E('div', { class: 'mx-po0__note' }, nodes.length > 0
+            ? _('In use: %d node(s) connect through MeowNest: %s').format(nodes.length, nodes.join(', '))
+            : _('In use. The current subscription has no whitelisted nodes for MeowNest (the panel decides which servers get one).')));
+    } else if (box2.checked) {
+        children.push(E('div', { class: 'mx-po0__note' }, _('Takes effect once MeowNest is on and joined.')));
+    }
+    children.push(err);
+
+    // 可经喵窝连接的服务器（主控预留的 servers，有才显示）
+    const servers = status.servers ?? [];
+    if (servers.length > 0) {
+        children.push(E('div', { class: 'mx-po0__group' }, _('Servers reachable through MeowNest (%d)').format(servers.length)));
+        children.push(E('div', { class: 'mx-po0__list' }, servers.map((x) => row(x.name, x.mesh_ip))));
+    }
+
+    // 同网络的设备（共享设备，只读）：sites 范围下只有站点路由器（只有网段，没有地址）
+    const shared = view.devices?.shared_devices ?? [];
+    if (shared.length > 0) {
+        children.push(E('div', { class: 'mx-po0__group' }, _('Devices in the same network (%d)').format(shared.length)));
+        children.push(E('div', { class: 'mx-po0__list' }, shared.map((d) => d.kind == 'site'
+            ? row(_('Site · %s').format(d.username || d.name || '?'), (d.routes ?? []).join(', '), E('span', { class: 'mx-badge' }, _('Site')))
+            : row([E('span', { class: 'mx-mesh__dot' + (d.online ? ' is-online' : '') }), ' ', d.name || d.dns_name],
+                [d.ipv4, (d.routes ?? []).join(', '), d.username].filter((x) => x).join(' · ')))));
+    }
+    if (view.devices_error) {
+        children.push(E('div', { class: 'mx-po0__note' }, _('Could not read the device list: %s').format(view.devices_error)));
+    } else if (view.devices?.error) {
+        children.push(E('div', { class: 'mx-po0__note' }, view.devices.error));
+    }
+    box.replaceChildren(...children);
+}
+
 function renderCard(initial) {
     const card = E('div', { class: 'mx-account mx-po0 mx-mesh' });
     let polling = false;
+    // 主控那边的信息：单独一块，重画卡片时原样带上
+    const panelBox = E('div', { class: 'mx-mesh__panel' });
+    let panelShown = false;
+    const refreshPanel = () => {
+        panelShown = true;
+        return meowx.mesh('panel').then((info) => renderPanel(panelBox, info, refreshPanel),
+            (e) => renderPanel(panelBox, { view: { success: false, error: String(e?.message ?? e) } }, refreshPanel));
+    };
 
     const draw = (st) => {
         const s = st.settings ?? {};
@@ -71,6 +174,9 @@ function renderCard(initial) {
                 if (done || n >= POLL_LIMIT) {
                     polling = false;
                     draw(next);
+                    if (!wantInstall) {
+                        refreshPanel();
+                    }
                     return;
                 }
                 draw(Object.assign({}, next, wantInstall ? {} : { applying: true }));
@@ -183,6 +289,12 @@ function renderCard(initial) {
             if (st.state?.error && !st.applying) {
                 children.push(E('div', { class: 'mx-account__error' }, st.state.error));
             }
+            // 主控那边的喵窝信息 + 白名单直连开关（第一次画时去取）
+            children.push(panelBox);
+            if (!panelShown) {
+                renderPanel(panelBox, null, refreshPanel);
+                refreshPanel();
+            }
             // 自检：tailscale0 的喵窝地址 / 路由丢了（后台会重启 tailscaled 修一次）
             if (s.enabled && !st.applying && st.tun && !st.tun.ok) {
                 children.push(E('div', { class: 'mx-account__error' }, st.healing
@@ -273,6 +385,7 @@ function renderCard(initial) {
 
     draw(initial ?? {});
     card.redraw = draw;
+    card.refreshPanel = () => (panelShown ? refreshPanel() : Promise.resolve());
     return card;
 }
 
@@ -294,6 +407,7 @@ return baseclass.extend({
                 this.shown = key;
                 this.card.redraw(status);
             }
+            this.card.refreshPanel();
         });
     }
 });

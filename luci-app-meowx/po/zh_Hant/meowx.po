@@ -2120,3 +2120,60 @@ msgstr "備註"
 
 msgid "Note (optional)"
 msgstr "備註（可選）"
+
+msgid "Access: servers only"
+msgstr "訪問範圍：僅伺服器"
+
+msgid "Access: servers + admin sites"
+msgstr "訪問範圍：伺服器 + 管理員站點"
+
+msgid "Access: full"
+msgstr "訪問範圍：完全互通"
+
+msgid "Loading MeowNest info from the panel…"
+msgstr "正在向主控讀取喵窩資訊…"
+
+msgid "Could not read MeowNest info from the panel: %s"
+msgstr "沒能從主控讀到喵窩資訊：%s"
+
+msgid "This account is not on the panel's MeowNest list."
+msgstr "這個帳號不在主控的喵窩名單裡。"
+
+msgid "Joined %s's MeowNest"
+msgstr "已加入 %s 的喵窩"
+
+msgid "Device limit: %d"
+msgstr "裝置上限：%d 台"
+
+msgid "Device limit: unlimited"
+msgstr "裝置上限：不限"
+
+msgid "Whitelisted nodes connect through MeowNest"
+msgstr "白名單節點經喵窩連線"
+
+msgid "Whitelisted server nodes in the subscription connect through MeowNest instead, without taking a slot in the server's IP whitelist. MeowNest must be on."
+msgstr "訂閱裡的白名單伺服器節點改經喵窩連線，不佔伺服器的 IP 白名單名額。需要開著喵窩。"
+
+msgid "In use: %d node(s) connect through MeowNest: %s"
+msgstr "生效中：%d 個節點經喵窩連線：%s"
+
+msgid "In use. The current subscription has no whitelisted nodes for MeowNest (the panel decides which servers get one)."
+msgstr "生效中。目前訂閱裡沒有經喵窩連線的白名單節點（哪些伺服器有由主控決定）。"
+
+msgid "Takes effect once MeowNest is on and joined."
+msgstr "開啟喵窩並入網成功後生效。"
+
+msgid "Servers reachable through MeowNest (%d)"
+msgstr "可經喵窩連線的伺服器（%d）"
+
+msgid "Devices in the same network (%d)"
+msgstr "同網路的裝置（%d）"
+
+msgid "Site · %s"
+msgstr "站點 · %s"
+
+msgid "Site"
+msgstr "站點"
+
+msgid "Could not read the device list: %s"
+msgstr "沒能讀到裝置列表：%s"

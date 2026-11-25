@@ -19,6 +19,7 @@ extra_command 'ghproxy_cron' 'Re-test GitHub mirrors (auto mode), reload if the 
 extra_command 'proxy_server_update' 'Resolve the proxy server addresses again and refresh the bypass sets (bypass proxy server address)'
 extra_command 'realtime_apply' 'Hand the panel realtime channels (account / read-only credentials from subscriptions) to the core'
 extra_command 'subscription_changed' 'Core callback: a panel subscription changed, refresh the matching subscriptions (env MEOWX_SUB_BASE / KEY / REV)'
+extra_command 'mesh_refresh' 'MeowNest whitelist direct turned on / off: refresh the active panel subscription (or just reload)'
 
 boot_func() {
 	# prepare files
@@ -360,8 +361,35 @@ mixin_profile() {
 		yq -M -i 'del(.external-ui-name)' "$profile_path"
 	fi
 	ghproxy_apply "$profile_path"
+	mesh_nodes_apply "$profile_path"
 	mesh_apply "$profile_path"
 	proxy_server_fakeip_apply "$profile_path"
+}
+
+# 喵窝白名单直连（规格 miaomiaowuC/Design/meshnet-whitelist-direct.md §B3）：主控给喵窝名单里的账号下发「喵窝版」节点
+# （`_mmwx-mesh: true`，server 是白名单服务器的喵窝地址 100.64.x.y）。白名单直连生效（mesh_cli.uc direct = on）时保留，
+# 写 interface-name: tailscale0——内核连 100.64.x.y 照路由本来就走 tailscale0，但混入配置设了出站接口时全局 interface-name
+# 会把连接绑到 WAN 上，按节点写的优先；不生效时从配置里拿掉、从各代理组的成员里摘掉（组因此变空补 DIRECT），
+# rules / sub-rules 里目标是它们的规则整行删掉。补丁按 yq 的 * 合并：列表整个替换，sub-rules 按名字逐个替换。
+# 两种情况都去掉 _mmwx-mesh 字段。不加 dialer-proxy：内核编译时去掉了 tailscale 出站，写了反而报错。
+# 「仅核心」开着时同样处理（否则关着喵窝时留一个必然连不上的节点）
+mesh_nodes_apply() {
+	local profile_path; profile_path="$1"
+	yq -M -e '[.proxies[]? | select(has("_mmwx-mesh"))] | length > 0' "$profile_path" > /dev/null 2>&1 || return 0
+	local mode patch_file
+	mode=$(ucode -S "$MESH_CLI" direct 2>/dev/null)
+	[ "$mode" = "on" ] || mode="off"
+	patch_file=$(mktemp "$TEMP_DIR/mesh_nodes.XXXXXX")
+	yq -M -p yaml -o json 'explode(.) | {"proxies": .proxies, "proxy-groups": .["proxy-groups"], "rules": .rules, "sub-rules": .["sub-rules"]}' "$profile_path" 2>/dev/null | ucode -S "$MESH_CLI" nodes "$mode" > "$patch_file" 2>/dev/null
+	if [ -s "$patch_file" ] && [ "$(tr -d ' \n' < "$patch_file")" != "{}" ]; then
+		if [ "$mode" = "on" ]; then
+			log "Mixin" "MeowNest whitelist nodes connect through MeowNest."
+		else
+			log "Mixin" "MeowNest is off, remove the MeowNest whitelist nodes."
+		fi
+		yq -M -p json -o yaml "$patch_file" | yq -M -i eval-all '. as $item ireduce ({}; . * $item )' "$profile_path" -
+	fi
+	rm -f "$patch_file"
 }
 
 # 绕过节点服务器地址（代理配置 → 绕过）开着、fake-ip 模式：节点域名并进 fake-ip-filter——局域网设备向路由器查节点域名时
@@ -801,6 +829,42 @@ official_user_agent() {
 	echo "mihomo/1.19.0 MeowX/${version:-0} (OpenWrt)"
 }
 
+# 拉登录主控（含订阅域名）的订阅：绕开自己的代理与 DNS，参数原样交给 curl（最后一个是地址）。做法同 meowx-core panel 子命令
+# （panelBypassProxy）：进 meowx 服务 cgroup 的子组（劫持规则对 services/<cgroup> 直接 return），问公共 DNS 拿 IPv4 后用 --resolve 钉住；
+# 公共 DNS 都没答上时照常解析。白名单直连关着、账户的节点又全是只认白名单 IP 的服务器时，代理与订阅里经节点查的 DNS 都不通，
+# 照常拉就拉不回订阅，再打开「白名单节点经喵窝连线」也拿不回喵窝版节点（规格 meshnet-whitelist-direct.md）
+panel_curl() {
+	local cgroup_name; cgroup_name=$(uci -q get meowx.routing.cgroup_name); [ -n "$cgroup_name" ] || cgroup_name="meowx"
+	MEOWX_CGROUP="$cgroup_name" sh -c '
+		dir="/sys/fs/cgroup/services/$MEOWX_CGROUP"
+		if [ -d "$dir" ]; then
+			mkdir -p "$dir/panel" 2> /dev/null
+			echo $$ > "$dir/panel/cgroup.procs" 2> /dev/null
+		fi
+		[ -d "/sys/fs/cgroup/net_cls/$MEOWX_CGROUP" ] && echo $$ > "/sys/fs/cgroup/net_cls/$MEOWX_CGROUP/cgroup.procs" 2> /dev/null
+		for url; do :; done
+		hostport=${url#*://}; hostport=${hostport%%/*}; hostport=${hostport##*@}
+		case "$url" in https://*) port=443 ;; *) port=80 ;; esac
+		host=$hostport
+		case "$hostport" in
+			\[*) ;;
+			*:*) host=${hostport%:*}; port=${hostport##*:} ;;
+		esac
+		case "$host" in
+			\[*) exec curl "$@" ;;
+			*[!0-9.]*) ;;
+			*) exec curl "$@" ;;
+		esac
+		for server in 223.5.5.5 119.29.29.29 1.1.1.1; do
+			ip=$(nslookup -type=A "$host" "$server" 2> /dev/null | awk "/^Name:/ { name = 1 } name && /^Address/ { print \$NF; exit }")
+			case "$ip" in
+				*.*.*.*) exec curl --resolve "$host:$port:$ip" "$@" ;;
+			esac
+		done
+		exec curl "$@"
+	' panel_curl "$@"
+}
+
 # proxies 是非空列表，或 proxy-providers 是非空映射（以前只看有没有这个键，proxies: null 也能过）
 subscription_is_clash() {
 	yq -M -p yaml -o yaml -e '((.proxies | tag) == "!!seq" and (.proxies | length) > 0) or ((.["proxy-providers"] | tag) == "!!map" and (.["proxy-providers"] | length) > 0)' "$1" > /dev/null 2>&1
@@ -849,11 +913,12 @@ update_subscription_locked() {
 	# load config
 	config_load meowx
 	# get subscription config
-	local subscription_name subscription_info_url subscription_url subscription_user_agent
+	local subscription_name subscription_info_url subscription_url subscription_user_agent subscription_realtime_url
 	config_get subscription_name "$subscription_section" "name"
 	config_get subscription_info_url "$subscription_section" "info_url"
 	config_get subscription_url "$subscription_section" "url"
 	config_get subscription_user_agent "$subscription_section" "user_agent"
+	config_get subscription_realtime_url "$subscription_section" "realtime_url"
 	# 用的是缺省（官方）UA 时，拿到的不是 Clash 配置会换 clash.meta 再拉一次（见下）；用户自己填了 UA 的照填的来
 	local subscription_default_ua; subscription_default_ua=0
 	case "$subscription_user_agent" in ""|meowx) subscription_default_ua=1 ;; esac
@@ -883,7 +948,18 @@ update_subscription_locked() {
 	# 短链限速不计数。值为空时 curl 不发这个头
 	local refresh_mark; refresh_mark=""
 	[ "$SUBSCRIPTION_PUSH" = 1 ] && refresh_mark=" push"
-	http_code=$(curl -s -f -m 120 --connect-timeout 15 --retry 3 -L -X GET -A "$subscription_user_agent" -H "mmwx-refresh:$refresh_mark" -D "$subscription_header_tmpfile" -o "$subscription_tmpfile" -w '%{http_code}' "$subscription_url" 2> /dev/null)
+	# 拉登录的主控（含它的订阅域名）的订阅时告诉主控白名单直连生效没有（X-MeowX-Mesh: on / off，规格 meshnet-whitelist-direct.md §B2）：
+	# on 时主控给喵窝版节点。别家机场的订阅不带（值为空时 curl 不发这个头）
+	local mesh_mark; mesh_mark=""
+	case "$(ucode -S "$MESH_CLI" header "$subscription_url" "$subscription_realtime_url" 2>/dev/null)" in
+		on) mesh_mark=" on" ;;
+		off) mesh_mark=" off" ;;
+	esac
+	[ -n "$mesh_mark" ] && log "Profile" "Panel subscription, MeowNest whitelist direct:$mesh_mark."
+	# 登录主控的订阅绕开自己的代理与 DNS 去拉（见 panel_curl）
+	local fetch; fetch=curl
+	[ -n "$mesh_mark" ] && fetch=panel_curl
+	http_code=$($fetch -s -f -m 120 --connect-timeout 15 --retry 3 -L -X GET -A "$subscription_user_agent" -H "mmwx-refresh:$refresh_mark" -H "X-MeowX-Mesh:$mesh_mark" -D "$subscription_header_tmpfile" -o "$subscription_tmpfile" -w '%{http_code}' "$subscription_url" 2> /dev/null)
 	curl_result=$?
 	if [ "$curl_result" != 0 ]; then
 		error_type="download"
@@ -902,7 +978,7 @@ update_subscription_locked() {
 			local retry_header retry_file
 			retry_header=$(mktemp "$TEMP_DIR/subscription.XXXXXX")
 			retry_file=$(mktemp "$TEMP_DIR/subscription.XXXXXX")
-			if curl -s -f -m 120 --connect-timeout 15 --retry 3 -L -X GET -A "clash.meta" -H "mmwx-refresh:$refresh_mark" -D "$retry_header" -o "$retry_file" "$subscription_url" 2> /dev/null && subscription_is_clash "$retry_file"; then
+			if $fetch -s -f -m 120 --connect-timeout 15 --retry 3 -L -X GET -A "clash.meta" -H "mmwx-refresh:$refresh_mark" -H "X-MeowX-Mesh:$mesh_mark" -D "$retry_header" -o "$retry_file" "$subscription_url" 2> /dev/null && subscription_is_clash "$retry_file"; then
 				log "Profile" "Got a Clash config with clash.meta."
 				mv -f "$retry_file" "$subscription_tmpfile"
 				mv -f "$retry_header" "$subscription_header_tmpfile"
@@ -1170,6 +1246,32 @@ panel_report() {
 realtime_apply() {
 	service_running_meowx || return 0
 	ucode -S "$REALTIME_CLI" apply > /dev/null 2>&1
+}
+
+# 喵窝白名单直连生效与否变了（开 / 关喵窝、入网失败、拨「白名单节点经喵窝连线」，mesh_cli.uc 在后台调）：在用的是登录主控的订阅
+# 就重拉（拉订阅时告诉主控 on / off，主控据此给不给喵窝版节点）并重载；不是、或者重拉失败，也重载一次——按新状态重新生成运行配置
+# （关着时摘掉喵窝版节点）。服务没在跑什么都不做（下次启动按当时的状态生成）
+mesh_refresh() {
+	service_running_meowx || return 0
+	config_load meowx
+	local profile section url realtime_url
+	config_get profile "config" "profile"
+	case "$profile" in
+		subscription:*)
+			section="${profile#subscription:}"
+			if subscription_exists "$section"; then
+				config_get url "$section" "url"
+				config_get realtime_url "$section" "realtime_url"
+				if [ -n "$(ucode -S "$MESH_CLI" header "$url" "$realtime_url" 2>/dev/null)" ]; then
+					log "Profile" "MeowNest whitelist direct changed, refresh the active subscription."
+					refresh_subscription "$section"
+					[ $? = 1 ] || return 0
+				fi
+			fi
+			;;
+	esac
+	log "Profile" "MeowNest whitelist direct changed, reload."
+	reload
 }
 
 # 内核收到主控的订阅变更时调（参数 = 订阅键，环境变量带主控与 rev）：放后台重拉，内核那边不等
