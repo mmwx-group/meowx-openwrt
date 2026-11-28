@@ -148,6 +148,36 @@ function relayAddr(v) {
     return String(v ?? '').replace(/(:vni)?:[0-9]+$/, '');
 }
 
+// 设备名的短名（去掉 MagicDNS 后缀）
+function shortName(v) {
+    return String(v ?? '').replace(/\.$/, '').split('.')[0];
+}
+
+// 「ip:port」/「[ip]:port」→ { ip, port }
+function splitAddr(a) {
+    const m = String(a ?? '').match(/^\[([^\]]+)\]:(\d+)$/) || String(a ?? '').match(/^([^:]+):(\d+)$/);
+    return m ? { ip: m[1].toLowerCase(), port: +m[2] } : null;
+}
+
+// 本机当中继时会话一端的外网地址 → 设备名：地址与端口都对上设备上报的端点的那台，否则 IP 只对上一台的那台；
+// 同一公网 IP 后面不止一台又分不出时不认（显示地址）
+function endpointName(endpoint, peers) {
+    const e = splitAddr(endpoint);
+    if (!e) {
+        return null;
+    }
+    const hits = (port) => peers.filter((p) => (p.addrs ?? []).some((a) => {
+        const x = splitAddr(a);
+        return x?.ip == e.ip && (!port || x.port == e.port);
+    }));
+    const exact = hits(true);
+    if (exact.length == 1) {
+        return shortName(exact[0].name || exact[0].dns_name);
+    }
+    const byIp = hits(false);
+    return byIp.length == 1 ? shortName(byIp[0].name || byIp[0].dns_name) : null;
+}
+
 function linksOf(paths) {
     return paths?.paths?.success !== false ? (paths?.paths?.links ?? []) : [];
 }
@@ -164,7 +194,7 @@ function linkPathText(l) {
         if (l.via?.name) {
             return (l.via.owner == 'other' ? _('Via %s relay (someone else\'s)') : _('Via %s relay')).format(l.via.name);
         }
-        return _('Via device relay %s').format(l.via_addr || '');
+        return _('Via device relay');
     }
     if (l.path == 'derp') {
         return _('Via relay server %s').format(l.derp?.name || l.derp?.region_code || '');
@@ -172,7 +202,9 @@ function linkPathText(l) {
     return '';
 }
 
-// 本机看到的对端路径（类型以本机实时值为准，中继设备名 / 中继服务器名从主控的 links 补）
+// 本机看到的对端路径（类型以本机实时值为准）：中继设备名先用本机认出的（mesh_cli 的 peer_relay_via：中继 IP 对上
+// 某台设备上报的公网端点），再用主控 links 的 via.name，都没有只写「经设备中继」（不带 IP）；中继服务器名从主控补，
+// 没有就写区域代码。本机判不出（PeerRelay 为空、没流量）时写「空闲」，不拿主控的旧记录顶上
 function peerPathText(p, paths) {
     if (!p.online) {
         return _('Offline');
@@ -180,9 +212,12 @@ function peerPathText(p, paths) {
     const links = linksOf(paths);
     if (p.peer_relay) {
         const addr = relayAddr(p.peer_relay);
+        if (p.peer_relay_via) {
+            return _('Via %s relay').format(shortName(p.peer_relay_via));
+        }
         const l = links.find((x) => x.path == 'peer_relay' && x.via_addr == addr)
-            ?? links.find((x) => x.b?.ip == p.ip && x.path == 'peer_relay');
-        return l?.via?.name ? linkPathText(Object.assign({}, l, { path: 'peer_relay' })) : _('Via device relay %s').format(addr);
+            ?? links.find((x) => p.ip && x.b?.ip == p.ip && x.path == 'peer_relay');
+        return l?.via?.name ? linkPathText(Object.assign({}, l, { path: 'peer_relay' })) : _('Via device relay');
     }
     if (p.direct) {
         return _('Direct');
@@ -192,7 +227,7 @@ function peerPathText(p, paths) {
     }
     if (p.relay) {
         const l = links.find((x) => x.path == 'derp' && x.derp?.region_code == p.relay);
-        return l?.derp?.name ? _('Via relay server %s').format(l.derp.name) : _('Via relay %s').format(p.relay);
+        return _('Via relay server %s').format(l?.derp?.name || p.relay);
     }
     return '';
 }
@@ -378,11 +413,13 @@ function renderRelay(box, ctx) {
         }
     } else if (local?.sessions?.length > 0) {
         children.push(E('div', { class: 'mx-po0__group' }, _('Relaying through this router (%d)').format(local.sessions.length)));
+        // 两端按本机设备列表里各设备上报的公网端点对出名字，对不出的显示地址
+        const peers = st.peers ?? [];
         children.push(E('div', { class: 'mx-po0__list' }, local.sessions.map((x) => {
             const c = x.clients ?? [];
-            return row(c.map((y) => y.endpoint || '?').join(' ↔ '), meowx.formatBytes(c.reduce((n, y) => n + (y.bytes_tx ?? 0), 0)));
+            return row(c.map((y) => endpointName(y.endpoint, peers) || y.endpoint || '?').join(' ↔ '), meowx.formatBytes(c.reduce((n, y) => n + (y.bytes_tx ?? 0), 0)));
         })));
-        children.push(E('div', { class: 'mx-po0__note' }, _('The panel is unreachable: showing this router\'s own sessions without device names.')));
+        children.push(E('div', { class: 'mx-po0__note' }, _('The panel is unreachable: showing this router\'s own sessions, with device names matched from this router\'s device list (addresses when no match).')));
     }
     box.replaceChildren(...children);
 }

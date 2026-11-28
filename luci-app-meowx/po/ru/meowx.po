@@ -1216,8 +1216,6 @@ msgstr ""
 msgid "Idle"
 msgstr "Простаивает"
 
-msgid "Via relay %s"
-msgstr ""
 
 msgid "Offline"
 msgstr ""

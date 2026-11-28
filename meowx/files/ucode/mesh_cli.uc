@@ -35,6 +35,7 @@ import { readfile, writefile, popen, access, unlink, open, stat, stdin, rename, 
 import { cursor } from 'uci';
 import * as ubus from 'ubus';
 import { direct_on, header_value, mesh_nodes } from '/etc/meowx/ucode/mesh_direct.uc';
+import { relay_via } from '/etc/meowx/ucode/mesh_relay_name.uc';
 
 const STATE_PATH = '/etc/meowx/mesh.json';
 const SNAT_PATH = '/etc/meowx/mesh-snat.nft';
@@ -212,6 +213,45 @@ function tailscale_version() {
 function ts_status() {
 	const r = run_json(`${TAILSCALE} status --json`);
 	return r.json;
+}
+
+// 这台设备是不是授权给本机的中继（tailscale whois 的 CapMap 里有 relay-target）：只在中继 IP 对上不止一台设备时才问，
+// 结果在内存盘里留 5 分钟（status 2 秒一次）
+const RELAY_CAPS = TICK_DIR + '/relay_caps.json';
+function relay_target_checker() {
+	let cache = null, dirty = false;
+	try {
+		cache = json(readfile(RELAY_CAPS) ?? 'null');
+	} catch (e) {
+		cache = null;
+	}
+	if (type(cache) != 'object') {
+		cache = {};
+	}
+	const now = time();
+	return {
+		check: (q) => {
+			const ip = (q?.TailscaleIPs ?? [])[0];
+			if (!ip) {
+				return false;
+			}
+			const c = cache[ip];
+			if (c && now - c.at < 300) {
+				return c.ok;
+			}
+			const r = run_json(`${TAILSCALE} whois --json ${shell_quote(ip)}`);
+			const ok = exists(r.json?.CapMap ?? {}, 'tailscale.com/cap/relay-target');
+			cache[ip] = { ok: ok, at: now };
+			dirty = true;
+			return ok;
+		},
+		save: () => {
+			if (dirty) {
+				mkdir(TICK_DIR);
+				writefile(RELAY_CAPS, sprintf('%J', cache));
+			}
+		}
+	};
 }
 
 function ts_prefs() {
@@ -726,6 +766,8 @@ function status() {
 				relay: self.Relay
 			};
 			out.peers = [];
+			const all_peers = values(st.Peer ?? {});
+			const relay_target = relay_target_checker();
 			for (let k, p in st.Peer ?? {}) {
 				push(out.peers, {
 					name: p.HostName,
@@ -738,11 +780,16 @@ function status() {
 					cur_addr: p.CurAddr,
 					// 走设备中继（ip:port:vni:N）：先于直连判断（规格 mesh-peer-relay.md §2.2）
 					peer_relay: p.PeerRelay || null,
+					// 中继设备名：中继 IP 对上本机设备列表里某台上报的公网端点（mesh_relay_name.uc；认不出为 null，界面再用主控的）
+					peer_relay_via: p.PeerRelay ? relay_via(p, all_peers, relay_target.check) : null,
+					// 上报的公网端点（本机当中继时，界面按它给会话两端对上设备名）
+					addrs: p.Addrs ?? [],
 					// 最近没有往来（tailscale 的 Active）：界面显示「空闲」而不是「经中继」——Relay 只是对端的 home DERP，不代表正在走中继
 					active: p.Active,
 					routes: p.PrimaryRoutes ?? []
 				});
 			}
+			relay_target.save();
 			const prefs = ts_prefs();
 			out.control_url = prefs?.ControlURL;
 			out.advertised = prefs?.AdvertiseRoutes ?? [];

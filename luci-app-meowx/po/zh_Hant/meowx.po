@@ -1662,8 +1662,6 @@ msgstr "還沒有其他裝置：在用同一管理員帳號登入的 MeowX 裡�
 msgid "Idle"
 msgstr "閒置"
 
-msgid "Via relay %s"
-msgstr "經中繼 %s"
 
 msgid "Offline"
 msgstr "離線"
@@ -2184,8 +2182,8 @@ msgstr "經 %s 中繼（他人的）"
 msgid "Via %s relay"
 msgstr "經 %s 中繼"
 
-msgid "Via device relay %s"
-msgstr "經裝置中繼 %s"
+msgid "Via device relay"
+msgstr "經裝置中繼"
 
 msgid "Via relay server %s"
 msgstr "經中繼伺服器 %s"
@@ -2264,8 +2262,8 @@ msgstr "其他使用者"
 msgid "Plus %d unrecognized connection(s)"
 msgstr "另有 %d 個未識別的連線"
 
-msgid "The panel is unreachable: showing this router's own sessions without device names."
-msgstr "主控無法連線：顯示本機記錄的會話（只有外網位址與流量，沒有裝置名稱）。"
+msgid "The panel is unreachable: showing this router's own sessions, with device names matched from this router's device list (addresses when no match)."
+msgstr "主控無法連線：顯示本機記錄的會話，裝置名稱按本機的裝置列表對出（對不出的顯示位址）。"
 
 msgid "Static addresses"
 msgstr "靜態位址"

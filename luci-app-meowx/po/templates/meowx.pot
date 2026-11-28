@@ -1655,8 +1655,6 @@ msgstr ""
 msgid "Idle"
 msgstr ""
 
-msgid "Via relay %s"
-msgstr ""
 
 msgid "Offline"
 msgstr ""
@@ -2177,7 +2175,7 @@ msgstr ""
 msgid "Via %s relay"
 msgstr ""
 
-msgid "Via device relay %s"
+msgid "Via device relay"
 msgstr ""
 
 msgid "Via relay server %s"
@@ -2257,7 +2255,7 @@ msgstr ""
 msgid "Plus %d unrecognized connection(s)"
 msgstr ""
 
-msgid "The panel is unreachable: showing this router's own sessions without device names."
+msgid "The panel is unreachable: showing this router's own sessions, with device names matched from this router's device list (addresses when no match)."
 msgstr ""
 
 msgid "Static addresses"
