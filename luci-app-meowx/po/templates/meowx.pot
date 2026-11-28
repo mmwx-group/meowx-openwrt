@@ -2170,3 +2170,104 @@ msgstr ""
 
 msgid "Could not read the device list: %s"
 msgstr ""
+
+msgid "Via %s relay (someone else's)"
+msgstr ""
+
+msgid "Via %s relay"
+msgstr ""
+
+msgid "Via device relay %s"
+msgstr ""
+
+msgid "Via relay server %s"
+msgstr ""
+
+msgid "Waiting for this router to apply…"
+msgstr ""
+
+msgid "Relaying"
+msgstr ""
+
+msgid "tailscale too old"
+msgstr ""
+
+msgid "Device relay"
+msgstr ""
+
+msgid "Relay traffic for MeowNest devices that cannot connect directly, over one UDP port of this router — faster than relay servers. Traffic stays end-to-end encrypted; this router cannot see it."
+msgstr ""
+
+msgid "Loading…"
+msgstr ""
+
+msgid "This tailscale (%s) cannot act as a device relay: it needs %s or later, built with the relay server."
+msgstr ""
+
+msgid "An update of the tailscale provided by MeowX is available: %s."
+msgstr ""
+
+msgid "Install the tailscale provided by MeowX (%s)"
+msgstr ""
+
+msgid "Built from the official source with unused features removed (about 15–20 MB of storage). The tailscale package from the software source is kept on hold so upgrades do not replace it."
+msgstr ""
+
+msgid "No static package for this router's architecture. Upgrade tailscale in the software source instead."
+msgstr ""
+
+msgid "Could not read the relay settings from the panel: %s"
+msgstr ""
+
+
+
+msgid "Only my devices"
+msgstr ""
+
+msgid "Everyone in the network"
+msgstr ""
+
+msgid "Act as a MeowNest relay"
+msgstr ""
+
+msgid "UDP port"
+msgstr ""
+
+msgid "Who can use it"
+msgstr ""
+
+msgid "If this router is behind another router, forward UDP %d on the upstream router to this router. If the public address or port differs after forwarding, add the forwarded public IP:port to the static addresses so the panel can recognize this relay before sessions are reported."
+msgstr ""
+
+msgid "This network is hard to reach from outside (the NAT mapping changes per destination). Fill in a static address and set up port forwarding."
+msgstr ""
+
+msgid "Public address seen by the relay servers: %s"
+msgstr ""
+
+msgid "Checking NAT…"
+msgstr ""
+
+msgid "Relaying through this router (%d)"
+msgstr ""
+
+msgid "Other user"
+msgstr ""
+
+msgid "Plus %d unrecognized connection(s)"
+msgstr ""
+
+msgid "The panel is unreachable: showing this router's own sessions without device names."
+msgstr ""
+
+msgid "Static addresses"
+msgstr ""
+
+msgid "DDNS host"
+msgstr ""
+
+msgid "Optional, public IP:port, comma separated, e.g. 203.0.113.7:40000"
+msgstr ""
+
+msgid "Optional, resolved every 5 minutes, e.g. home.example.com"
+msgstr ""

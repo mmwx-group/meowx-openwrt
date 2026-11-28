@@ -1,0 +1,82 @@
+name: tailscale-static
+
+# 手动触发：用官方源码（BSD-3）编路由器用的 tailscale 合体程序（喵窝设备中继要 1.86 以上、带中继服务器，
+# 软件源的包常常太旧），见 scripts/build-tailscale-static.sh 与 miaomiaowuC/Design/mesh-peer-relay.md §5.4。
+# 产物先传 Actions；勾了 publish 才推到 CDN：dl.miaomiaowux.com/meowx/openwrt/tailscale/<版本>/<架构>/tailscale.combined + manifest.json
+# （mesh_cli.uc 的 TS_STATIC_VERSION 要和这里发的版本一致）。
+# 推 CDN 用的凭据同 release-packages：R2_ACCOUNT_ID / R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY，可选 variables.R2_BUCKET（默认 mmwx-dl）。
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'tailscale 版本（官方稳定版 tag 去掉 v，如 1.104.5）'
+        type: string
+        required: true
+      arch:
+        description: '只编这些架构（空格分隔：aarch64 x86_64 armv7 mipsel mips riscv64；留空 = 全部）'
+        type: string
+        default: ''
+      publish:
+        description: '编完推到 CDN（先只传 Actions 产物、核对体积后再勾）'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: source
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo "版本写法不对：$VERSION"; exit 1; }
+          git clone --depth 1 --branch "v$VERSION" https://github.com/tailscale/tailscale.git "$RUNNER_TEMP/tailscale"
+          echo "GOVERSION_FILE=$RUNNER_TEMP/tailscale/go.mod" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: ${{ env.GOVERSION_FILE }}
+          cache: false
+
+      - name: build
+        env:
+          VERSION: ${{ inputs.version }}
+          ARCHS: ${{ inputs.arch }}
+          TS_SRC: ${{ runner.temp }}/tailscale
+        run: |
+          # 只编部分架构：先取线上的 manifest，脚本把别的架构并进来（不然推上去会把它们弄丢）
+          if [ -n "$ARCHS" ]; then
+            mkdir -p "dist/$VERSION"
+            curl -fsSL "https://dl.miaomiaowux.com/meowx/openwrt/tailscale/$VERSION/manifest.json" -o "dist/$VERSION/manifest.json" || rm -f "dist/$VERSION/manifest.json"
+          fi
+          # shellcheck disable=SC2086
+          sh scripts/build-tailscale-static.sh "$VERSION" dist $ARCHS
+          ls -lR dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tailscale-static-${{ inputs.version }}
+          path: dist
+
+      # 先传各架构的程序，最后传 manifest（mesh_cli 按 manifest 下载：manifest 在、程序却还没传完的窗口不能有）
+      - name: publish
+        if: ${{ inputs.publish }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+          R2_BUCKET: ${{ vars.R2_BUCKET || 'mmwx-dl' }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          endpoint="https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
+          dest="s3://${R2_BUCKET}/meowx/openwrt/tailscale/${VERSION}"
+          aws --endpoint-url "$endpoint" s3 sync "dist/${VERSION}" "$dest" --exclude manifest.json \
+            --cache-control "public, max-age=3600"
+          aws --endpoint-url "$endpoint" s3 cp "dist/${VERSION}/manifest.json" "$dest/manifest.json" --cache-control "no-cache"

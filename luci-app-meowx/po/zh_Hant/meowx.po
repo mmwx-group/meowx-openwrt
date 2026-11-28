@@ -2177,3 +2177,104 @@ msgstr "站點"
 
 msgid "Could not read the device list: %s"
 msgstr "沒能讀到裝置列表：%s"
+
+msgid "Via %s relay (someone else's)"
+msgstr "經 %s 中繼（他人的）"
+
+msgid "Via %s relay"
+msgstr "經 %s 中繼"
+
+msgid "Via device relay %s"
+msgstr "經裝置中繼 %s"
+
+msgid "Via relay server %s"
+msgstr "經中繼伺服器 %s"
+
+msgid "Waiting for this router to apply…"
+msgstr "等待本機按新設定開啟…"
+
+msgid "Relaying"
+msgstr "中繼中"
+
+msgid "tailscale too old"
+msgstr "tailscale 版本太舊"
+
+msgid "Device relay"
+msgstr "裝置中繼"
+
+msgid "Relay traffic for MeowNest devices that cannot connect directly, over one UDP port of this router — faster than relay servers. Traffic stays end-to-end encrypted; this router cannot see it."
+msgstr "兩台喵窩裝置打洞失敗時，經這台路由器的一個 UDP 連接埠轉發，比中繼伺服器快。流量仍是兩端之間端對端加密，這台路由器看不到內容。"
+
+msgid "Loading…"
+msgstr "正在載入…"
+
+msgid "This tailscale (%s) cannot act as a device relay: it needs %s or later, built with the relay server."
+msgstr "這個 tailscale（%s）不能當裝置中繼：要 %s 以上、帶中繼伺服器功能的版本。"
+
+msgid "An update of the tailscale provided by MeowX is available: %s."
+msgstr "MeowX 提供的 tailscale 有新版本：%s。"
+
+msgid "Install the tailscale provided by MeowX (%s)"
+msgstr "安裝 MeowX 提供的 tailscale（%s）"
+
+msgid "Built from the official source with unused features removed (about 15–20 MB of storage). The tailscale package from the software source is kept on hold so upgrades do not replace it."
+msgstr "用官方原始碼編譯、去掉路由器用不到的功能（約占 15–20 MB 儲存空間）。軟體源裡的 tailscale 套件會被鎖住，升級時不會被換回去。"
+
+msgid "No static package for this router's architecture. Upgrade tailscale in the software source instead."
+msgstr "這台路由器的架構沒有靜態套件，請在軟體源裡升級 tailscale。"
+
+msgid "Could not read the relay settings from the panel: %s"
+msgstr "沒能從主控讀到中繼設定：%s"
+
+
+
+msgid "Only my devices"
+msgstr "只給自己的裝置用"
+
+msgid "Everyone in the network"
+msgstr "網路裡的所有成員"
+
+msgid "Act as a MeowNest relay"
+msgstr "作為喵窩中繼"
+
+msgid "UDP port"
+msgstr "UDP 連接埠"
+
+msgid "Who can use it"
+msgstr "共享範圍"
+
+msgid "If this router is behind another router, forward UDP %d on the upstream router to this router. If the public address or port differs after forwarding, add the forwarded public IP:port to the static addresses so the panel can recognize this relay before sessions are reported."
+msgstr "這台路由器在別的路由器後面時，需要在上級路由器上把 UDP %d 映射到本機。映射後外網位址或連接埠不同時，把映射後的公網 IP:連接埠 寫進靜態位址，主控才能在會話上報之前認出這台中繼。"
+
+msgid "This network is hard to reach from outside (the NAT mapping changes per destination). Fill in a static address and set up port forwarding."
+msgstr "目前網路難以被外網存取（NAT 映射隨目標變化），建議填寫靜態位址並做連接埠映射。"
+
+msgid "Public address seen by the relay servers: %s"
+msgstr "中繼伺服器看到的公網位址：%s"
+
+msgid "Checking NAT…"
+msgstr "正在偵測 NAT…"
+
+msgid "Relaying through this router (%d)"
+msgstr "正在經本機中繼（%d）"
+
+msgid "Other user"
+msgstr "其他使用者"
+
+msgid "Plus %d unrecognized connection(s)"
+msgstr "另有 %d 個未識別的連線"
+
+msgid "The panel is unreachable: showing this router's own sessions without device names."
+msgstr "主控無法連線：顯示本機記錄的會話（只有外網位址與流量，沒有裝置名稱）。"
+
+msgid "Static addresses"
+msgstr "靜態位址"
+
+msgid "DDNS host"
+msgstr "DDNS 網域"
+
+msgid "Optional, public IP:port, comma separated, e.g. 203.0.113.7:40000"
+msgstr "選填，公網 IP:連接埠，用逗號分隔，例如 203.0.113.7:40000"
+
+msgid "Optional, resolved every 5 minutes, e.g. home.example.com"
+msgstr "選填，本機每 5 分鐘解析一次，例如 home.example.com"

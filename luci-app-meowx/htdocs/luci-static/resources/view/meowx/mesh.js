@@ -8,9 +8,13 @@
 // 入网 key 由路由器向主控要（要先在「插件配置」里登录主控账户），防火墙、网段映射由 mesh_cli.uc 写进 fw4。
 // 主控那边的信息（访问范围、设备上限、同网络的设备 / 站点、可经喵窝连接的服务器）与「白名单节点经喵窝连线」开关
 // 放在单独一块（renderPanel）：要向主控发请求，只在打开页面、切回来、应用完时取一次，不进 2 秒一次的轮询。
+// 设备中继（规格 miaomiaowuC/Design/mesh-peer-relay.md §2.4 / §5.2）：主控 status 带 device_relay.enabled 时显示中继一节
+// （renderRelay，开关 / 端口 / 静态地址 / DDNS / 共享范围、状态、NAT 与端口映射提示、正在经本机中继的会话）；
+// 页面看得见时每 15 秒取一次主控汇总的路径（mesh_cli paths，顺手在路由器后台 tick 一次），「其它设备」按它显示经哪台中继。
 
 const POLL_MS = 2000;
 const POLL_LIMIT = 60;   // 最多等 2 分钟（tailscale up 自己最长 60 秒）
+const PATHS_MS = 15000;
 
 function mb(kb) {
     return Math.max(0, Math.round((kb ?? 0) / 1024));
@@ -138,19 +142,318 @@ function renderPanel(box, info, refresh) {
     box.replaceChildren(...children);
 }
 
+
+// peer_relay 的「ip:port:vni:N」（或 ip:port:N）→ ip:port
+function relayAddr(v) {
+    return String(v ?? '').replace(/(:vni)?:[0-9]+$/, '');
+}
+
+function linksOf(paths) {
+    return paths?.paths?.success !== false ? (paths?.paths?.links ?? []) : [];
+}
+
+// 一条主控记录的路径文字（direct / peer_relay / derp；没有记录不显示）
+function linkPathText(l) {
+    if (!l) {
+        return '';
+    }
+    if (l.path == 'direct') {
+        return _('Direct');
+    }
+    if (l.path == 'peer_relay') {
+        if (l.via?.name) {
+            return (l.via.owner == 'other' ? _('Via %s relay (someone else\'s)') : _('Via %s relay')).format(l.via.name);
+        }
+        return _('Via device relay %s').format(l.via_addr || '');
+    }
+    if (l.path == 'derp') {
+        return _('Via relay server %s').format(l.derp?.name || l.derp?.region_code || '');
+    }
+    return '';
+}
+
+// 本机看到的对端路径（类型以本机实时值为准，中继设备名 / 中继服务器名从主控的 links 补）
+function peerPathText(p, paths) {
+    if (!p.online) {
+        return _('Offline');
+    }
+    const links = linksOf(paths);
+    if (p.peer_relay) {
+        const addr = relayAddr(p.peer_relay);
+        const l = links.find((x) => x.path == 'peer_relay' && x.via_addr == addr)
+            ?? links.find((x) => x.b?.ip == p.ip && x.path == 'peer_relay');
+        return l?.via?.name ? linkPathText(Object.assign({}, l, { path: 'peer_relay' })) : _('Via device relay %s').format(addr);
+    }
+    if (p.direct) {
+        return _('Direct');
+    }
+    if (p.active === false) {
+        return _('Idle');
+    }
+    if (p.relay) {
+        const l = links.find((x) => x.path == 'derp' && x.derp?.region_code == p.relay);
+        return l?.derp?.name ? _('Via relay server %s').format(l.derp.name) : _('Via relay %s').format(p.relay);
+    }
+    return '';
+}
+
+function agoText(ts) {
+    const t = Date.parse(ts ?? '');
+    if (!t) {
+        return '';
+    }
+    const min = Math.max(0, Math.round((Date.now() - t) / 60000));
+    return _('%d min ago').format(min);
+}
+
+// 本账号的其它设备：本机 tailscale 的对端 + 主控 links 里本机看不到的那一端（服务器视角等），后者过期的灰显
+function renderPeers(box, st, paths) {
+    const s = st.settings ?? {};
+    if (!(s.enabled && st.backend == 'Running')) {
+        box.replaceChildren();
+        return;
+    }
+    const peers = st.peers ?? [];
+    const ips = new Set(peers.map((p) => p.ip));
+    const extra = linksOf(paths).filter((l) => l.b?.ip && !ips.has(l.b.ip));
+    const children = [E('div', { class: 'mx-po0__group' }, _('Other devices (%d)').format(peers.length))];
+    if (peers.length == 0 && extra.length == 0) {
+        children.push(E('div', { class: 'mx-po0__empty' }, _('No other devices yet. Turn on "MeowNest" in MeowX signed in with the same admin account.')));
+    } else {
+        children.push(E('div', { class: 'mx-po0__list' }, peers.map((p) => row(
+            [E('span', { class: 'mx-mesh__dot' + (p.online ? ' is-online' : '') }), ' ', p.name || p.dns_name],
+            [p.ip, (p.routes ?? []).join(', '), peerPathText(p, paths)].filter((x) => x).join(' · ')
+        )).concat(extra.map((l) => {
+            const r = row(l.b.name || l.b.ip, [l.b.ip, linkPathText(l), l.stale ? agoText(l.reported_at) : ''].filter((x) => x).join(' · '));
+            if (l.stale) {
+                r.style.opacity = '0.55';
+            }
+            return r;
+        }))));
+    }
+    box.replaceChildren(...children);
+}
+
+const relayStates = {
+    disabled: () => _('Off'),
+    pending: () => _('Waiting for this router to apply…'),
+    active: () => _('Relaying'),
+    version_too_old: () => _('tailscale too old'),
+    error: () => _('Error'),
+    offline: () => _('Offline')
+};
+
+// 中继一节。ctx = { st（mesh status）, relay（mesh_cli relay）, paths（mesh_cli paths）, net（netcheck）, status（主控 status）, refresh, installStatic }
+function renderRelay(box, ctx) {
+    const st = ctx.st ?? {};
+    const info = ctx.relay;
+    const dr = ctx.status?.device_relay;
+    if (!dr?.enabled || !(st.settings?.enabled && st.backend == 'Running')) {
+        box.replaceChildren();
+        return;
+    }
+    const children = [
+        E('div', { class: 'mx-po0__group' }, _('Device relay')),
+        E('div', { class: 'mx-po0__note' }, _('Relay traffic for MeowNest devices that cannot connect directly, over one UDP port of this router — faster than relay servers. Traffic stays end-to-end encrypted; this router cannot see it.'))
+    ];
+    if (!info) {
+        children.push(E('div', { class: 'mx-po0__group' }, [E('span', { class: 'spinning' }, _('Loading…'))]));
+        box.replaceChildren(...children);
+        return;
+    }
+    const last = info.last ?? ctx.paths?.last;
+    const minVer = dr.min_version || info.min_version || '1.86.0';
+    const unsupported = !info.version_ok || last?.relay_supported === false || info.local?.supported === false;
+    // tailscale 太旧 / 没编进中继服务器：给 MeowX 提供的静态包
+    if (unsupported || (info.ts_static && info.ts_static != info.static_version)) {
+        children.push(E('div', { class: unsupported ? 'mx-account__error' : 'mx-po0__note' }, unsupported
+            ? _('This tailscale (%s) cannot act as a device relay: it needs %s or later, built with the relay server.').format(info.version || '?', minVer)
+            : _('An update of the tailscale provided by MeowX is available: %s.').format(info.static_version)));
+        if (st.installing) {
+            children.push(E('div', { class: 'mx-po0__group' }, [E('span', { class: 'spinning' }, _('Installing tailscale…'))]));
+        } else if (info.static_arch) {
+            children.push(E('div', { class: 'mx-account__actions' }, [E('button', {
+                type: 'button', class: 'cbi-button cbi-button-action',
+                click: (ev) => meowx.busy(ev.currentTarget, ctx.installStatic)
+            }, _('Install the tailscale provided by MeowX (%s)').format(info.static_version))]));
+            children.push(E('div', { class: 'mx-po0__note' }, _('Built from the official source with unused features removed (about 15–20 MB of storage). The tailscale package from the software source is kept on hold so upgrades do not replace it.')));
+        } else {
+            children.push(E('div', { class: 'mx-po0__note' }, _('No static package for this router\'s architecture. Upgrade tailscale in the software source instead.')));
+        }
+    }
+    if (!info.device_id) {
+        box.replaceChildren(...children);
+        return;
+    }
+    const r = info.relay ?? {};
+    if (r.success === false) {
+        children.push(E('div', { class: 'mx-account__error' }, _('Could not read the relay settings from the panel: %s').format(r.error || _('Operation failed'))));
+    }
+
+    // 表单（主控保存的配置是唯一依据）
+    const enabled = E('input', { type: 'checkbox' });
+    enabled.checked = !!r.enabled;
+    const port = E('input', { type: 'number', min: '1024', max: '65535', class: 'mx-quickadd__input', value: String(r.port || 40000) });
+    const eps = E('input', {
+        type: 'text', class: 'mx-quickadd__input', autocomplete: 'off', spellcheck: 'false',
+        placeholder: _('Optional, public IP:port, comma separated, e.g. 203.0.113.7:40000'), value: (r.static_endpoints ?? []).join(', ')
+    });
+    const ddns = E('input', {
+        type: 'text', class: 'mx-quickadd__input', autocomplete: 'off', spellcheck: 'false',
+        placeholder: _('Optional, resolved every 5 minutes, e.g. home.example.com'), value: r.ddns_host ?? ''
+    });
+    const share = E('select', { class: 'cbi-input-select' }, [
+        E('option', { value: 'self' }, _('Only my devices')),
+        E('option', { value: 'all' }, _('Everyone in the network'))
+    ]);
+    share.value = r.share == 'all' ? 'all' : 'self';
+    const err = E('div', { class: 'mx-account__error', hidden: '' });
+    const save = (button) => meowx.busy(button, () => meowx.mesh('relay_set', {
+        enabled: enabled.checked, port: +port.value || 40000,
+        static_endpoints: eps.value.split(/[\s,，]+/).map((x) => x.trim()).filter((x) => x),
+        ddns_host: ddns.value.trim(), share: dr.can_share ? share.value : (r.share || 'self')
+    }).then((res) => {
+        if (res?.success === false) {
+            err.textContent = res.error || _('Operation failed');
+            err.hidden = false;
+            return;
+        }
+        err.hidden = true;
+        // 路由器在后台按新配置对账（tailscale set + 补报），几秒后再取一次
+        setTimeout(ctx.refresh, 8000);
+        ctx.refresh();
+    }, (e) => {
+        err.textContent = String(e?.message ?? e);
+        err.hidden = false;
+    }));
+
+    // 状态：以本机上次上报拿到的为准（3 分钟内），否则用主控的
+    const fresh = last?.state && last.at && (Date.now() / 1000 - last.at) < 180;
+    const state = fresh ? last.state : (r.state || (r.enabled ? 'pending' : 'disabled'));
+    const message = fresh ? last.message : r.message;
+    children.push(E('label', { class: 'mx-mesh__check' }, [enabled, E('span', {}, _('Act as a MeowNest relay')),
+        E('span', { class: 'mx-po0__token' }, (relayStates[state]?.() ?? state) + (message ? ' · ' + message : ''))]));
+    if (last?.error) {
+        children.push(E('div', { class: 'mx-po0__note' }, last.error));
+    }
+    children.push(E('div', { class: 'mx-quickadd' }, [E('span', { class: 'mx-po0__token' }, _('UDP port')), port]));
+    children.push(E('div', { class: 'mx-quickadd' }, [E('span', { class: 'mx-po0__token' }, _('Static addresses')), eps]));
+    children.push(E('div', { class: 'mx-quickadd' }, [E('span', { class: 'mx-po0__token' }, _('DDNS host')), ddns]));
+    if (dr.can_share) {
+        children.push(E('div', { class: 'mx-quickadd' }, [E('span', { class: 'mx-po0__token' }, _('Who can use it')), share]));
+    }
+    children.push(E('div', { class: 'mx-account__actions' }, [E('button', {
+        type: 'button', class: 'cbi-button cbi-button-action', click: (ev) => save(ev.currentTarget)
+    }, _('Save'))]));
+    children.push(err);
+
+    // 端口映射与 NAT
+    if (r.enabled) {
+        children.push(E('div', { class: 'mx-po0__note' }, _('If this router is behind another router, forward UDP %d on the upstream router to this router. If the public address or port differs after forwarding, add the forwarded public IP:port to the static addresses so the panel can recognize this relay before sessions are reported.').format(+port.value || r.port || 40000)));
+        const net = ctx.net;
+        if (net?.success) {
+            if (net.mapping_varies === true) {
+                children.push(E('div', { class: 'mx-account__error' }, _('This network is hard to reach from outside (the NAT mapping changes per destination). Fill in a static address and set up port forwarding.')));
+            }
+            const seen = [net.global_v4, net.global_v6].filter((x) => x);
+            if (seen.length > 0) {
+                children.push(E('div', { class: 'mx-po0__note' }, _('Public address seen by the relay servers: %s').format(seen.join(', '))));
+            }
+        } else if (net === null) {
+            children.push(E('div', { class: 'mx-po0__note' }, [E('span', { class: 'spinning' }, _('Checking NAT…'))]));
+        }
+    }
+
+    // 正在经本机中继：主控按会话对出两端名称；主控读不到时用本机的会话（只有外网地址与流量）
+    const relays = ctx.paths?.paths?.relays ?? [];
+    const mine = relays.find((x) => String(x.device_id) == String(info.device_id));
+    const sessions = mine?.sessions ?? [];
+    const local = ctx.paths?.local ?? (ctx.paths?.paths?.success === false ? info.local : null);
+    if (mine && (sessions.length > 0 || mine.unmatched_sessions > 0)) {
+        children.push(E('div', { class: 'mx-po0__group' }, _('Relaying through this router (%d)').format(sessions.length)));
+        const end = (x) => x?.type == 'other' ? _('Other user') : (x?.name || '?');
+        children.push(E('div', { class: 'mx-po0__list' }, sessions.map((x) => row(end(x.a) + ' ↔ ' + end(x.b), meowx.formatBytes(x.bytes ?? 0)))));
+        if (mine.unmatched_sessions > 0) {
+            children.push(E('div', { class: 'mx-po0__note' }, _('Plus %d unrecognized connection(s)').format(mine.unmatched_sessions)));
+        }
+    } else if (local?.sessions?.length > 0) {
+        children.push(E('div', { class: 'mx-po0__group' }, _('Relaying through this router (%d)').format(local.sessions.length)));
+        children.push(E('div', { class: 'mx-po0__list' }, local.sessions.map((x) => {
+            const c = x.clients ?? [];
+            return row(c.map((y) => y.endpoint || '?').join(' ↔ '), meowx.formatBytes(c.reduce((n, y) => n + (y.bytes_tx ?? 0), 0)));
+        })));
+        children.push(E('div', { class: 'mx-po0__note' }, _('The panel is unreachable: showing this router\'s own sessions without device names.')));
+    }
+    box.replaceChildren(...children);
+}
+
 function renderCard(initial) {
     const card = E('div', { class: 'mx-account mx-po0 mx-mesh' });
     let polling = false;
     // 主控那边的信息：单独一块，重画卡片时原样带上
     const panelBox = E('div', { class: 'mx-mesh__panel' });
     let panelShown = false;
+    // 设备中继一节与「其它设备」也各自一块：路径 15 秒一刷，不重画整张卡（填了一半的表单不丢）
+    const relayBox = E('div', { class: 'mx-mesh__relay' });
+    const peersBox = E('div', { class: 'mx-mesh__peers' });
+    const rc = { st: initial ?? {}, relay: null, paths: null, net: undefined, status: null };
+    const redrawRelay = () => {
+        renderRelay(relayBox, rc);
+        renderPeers(peersBox, rc.st, rc.paths);
+    };
+    const relayOn = () => !!rc.status?.device_relay?.enabled && rc.st.settings?.enabled && rc.st.backend == 'Running';
+    rc.refresh = () => meowx.mesh('relay').then((r) => {
+        rc.relay = r;
+        redrawRelay();
+        // NAT 情况：中继开着时每次打开页面查一次（有网络开销，不进轮询）
+        if (r?.relay?.enabled && rc.net === undefined) {
+            rc.net = null;
+            meowx.mesh('netcheck').then((n) => { rc.net = n; redrawRelay(); }, () => { rc.net = { success: false }; });
+        }
+    }, () => { });
+    const refreshPaths = () => {
+        if (!rc.st.settings?.enabled || rc.st.backend != 'Running' || document.hidden || !card.isConnected || card.offsetParent === null) {
+            return Promise.resolve();
+        }
+        // 对端的实时路径也跟着刷新（页面别处只在应用时轮询 status）
+        return Promise.all([meowx.mesh('paths'), L.resolveDefault(meowx.mesh('status'), null)]).then(([res, next]) => {
+            rc.paths = res;
+            if (next?.settings && !rc.st.applying && !polling) {
+                rc.st = Object.assign({}, rc.st, { peers: next.peers, backend: next.backend, relay_last: next.relay_last });
+            }
+            redrawRelay();
+        }, () => { });
+    };
+    let pathsTimer = null;
+    const startPaths = () => {
+        if (!pathsTimer) {
+            pathsTimer = setInterval(refreshPaths, PATHS_MS);
+        }
+        refreshPaths();
+    };
+    rc.installStatic = () => meowx.mesh('install_static').then((res) => {
+        if (res?.success === false) {
+            ui.addNotification(null, E('p', {}, res.error || _('Operation failed')), 'danger');
+            return;
+        }
+        draw(Object.assign({}, rc.st, { installing: true }));
+    });
     const refreshPanel = () => {
         panelShown = true;
-        return meowx.mesh('panel').then((info) => renderPanel(panelBox, info, refreshPanel),
-            (e) => renderPanel(panelBox, { view: { success: false, error: String(e?.message ?? e) } }, refreshPanel));
+        return meowx.mesh('panel').then((info) => {
+            renderPanel(panelBox, info, refreshPanel);
+            rc.status = info?.view?.status ?? null;
+            if (relayOn()) {
+                rc.refresh();
+                startPaths();
+            } else {
+                redrawRelay();
+            }
+        }, (e) => renderPanel(panelBox, { view: { success: false, error: String(e?.message ?? e) } }, refreshPanel));
     };
 
     const draw = (st) => {
+        rc.st = st;
         const s = st.settings ?? {};
         const error = E('div', { class: 'mx-account__error', hidden: '' });
         const fail = (res) => {
@@ -176,6 +479,8 @@ function renderCard(initial) {
                     draw(next);
                     if (!wantInstall) {
                         refreshPanel();
+                    } else if (relayOn()) {
+                        rc.refresh();
                     }
                     return;
                 }
@@ -289,6 +594,13 @@ function renderCard(initial) {
             if (st.state?.error && !st.applying) {
                 children.push(E('div', { class: 'mx-account__error' }, st.state.error));
             }
+            // 装 MeowX 提供的 tailscale（静态包）时：等它装完；失败的日志
+            if (st.installing && !polling) {
+                poll(null, true);
+            }
+            if (st.install_log && !st.installing && /exit [1-9]/.test(st.install_log)) {
+                children.push(E('pre', { class: 'mx-mesh__log' }, st.install_log));
+            }
             // 主控那边的喵窝信息 + 白名单直连开关（第一次画时去取）
             children.push(panelBox);
             if (!panelShown) {
@@ -332,19 +644,11 @@ function renderCard(initial) {
             }, s.enabled ? _('Save & Apply') : _('Save'))]));
             children.push(error);
 
-            // 本账号的其它设备
-            const peers = st.peers ?? [];
-            if (s.enabled && st.backend == 'Running') {
-                children.push(E('div', { class: 'mx-po0__group' }, _('Other devices (%d)').format(peers.length)));
-                if (peers.length == 0) {
-                    children.push(E('div', { class: 'mx-po0__empty' }, _('No other devices yet. Turn on "MeowNest" in MeowX signed in with the same admin account.')));
-                } else {
-                    children.push(E('div', { class: 'mx-po0__list' }, peers.map((p) => row(
-                        [E('span', { class: 'mx-mesh__dot' + (p.online ? ' is-online' : '') }), ' ', p.name || p.dns_name],
-                        [p.ip, (p.routes ?? []).join(', '), p.online ? (p.direct ? _('Direct') : (p.active === false ? _('Idle') : (p.relay ? _('Via relay %s').format(p.relay) : ''))) : _('Offline')].filter((x) => x).join(' · ')
-                    ))));
-                }
-            }
+            // 设备中继（主控开放了才有内容）
+            children.push(relayBox);
+            // 本账号的其它设备（路径按 §2.4：本机实时值 + 主控补名字）
+            children.push(peersBox);
+            redrawRelay();
 
             if (s.enabled || st.self?.id) {
                 children.push(E('div', { class: 'mx-account__actions' }, [
@@ -386,6 +690,15 @@ function renderCard(initial) {
     draw(initial ?? {});
     card.redraw = draw;
     card.refreshPanel = () => (panelShown ? refreshPanel() : Promise.resolve());
+    card.stopPaths = () => {
+        clearInterval(pathsTimer);
+        pathsTimer = null;
+    };
+    card.startPaths = () => {
+        if (relayOn()) {
+            startPaths();
+        }
+    };
     return card;
 }
 
@@ -408,6 +721,11 @@ return baseclass.extend({
                 this.card.redraw(status);
             }
             this.card.refreshPanel();
+            this.card.startPaths();
         });
+    },
+    onHide: function () {
+        // 切走就停掉 15 秒一次的路径轮询
+        this.card?.stopPaths();
     }
 });

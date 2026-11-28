@@ -672,11 +672,15 @@ const methods = {
 	// 喵窝：action = status / save（settings 是设置对象，存完在后台应用）/ apply / leave（后台跑，页面轮询 status）
 	// / install（mesh_cli 自己转后台）/ panel（主控那边的喵窝信息，要向主控发请求，页面打开时取一次）
 	// / whitelist（settings.whitelist：「白名单节点经喵窝连线」开关，生效与否变了 mesh_cli 在后台重拉订阅 / 重载）
+	// 设备中继（规格 miaomiaowuC/Design/mesh-peer-relay.md §5.2）：relay（中继一节的数据）/ relay_set（settings 是中继配置，
+	// 存到主控后 mesh_cli 在后台对账）/ paths（主控汇总的路径，页面每 15 秒一次）/ netcheck（NAT 情况）/ tick（后台跑一轮）
+	// / install_static（装 MeowX 提供的 tailscale，mesh_cli 自己转后台）
 	mesh: {
 		args: { action: 'action', settings: {} },
 		call: function(req) {
 			const action = req.args?.action ?? 'status';
-			if (index([ 'status', 'save', 'apply', 'install', 'leave', 'panel', 'whitelist' ], action) < 0) {
+			if (index([ 'status', 'save', 'apply', 'install', 'leave', 'panel', 'whitelist',
+				'tick', 'relay', 'relay_set', 'paths', 'netcheck', 'install_static' ], action) < 0) {
 				return { success: false, error: 'invalid action' };
 			}
 			const cli = '/etc/meowx/ucode/mesh_cli.uc';
@@ -684,8 +688,12 @@ const methods = {
 				system(`(ucode -S ${cli} ${action} >/dev/null 2>&1 &)`);
 				return { success: true, started: true };
 			}
+			if (action == 'tick') {
+				system(`(ucode -S ${cli} tick ${req.args?.settings?.force ? 'force' : ''} >/dev/null 2>&1 &)`);
+				return { success: true, started: true };
+			}
 			let command = `ucode -S ${cli} ${action}`;
-			if (action == 'save') {
+			if (action == 'save' || action == 'relay_set') {
 				command += ' ' + shell_quote(sprintf('%J', req.args?.settings ?? {}));
 			} else if (action == 'whitelist') {
 				command += req.args?.settings?.whitelist === false ? ' 0' : ' 1';

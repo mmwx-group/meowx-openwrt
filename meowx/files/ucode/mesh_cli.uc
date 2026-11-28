@@ -13,6 +13,13 @@
 //   direct   打印 on / off：白名单直连这一刻生效没有（mesh_direct.uc direct_on）
 //   header <订阅地址> [<实时通道地址>]  打印拉这份订阅时 X-MeowX-Mesh 头的值（on / off；不是登录主控的订阅打印空行）
 //   nodes <on|off>  从 stdin 读配置（JSON：proxies / proxy-groups / rules / sub-rules），stdout 输出处理喵窝版节点后的补丁（JSON；不用改输出 {}）
+//   tick [force]    设备中继与路径上报（cron 每分钟一次，标记 #mmx-mesh；入网后、改中继设置后带 force 立刻跑一次）：
+//                   meowx-core panel mesh tick 报路径、报中继、按主控的 desired 执行 tailscale set，这里按它的输出开 / 撤 fw4 规则 meowx_mesh_relay
+//   relay           中继一节要的：本机设备编号、主控里这台的中继配置与状态、本机中继、版本够不够、静态包信息
+//   relay_set <JSON> 保存中继配置到主控（enabled / port / static_endpoints / ddns_host / share），成功后后台 tick force
+//   paths           主控汇总的路径（GET /user/mesh/paths?device_id=本机）+ 上次 tick 的结果；主控读不到时带本机中继会话；顺手后台 tick 一次
+//   netcheck        tailscale netcheck --format=json 的 NAT 信息（有网络开销，只在页面打开中继一节时调）
+//   install_static  装 MeowX 提供的 tailscale 静态包（官方源码编的合体程序，带中继服务器；后台跑，status 里看进度）
 //
 // 路由器用官方 tailscale 程序（局域网要靠它的子网路由开放出去，内核里的 tailscale 只能当出站）。
 // 入网 key 由 meowx-core panel mesh enroll 向主控要（一次性、10 分钟有效），不用用户填。
@@ -23,7 +30,7 @@
 
 'use strict';
 
-import { readfile, writefile, popen, access, unlink, open, stat, stdin } from 'fs';
+import { readfile, writefile, popen, access, unlink, open, stat, stdin, rename, symlink, mkdir } from 'fs';
 import { cursor } from 'uci';
 import * as ubus from 'ubus';
 import { direct_on, header_value, mesh_nodes } from '/etc/meowx/ucode/mesh_direct.uc';
@@ -47,6 +54,21 @@ const LOCAL_RULE_PREF = 5190;
 const HEAL_INTERVAL = 600;
 // tailscale 装好后约 22MB，留一点余量
 const NEED_SPACE_KB = 24 * 1024;
+const CORE = '/usr/bin/meowx-core';
+const TS_SOCKET = '/var/run/tailscale/tailscaled.sock';
+// tick 的状态放内存盘（每分钟都写，别磨闪存）：重启后丢了无所谓，下一轮重新报
+const TICK_DIR = '/var/run/meowx-mesh';
+const TICK_LAST = TICK_DIR + '/last.json';
+const TICK_FW_ERROR = TICK_DIR + '/fw-error';
+const CRONTAB = '/etc/crontabs/root';
+// 标记不能含「#meowx」：/etc/init.d/meowx 停服务时删掉所有含它的行，而喵窝不依赖 meowx 服务
+const CRON_TAG = '#mmx-mesh';
+// 设备中继要求的 tailscaled 最低版本（主控 device_relay.min_version 的缺省）
+const RELAY_MIN_VERSION = '1.86.0';
+// MeowX 提供的 tailscale 静态包（官方源码编的合体程序，CI 见 .github/workflows/tailscale-static.yml）：每次发 OpenWrt 版时定一次版本
+const TS_STATIC_VERSION = '1.104.5';
+const TS_STATIC_BASE = 'https://dl.miaomiaowux.com/meowx/openwrt/tailscale';
+const TS_STATIC_TMP = '/tmp/meowx-tailscale.combined';
 
 const uci = cursor();
 uci.load('meowx');
@@ -398,7 +420,7 @@ function firewall_remove() {
 	const fw = cursor();
 	fw.load('firewall');
 	let changed = false;
-	for (let name in [ 'meowx_mesh', 'meowx_mesh_lan', 'meowx_lan_mesh', 'meowx_mesh_wg', 'meowx_mesh_snat', 'meowx_mesh_dnat' ]) {
+	for (let name in [ 'meowx_mesh', 'meowx_mesh_lan', 'meowx_lan_mesh', 'meowx_mesh_wg', 'meowx_mesh_relay', 'meowx_mesh_snat', 'meowx_mesh_dnat' ]) {
 		if (fw.get('firewall', name) != null) {
 			fw.delete('firewall', name);
 			changed = true;
@@ -411,6 +433,37 @@ function firewall_remove() {
 		fw.commit('firewall');
 		system('fw4 -q reload >/dev/null 2>&1');
 	}
+}
+
+// 设备中继的 UDP 端口：在 wan 上放行（port = null 撤掉）。没变就不动、不重载 fw4。返回错误文字（成功 null）
+function relay_firewall(port) {
+	const fw = cursor();
+	fw.load('firewall');
+	const has = fw.get('firewall', 'meowx_mesh_relay') != null;
+	if (port) {
+		if (has && fw.get('firewall', 'meowx_mesh_relay', 'dest_port') == `${port}`) {
+			return null;
+		}
+		fw.set('firewall', 'meowx_mesh_relay', 'rule');
+		fw.set('firewall', 'meowx_mesh_relay', 'name', 'MeowX-Mesh-Relay');
+		fw.set('firewall', 'meowx_mesh_relay', 'src', 'wan');
+		fw.set('firewall', 'meowx_mesh_relay', 'proto', 'udp');
+		fw.set('firewall', 'meowx_mesh_relay', 'dest_port', `${port}`);
+		fw.set('firewall', 'meowx_mesh_relay', 'target', 'ACCEPT');
+	} else {
+		if (!has) {
+			return null;
+		}
+		fw.delete('firewall', 'meowx_mesh_relay');
+	}
+	fw.save('firewall');
+	fw.commit('firewall');
+	const r = run('fw4 -q reload');
+	if (r.code != 0) {
+		return 'fw4 重载失败：' + (r.out || `exit ${r.code}`);
+	}
+	log(port ? `设备中继：放行 UDP ${port}` : '设备中继：撤掉 UDP 端口放行');
+	return null;
 }
 
 // ---------- 透明代理共存 ----------
@@ -485,6 +538,150 @@ function direct_changed() {
 	return after;
 }
 
+// ---------- 设备中继 ----------
+
+// tailscale 版本号不低于 min（认不出来算低，同 meowx-core 的 versionAtLeast）
+function version_at_least(v, min) {
+	const parse = (x) => {
+		const m = match(`${x ?? ''}`, /^v?([0-9]+)\.([0-9]+)(\.([0-9]+))?/);
+		return m ? [ int(m[1]), int(m[2]), int(m[4] ?? 0) ] : null;
+	};
+	const a = parse(v), b = parse(min);
+	if (!a || !b) {
+		return false;
+	}
+	for (let i = 0; i < 3; i++) {
+		if (a[i] != b[i]) {
+			return a[i] > b[i];
+		}
+	}
+	return true;
+}
+
+// 静态包的架构（manifest 里的键）：按 /etc/openwrt_release 的 DISTRIB_ARCH。ARMv7 以上的 32 位 ARM 共用 GOARM=7 那一个；
+// 认不出的（arm1176 / arm926、mips64、i386…）给 null，不提供静态包
+function static_arch() {
+	const m = match(readfile('/etc/openwrt_release') ?? '', /DISTRIB_ARCH='?([A-Za-z0-9_.+-]+)'?/);
+	const a = m ? m[1] : '';
+	if (match(a, /^aarch64/)) {
+		return 'aarch64';
+	}
+	if (match(a, /^x86_64/)) {
+		return 'x86_64';
+	}
+	if (match(a, /^arm_cortex-a[0-9]+/)) {
+		return 'armv7';
+	}
+	if (match(a, /^mipsel_/)) {
+		return 'mipsel';
+	}
+	if (match(a, /^mips_/)) {
+		return 'mips';
+	}
+	if (match(a, /^riscv64/)) {
+		return 'riscv64';
+	}
+	return null;
+}
+
+// 上次 tick 的输出（内存盘，带 at）
+function tick_last() {
+	let v = null;
+	try {
+		v = json(readfile(TICK_LAST) ?? 'null');
+	} catch (e) {
+		v = null;
+	}
+	return type(v) == 'object' ? v : null;
+}
+
+// 每分钟一次的 tick：入网时加、退出时删。写临时文件再改名（目录的修改时间变了 busybox crond 才重新读）
+function cron_sync(on) {
+	const cur = readfile(CRONTAB) ?? '';
+	const lines = filter(split(cur, '\n'), (l) => l != '' && index(l, CRON_TAG) < 0);
+	if (on) {
+		push(lines, `* * * * * /usr/bin/ucode -S ${SELF} tick >/dev/null 2>&1 ${CRON_TAG}`);
+	}
+	const next = length(lines) ? join('\n', lines) + '\n' : '';
+	if (next == cur) {
+		return;
+	}
+	mkdir('/etc/crontabs');
+	writefile(CRONTAB + '.mmx-tmp', next);
+	rename(CRONTAB + '.mmx-tmp', CRONTAB);
+	if (on && system('pidof crond >/dev/null 2>&1') != 0) {
+		system('/etc/init.d/cron enable >/dev/null 2>&1; /etc/init.d/cron start >/dev/null 2>&1');
+	}
+}
+
+// 本机在主控设备列表里的编号（tailscale status 的 Self.ID，Headscale 下是数字）
+function self_device_id(st) {
+	st ??= ts_status();
+	const id = st?.Self?.ID;
+	return (st?.BackendState == 'Running' && id && match(id, /^[0-9]+$/)) ? id : null;
+}
+
+// tick：meowx-core 报路径 / 报中继 / tailscale set，这里按它的 firewall 开 / 撤 UDP 端口。
+// force = 入网后、改中继设置后立刻对账；during_apply = 在 apply 里调（cron 那一轮碰上正在应用就跳过）
+function tick(force, during_apply) {
+	const s = settings();
+	if (!s.enabled || !installed() || !panel_logged_in()) {
+		// 喵窝关着（cron 残留）：撤掉端口与定时任务
+		const err = relay_firewall(null);
+		if (!s.enabled) {
+			cron_sync(false);
+		}
+		return { success: true, skipped: true, error: err };
+	}
+	if (!during_apply && applying()) {
+		return { success: true, skipped: true, reason: 'applying' };
+	}
+	mkdir(TICK_DIR);
+	let cmd = `${CORE} panel mesh tick --tailscale ${TAILSCALE} --socket ${TS_SOCKET} --state ${TICK_DIR}`;
+	if (force) {
+		cmd += ' --force';
+	}
+	const fw_err = trim(readfile(TICK_FW_ERROR) ?? '');
+	if (fw_err) {
+		cmd += ' --fw-error ' + shell_quote(fw_err);
+	}
+	const p = popen(cmd + ' 2>/dev/null');
+	const raw = p ? trim(p.read('all') ?? '') : '';
+	if (p) {
+		p.close();
+	}
+	let out = null;
+	try {
+		out = json(raw || 'null');
+	} catch (e) {
+		out = null;
+	}
+	if (type(out) != 'object') {
+		return { success: false, error: '内核没有回应：' + substr(raw, 0, 200) };
+	}
+	if (out.success === false) {
+		// 老内核没有 tick（unknown mesh command）：别动防火墙
+		if (match(out.error ?? '', /unknown mesh command/)) {
+			out.error = '内核版本太旧，没有设备中继（升级 MeowX）';
+		}
+		return out;
+	}
+	if (type(out.firewall) == 'object') {
+		const port = int(out.firewall.relay_port ?? 0);
+		const err = relay_firewall(port > 0 && port < 65536 ? port : null);
+		if (err) {
+			writefile(TICK_FW_ERROR, err + '\n');
+			log(err);
+			out.fw_error = err;
+		} else {
+			unlink(TICK_FW_ERROR);
+		}
+	}
+	out.at = time();
+	writefile(TICK_LAST, sprintf('%J\n', out));
+	return out;
+}
+
 function status() {
 	const s = settings();
 	const out = {
@@ -497,6 +694,11 @@ function status() {
 		free_kb: free_kb('/overlay') || free_kb('/'),
 		need_kb: NEED_SPACE_KB,
 		installing: !!access(INSTALL_FLAG),
+		ts_static: uci.get('meowx', 'mesh', 'ts_static') ?? null,
+		static_version: TS_STATIC_VERSION,
+		static_arch: static_arch(),
+		relay_min_version: RELAY_MIN_VERSION,
+		relay_last: tick_last(),
 		install_log: access(INSTALL_LOG) ? trim(readfile(INSTALL_LOG) ?? '') : null,
 		applying: applying(),
 		panel_logged_in: panel_logged_in(),
@@ -507,6 +709,7 @@ function status() {
 	if (out.install_log && length(out.install_log) > 4000) {
 		out.install_log = substr(out.install_log, -4000);
 	}
+	out.version_ok = version_at_least(out.version, RELAY_MIN_VERSION);
 	if (out.installed) {
 		const st = ts_status();
 		if (st?.BackendState) {
@@ -531,6 +734,9 @@ function status() {
 					online: p.Online,
 					relay: p.Relay,
 					direct: !!p.CurAddr,
+					cur_addr: p.CurAddr,
+					// 走设备中继（ip:port:vni:N）：先于直连判断（规格 mesh-peer-relay.md §2.2）
+					peer_relay: p.PeerRelay || null,
 					// 最近没有往来（tailscale 的 Active）：界面显示「空闲」而不是「经中继」——Relay 只是对端的 home DERP，不代表正在走中继
 					active: p.Active,
 					routes: p.PrimaryRoutes ?? []
@@ -679,6 +885,9 @@ function apply_up() {
 	save_state(st);
 	sync_proxy(hosts_phase1, st.hosts);
 	log(`已入网，开放网段：${length(advertised) ? join('，', advertised) : '无'}`);
+	// tailscale up --reset 会清掉中继设置：入网后无条件对账一次，之后 cron 每分钟一次
+	cron_sync(true);
+	tick(true, true);
 	return { success: true };
 }
 
@@ -692,8 +901,11 @@ function apply_down() {
 		system('/etc/init.d/tailscale stop >/dev/null 2>&1');
 		system('/etc/init.d/tailscale disable >/dev/null 2>&1');
 	}
+	cron_sync(false);
 	firewall_remove();
 	local_rules_sync(false);
+	unlink(TICK_LAST);
+	unlink(TICK_FW_ERROR);
 	st.hosts = [];
 	st.tun = null;
 	st.warning = null;
@@ -855,6 +1067,246 @@ function heal() {
 	return { success: true, tun: health };
 }
 
+// ---------- 设备中继：页面用 ----------
+
+function core_json(args) {
+	const r = run_json(`${CORE} panel mesh ${args}`);
+	return type(r.json) == 'object' ? r.json : { success: false, error: r.out || '内核没有回应' };
+}
+
+// 中继一节：本机设备编号、主控里这台的中继配置与状态（relay get）、本机中继（LocalAPI）、版本、静态包
+function relay() {
+	const st = installed() ? ts_status() : null;
+	const id = self_device_id(st);
+	const version = tailscale_version();
+	const out = {
+		success: true,
+		device_id: id,
+		version: version,
+		version_ok: version_at_least(version, RELAY_MIN_VERSION),
+		min_version: RELAY_MIN_VERSION,
+		ts_static: uci.get('meowx', 'mesh', 'ts_static') ?? null,
+		static_version: TS_STATIC_VERSION,
+		static_arch: static_arch(),
+		last: tick_last(),
+		local: st?.BackendState ? core_json(`relay local --socket ${TS_SOCKET}`) : null
+	};
+	if (id && panel_logged_in()) {
+		out.relay = core_json(`relay get ${id}`);
+	}
+	return out;
+}
+
+function relay_set(raw) {
+	let cfg;
+	try {
+		cfg = json(raw ?? '');
+	} catch (e) {
+		cfg = null;
+	}
+	if (type(cfg) != 'object' || type(cfg.enabled) != 'bool') {
+		return { success: false, error: 'bad settings' };
+	}
+	const id = self_device_id();
+	if (!id) {
+		return { success: false, error: '本机还没有入网（tailscaled 不在运行）' };
+	}
+	const body = { enabled: cfg.enabled, port: int(cfg.port ?? 40000) };
+	const eps = filter(map(type(cfg.static_endpoints) == 'array' ? cfg.static_endpoints : split(`${cfg.static_endpoints ?? ''}`, /[\s,，]+/), (x) => trim(`${x}`)), (x) => x != '');
+	body.static_endpoints = eps;
+	body.ddns_host = trim(`${cfg.ddns_host ?? ''}`);
+	if (cfg.share == 'all' || cfg.share == 'self') {
+		body.share = cfg.share;
+	}
+	const res = core_json(`relay set ${id} ${shell_quote(sprintf('%J', body))}`);
+	if (res.success !== false) {
+		log(`设备中继：${cfg.enabled ? '开启（UDP ' + body.port + '）' : '关闭'}`);
+		system(`(/usr/bin/ucode -S ${SELF} tick force >/dev/null 2>&1 &)`);
+	}
+	return res;
+}
+
+// 主控汇总的路径（本机为一端）+ 上次 tick；主控读不到时带本机中继会话（只有外网地址与流量）。页面每 15 秒调一次，顺手在后台 tick
+function paths() {
+	const id = self_device_id();
+	const out = { success: true, device_id: id, last: tick_last() };
+	if (!id || !panel_logged_in()) {
+		return out;
+	}
+	system(`(/usr/bin/ucode -S ${SELF} tick >/dev/null 2>&1 &)`);
+	out.paths = core_json(`paths --device ${id}`);
+	if (out.paths.success === false) {
+		out.local = core_json(`relay local --socket ${TS_SOCKET}`);
+	}
+	return out;
+}
+
+// NAT 情况（tailscale netcheck；JSON 的警告打在 stderr）
+function netcheck() {
+	if (!installed()) {
+		return { success: false, error: '还没有安装 tailscale' };
+	}
+	const p = popen(`${TAILSCALE} netcheck --format=json 2>/dev/null`);
+	const raw = p ? trim(p.read('all') ?? '') : '';
+	if (p) {
+		p.close();
+	}
+	let r = null;
+	try {
+		r = json(raw || 'null');
+	} catch (e) {
+		r = null;
+	}
+	if (type(r) != 'object') {
+		return { success: false, error: 'tailscale netcheck 没有结果' };
+	}
+	return {
+		success: true,
+		udp: r.UDP, ipv4: r.IPv4, ipv6: r.IPv6,
+		global_v4: r.GlobalV4 || null, global_v6: r.GlobalV6 || null,
+		mapping_varies: r.MappingVariesByDestIP, upnp: r.UPnP, pmp: r.PMP, pcp: r.PCP
+	};
+}
+
+// ---------- MeowX 提供的 tailscale 静态包 ----------
+
+function install_static() {
+	if (access(INSTALL_FLAG)) {
+		return { success: true, running: true };
+	}
+	if (!static_arch()) {
+		return { success: false, error: '这台路由器的架构没有静态包' };
+	}
+	system(`mkdir -p /var/log/meowx /var/run; touch ${INSTALL_FLAG}; rm -f ${INSTALL_LOG}; ` +
+		`( /usr/bin/ucode -S ${SELF} install_static_run > ${INSTALL_LOG} 2>&1; echo "exit $?" >> ${INSTALL_LOG}; rm -f ${INSTALL_FLAG} ) >/dev/null 2>&1 &`);
+	log(`开始安装 MeowX 提供的 tailscale ${TS_STATIC_VERSION}`);
+	return { success: true, running: true };
+}
+
+// 文件在 overlay 上实际占的空间（KB；在 /rom 里的删了也腾不出地方）
+function overlay_kb(path) {
+	const up = access('/overlay/upper') ? '/overlay/upper' + path : path;
+	const st = stat(up);
+	return st?.type == 'file' ? int(st.size / 1024) : 0;
+}
+
+function static_fail(msg) {
+	print(msg + '\n');
+	log('安装 tailscale 静态包失败：' + msg);
+	unlink(TS_STATIC_TMP);
+	exit(1);
+}
+
+// 后台跑（stdout 进安装日志）：1. 没装软件源的包先装（用它的 init 脚本、UCI 与升级保留规则）2. 按 manifest 下载、校验大小与 sha256、
+// 试跑 3. 换掉 /usr/sbin/tailscaled，tailscale 链到它 4. 锁住软件源的包 5. UCI 记版本 6. 原来在跑就重启、对账
+function install_static_run() {
+	const pm = package_manager();
+	const arch = static_arch();
+	if (!arch) {
+		static_fail('这台路由器的架构没有静态包');
+	}
+	if (!installed()) {
+		if (!pm) {
+			static_fail('找不到 opkg / apk');
+		}
+		print('先装软件源的 tailscale（要用它的启动脚本与配置）…\n');
+		const r = run(pm == 'opkg' ? 'opkg update && opkg install tailscale' : 'apk update && apk add tailscale');
+		print(r.out + '\n');
+		if (r.code != 0 || !installed()) {
+			static_fail('软件源的 tailscale 没装上');
+		}
+		system('/etc/init.d/tailscale stop >/dev/null 2>&1');
+		if (!settings().enabled) {
+			system('/etc/init.d/tailscale disable >/dev/null 2>&1');
+		}
+	}
+	const base = `${TS_STATIC_BASE}/${TS_STATIC_VERSION}`;
+	print(`读取 ${base}/manifest.json\n`);
+	const mr = run_json(`curl -fsSL --connect-timeout 15 --max-time 60 --retry 2 ${shell_quote(base + '/manifest.json')}`);
+	const entry = mr.json?.files?.[arch];
+	if (!entry?.sha256 || !entry?.size) {
+		static_fail(`没拿到 ${arch} 的静态包信息：${substr(mr.out, 0, 200)}`);
+	}
+	const size_kb = int((entry.size + 1023) / 1024);
+	const free_tmp = free_kb('/tmp');
+	if (free_tmp < size_kb + 1024) {
+		static_fail(sprintf('内存盘（/tmp）不够：下载要 %d MB，剩 %d MB', (size_kb + 1023) / 1024, free_tmp / 1024));
+	}
+	const free = free_kb('/overlay') || free_kb('/');
+	const freed = overlay_kb(TAILSCALED) + overlay_kb(TAILSCALE);
+	if (free + freed < size_kb + 512) {
+		static_fail(sprintf('存储空间不够：静态包约 %d MB，换掉旧程序后还差 %d MB', (size_kb + 1023) / 1024, (size_kb + 512 - free - freed + 1023) / 1024));
+	}
+	print(sprintf('下载 %s（%d MB）…\n', entry.path, (size_kb + 1023) / 1024));
+	unlink(TS_STATIC_TMP);
+	const dr = run(`curl -fsSL --connect-timeout 15 --max-time 900 --retry 2 -o ${TS_STATIC_TMP} ${shell_quote(base + '/' + entry.path)}`);
+	if (dr.code != 0) {
+		static_fail('下载失败：' + dr.out);
+	}
+	if (stat(TS_STATIC_TMP)?.size != entry.size) {
+		static_fail('下载的文件大小不对');
+	}
+	const sum = split(run(`sha256sum ${TS_STATIC_TMP}`).out, /[[:space:]]+/)[0];
+	if (lc(sum ?? '') != lc(entry.sha256)) {
+		static_fail('sha256 校验不过');
+	}
+	system(`chmod 755 ${TS_STATIC_TMP}`);
+	const vr = run(`${TS_STATIC_TMP} --version`);
+	if (vr.code != 0 || index(vr.out, TS_STATIC_VERSION) != 0) {
+		static_fail('下载的程序在这台路由器上跑不起来（架构不对？）：' + substr(vr.out, 0, 200));
+	}
+
+	const was_running = system('/etc/init.d/tailscale running >/dev/null 2>&1') == 0;
+	print('停掉 tailscaled、换上新程序…\n');
+	system('/etc/init.d/tailscale stop >/dev/null 2>&1');
+	// 空间够就先拷成 .new 再改名（中途失败旧程序还在）；不够才先删旧的
+	let ok;
+	if (free >= size_kb + 512) {
+		ok = system(`cp ${TS_STATIC_TMP} ${TAILSCALED}.new && chmod 755 ${TAILSCALED}.new && mv -f ${TAILSCALED}.new ${TAILSCALED}`) == 0;
+	} else {
+		unlink(TAILSCALE);
+		unlink(TAILSCALED);
+		ok = system(`cp ${TS_STATIC_TMP} ${TAILSCALED} && chmod 755 ${TAILSCALED}`) == 0;
+	}
+	unlink(TS_STATIC_TMP);
+	if (!ok) {
+		unlink(`${TAILSCALED}.new`);
+		print('换程序失败，重装软件源的 tailscale…\n');
+		run(pm == 'opkg' ? 'opkg install --force-reinstall tailscale' : 'apk fix --reinstall tailscale');
+		if (was_running) {
+			system('/etc/init.d/tailscale start >/dev/null 2>&1');
+		}
+		static_fail('换程序失败（存储空间不够？），已重装软件源的 tailscale');
+	}
+	// 合体程序按程序名区分：叫 tailscale 时当命令行用
+	unlink(TAILSCALE);
+	symlink('tailscaled', TAILSCALE);
+
+	// 锁住软件源的包，免得升级时被换回去
+	if (pm == 'opkg') {
+		system('opkg flag hold tailscale >/dev/null 2>&1');
+	} else if (pm == 'apk') {
+		const m = match(run('apk list --installed tailscale').out, /tailscale-([0-9][^[:space:]]*)/);
+		if (m) {
+			system(`apk add ${shell_quote('tailscale=' + m[1])} >/dev/null 2>&1`);
+		}
+	}
+	ensure_section();
+	uci.set('meowx', 'mesh', 'ts_static', TS_STATIC_VERSION);
+	uci.save('meowx');
+	uci.commit('meowx');
+	log(`已装上 MeowX 提供的 tailscale ${TS_STATIC_VERSION}（${arch}）`);
+	print(`已装上 tailscale ${TS_STATIC_VERSION}（${arch}）\n`);
+	if (was_running) {
+		system('/etc/init.d/tailscale start >/dev/null 2>&1');
+		wait_daemon(20);
+		if (wait_running(30)) {
+			tick(true, false);
+		}
+	}
+	exit(0);
+}
+
 // 网段写法：a.b.c.d/n，存成网络地址（192.168.1.1/24 → 192.168.1.0/24）
 function normalize_cidr(value) {
 	const m = match(trim(`${value ?? ''}`), /^([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})\/([0-9]{1,2})$/);
@@ -939,7 +1391,21 @@ if (action == 'status') {
 	result = whitelist(ARGV[1]);
 } else if (action == 'nodes') {
 	result = nodes(ARGV[1]);
+} else if (action == 'tick') {
+	result = tick(ARGV[1] == 'force', false);
+} else if (action == 'relay') {
+	result = relay();
+} else if (action == 'relay_set') {
+	result = relay_set(ARGV[1]);
+} else if (action == 'paths') {
+	result = paths();
+} else if (action == 'netcheck') {
+	result = netcheck();
+} else if (action == 'install_static') {
+	result = install_static();
+} else if (action == 'install_static_run') {
+	install_static_run();
 } else {
-	result = { success: false, error: 'usage: mesh_cli.uc status | save <JSON> | apply | install | leave | heal | panel | whitelist <0|1> | direct | header <url> [<realtime_url>] | nodes <on|off>' };
+	result = { success: false, error: 'usage: mesh_cli.uc status | save <JSON> | apply | install | leave | heal | panel | whitelist <0|1> | direct | header <url> [<realtime_url>] | nodes <on|off> | tick [force] | relay | relay_set <JSON> | paths | netcheck | install_static' };
 }
 print(sprintf('%J\n', result));
