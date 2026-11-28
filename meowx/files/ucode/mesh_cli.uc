@@ -19,6 +19,7 @@
 //   relay_set <JSON> 保存中继配置到主控（enabled / port / static_endpoints / ddns_host / share），成功后后台 tick force
 //   paths           主控汇总的路径（GET /user/mesh/paths?device_id=本机）+ 上次 tick 的结果；主控读不到时带本机中继会话；顺手后台 tick 一次
 //   netcheck        tailscale netcheck --format=json 的 NAT 信息（有网络开销，只在页面打开中继一节时调）
+//   cron            按当前设置补上 / 撤掉 tick 的定时任务（定时任务只在入网时加：已入网的老版本升级上来由 uci-defaults 调这个补上）
 //   install_static  装 MeowX 提供的 tailscale 静态包（官方源码编的合体程序，带中继服务器；后台跑，status 里看进度）
 //
 // 路由器用官方 tailscale 程序（局域网要靠它的子网路由开放出去，内核里的 tailscale 只能当出站）。
@@ -1049,6 +1050,7 @@ function heal() {
 		return { success: true, skipped: true };
 	}
 	writefile(APPLY_FLAG, `${time()}\n`);
+	cron_sync(!!panel_logged_in());   // 升级上来没有定时任务的，页面一打开就补上
 	const st = load_state();
 	st.healed_at = time();
 	save_state(st);
@@ -1393,6 +1395,10 @@ if (action == 'status') {
 	result = nodes(ARGV[1]);
 } else if (action == 'tick') {
 	result = tick(ARGV[1] == 'force', false);
+} else if (action == 'cron') {
+	const on = !!(settings().enabled && installed() && panel_logged_in());
+	cron_sync(on);
+	result = { success: true, cron: on };
 } else if (action == 'relay') {
 	result = relay();
 } else if (action == 'relay_set') {
@@ -1406,6 +1412,6 @@ if (action == 'status') {
 } else if (action == 'install_static_run') {
 	install_static_run();
 } else {
-	result = { success: false, error: 'usage: mesh_cli.uc status | save <JSON> | apply | install | leave | heal | panel | whitelist <0|1> | direct | header <url> [<realtime_url>] | nodes <on|off> | tick [force] | relay | relay_set <JSON> | paths | netcheck | install_static' };
+	result = { success: false, error: 'usage: mesh_cli.uc status | save <JSON> | apply | install | leave | heal | panel | whitelist <0|1> | direct | header <url> [<realtime_url>] | nodes <on|off> | tick [force] | cron | relay | relay_set <JSON> | paths | netcheck | install_static' };
 }
 print(sprintf('%J\n', result));

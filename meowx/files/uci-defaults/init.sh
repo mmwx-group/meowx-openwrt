@@ -9,6 +9,11 @@ if uci -q get meowx.proxy > /dev/null && [ -z "$(uci -q get meowx.proxy.bypass_p
 	uci commit meowx
 fi
 
+# 喵窝设备中继的定时任务只在入网时加：已入网的老版本升级上来补上（装进固件时 IPKG_INSTROOT 非空，跳过）
+if [ -z "$IPKG_INSTROOT" ] && [ "$(uci -q get meowx.mesh.enabled)" = "1" ] && [ -f /etc/meowx/ucode/mesh_cli.uc ]; then
+	ucode -S /etc/meowx/ucode/mesh_cli.uc cron >/dev/null 2>&1
+fi
+
 # check meowx.config.init
 init=$(uci -q get meowx.config.init); [ -z "$init" ] && return
 
